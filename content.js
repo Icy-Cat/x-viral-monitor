@@ -32,13 +32,21 @@ function parseTweetsFromResponse(json) {
 }
 
 function extractTweetData(result) {
+  // Unwrap TweetWithVisibilityResults
   const tweet = result.tweet || result;
   const legacy = tweet.legacy;
   if (!legacy) return null;
 
+  // For retweets, use the original tweet's data
+  const rtResult = legacy.retweeted_status_result?.result;
+  if (rtResult) {
+    return extractTweetData(rtResult);
+  }
+
   const viewCount = parseInt(tweet.views?.count, 10);
   if (!viewCount || tweet.views?.state !== 'EnabledWithCount') return null;
 
+  // Skip promoted content
   if (legacy.promotedMetadata || tweet.promotedMetadata) return null;
 
   return {
@@ -129,11 +137,29 @@ function renderBadges() {
 }
 
 function getTweetIdFromArticle(article) {
-  const link = article.querySelector('a[href*="/status/"]');
-  if (!link) return null;
-  const match = link.getAttribute('href').match(/\/status\/(\d+)/);
+  // Collect all status links — prefer IDs that exist in our data store
+  const links = article.querySelectorAll('a[href*="/status/"]');
+  for (const link of links) {
+    const match = link.getAttribute('href').match(/\/status\/(\d+)$/);
+    if (match) {
+      const id = match[1];
+      if (tweetDataStore.has(id)) return id;
+    }
+  }
+  // Fallback: return first status link ID
+  const firstLink = article.querySelector('a[href*="/status/"]');
+  if (!firstLink) return null;
+  const match = firstLink.getAttribute('href').match(/\/status\/(\d+)/);
   return match ? match[1] : null;
 }
+
+// Periodic re-render for tweets that arrived in DOM before data was parsed
+setInterval(() => {
+  const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
+  if (unscored.length > 0) {
+    renderBadges();
+  }
+}, 2000);
 
 // === MutationObserver ===
 const observer = new MutationObserver((mutations) => {
@@ -152,7 +178,15 @@ const observer = new MutationObserver((mutations) => {
   }
 });
 
-observer.observe(document.body || document.documentElement, {
-  childList: true,
-  subtree: true,
-});
+function startObserver() {
+  observer.observe(document.body, {
+    childList: true,
+    subtree: true,
+  });
+}
+
+if (document.body) {
+  startObserver();
+} else {
+  document.addEventListener('DOMContentLoaded', startObserver);
+}
