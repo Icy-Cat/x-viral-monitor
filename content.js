@@ -1,5 +1,10 @@
 // === Tweet Data Store ===
 const tweetDataStore = new Map();
+const DEFAULT_THRESHOLDS = {
+  trending: 1000,
+  viral: 10000,
+};
+let velocityThresholds = { ...DEFAULT_THRESHOLDS };
 
 // === i18n ===
 const I18N = {
@@ -22,6 +27,35 @@ const I18N = {
 const userLang = (navigator.language || 'en').split('-')[0];
 const strings = I18N[userLang] || I18N.en;
 function i18n(key) { return strings[key] || key; }
+
+function normalizeThresholds(raw) {
+  const trending = Number.parseInt(raw?.trending, 10);
+  const viral = Number.parseInt(raw?.viral, 10);
+  const next = {
+    trending: Number.isFinite(trending) && trending > 0 ? trending : DEFAULT_THRESHOLDS.trending,
+    viral: Number.isFinite(viral) && viral > 0 ? viral : DEFAULT_THRESHOLDS.viral,
+  };
+  if (next.viral <= next.trending) {
+    next.viral = Math.max(next.trending + 1, DEFAULT_THRESHOLDS.viral);
+  }
+  return next;
+}
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'XVM_SETTINGS_UPDATE') return;
+
+  velocityThresholds = normalizeThresholds(event.data.thresholds);
+  document.querySelectorAll('article[data-xvm-scored]').forEach((article) => {
+    article.removeAttribute('data-xvm-scored');
+  });
+  document.querySelectorAll('.xvm-badge').forEach((badge) => {
+    badge.remove();
+  });
+  renderBadges();
+});
+
+window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
@@ -133,7 +167,7 @@ function computeScore(data) {
   return {
     velocity,
     score: Math.min(totalScore, 100),
-    isHot: velocity >= 10000,
+    isHot: velocity >= velocityThresholds.viral,
   };
 }
 
@@ -175,8 +209,8 @@ function renderBadges() {
 
     const { velocity, score } = computeScore(data);
     // 🌱 normal | 🚀 trending | 🔥 viral
-    const prefix = velocity >= 10000 ? '\u{1F525}' : velocity >= 1000 ? '\u{1F680}' : '\u{1F331}';
-    const colorClass = velocity >= 10000 ? 'xvm-badge--red' : velocity >= 1000 ? 'xvm-badge--orange' : 'xvm-badge--green';
+    const prefix = velocity >= velocityThresholds.viral ? '\u{1F525}' : velocity >= velocityThresholds.trending ? '\u{1F680}' : '\u{1F331}';
+    const colorClass = velocity >= velocityThresholds.viral ? 'xvm-badge--red' : velocity >= velocityThresholds.trending ? 'xvm-badge--orange' : 'xvm-badge--green';
 
     const badge = document.createElement('span');
     badge.className = `xvm-badge ${colorClass}`;
