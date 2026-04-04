@@ -36,11 +36,21 @@ function parseTweetsFromResponse(json) {
   for (const instruction of instructions) {
     const entries = instruction.entries || instruction.moduleItems || [];
     for (const entry of entries) {
+      // Direct tweet entry
       const tweetResult = entry?.content?.itemContent?.tweet_results?.result;
-      if (!tweetResult) continue;
-      const data = extractTweetData(tweetResult);
-      if (data) {
-        tweetDataStore.set(data.id, data);
+      if (tweetResult) {
+        const data = extractTweetData(tweetResult);
+        if (data) tweetDataStore.set(data.id, data);
+      }
+      // Module entry (conversation threads, multi-tweet groups)
+      const moduleItems = entry?.content?.items;
+      if (moduleItems) {
+        for (const item of moduleItems) {
+          const modTweetResult = item?.item?.itemContent?.tweet_results?.result;
+          if (!modTweetResult) continue;
+          const data = extractTweetData(modTweetResult);
+          if (data) tweetDataStore.set(data.id, data);
+        }
       }
     }
   }
