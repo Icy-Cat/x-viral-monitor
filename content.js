@@ -16,24 +16,17 @@ window.fetch = async function (...args) {
   return response;
 };
 
-// Hook XMLHttpRequest (X uses XHR for GraphQL requests)
+// Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
 const originalXHROpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-  this._xvm_url = url;
-  return originalXHROpen.call(this, method, url, ...rest);
-};
-
-const originalXHRSend = XMLHttpRequest.prototype.send;
-XMLHttpRequest.prototype.send = function (...args) {
-  if (this._xvm_url && TIMELINE_RE.test(this._xvm_url)) {
+  if (typeof url === 'string' && TIMELINE_RE.test(url)) {
     this.addEventListener('load', function () {
       try {
-        const json = JSON.parse(this.responseText);
-        parseTweetsFromResponse(json);
+        parseTweetsFromResponse(JSON.parse(this.responseText));
       } catch (e) {}
     });
   }
-  return originalXHRSend.apply(this, args);
+  return originalXHROpen.call(this, method, url, ...rest);
 };
 
 // === Data Extraction ===
@@ -55,12 +48,10 @@ function parseTweetsFromResponse(json) {
 }
 
 function extractTweetData(result) {
-  // Unwrap TweetWithVisibilityResults
   const tweet = result.tweet || result;
   const legacy = tweet.legacy;
   if (!legacy) return null;
 
-  // For retweets, use the original tweet's data
   const rtResult = legacy.retweeted_status_result?.result;
   if (rtResult) {
     return extractTweetData(rtResult);
@@ -69,7 +60,6 @@ function extractTweetData(result) {
   const viewCount = parseInt(tweet.views?.count, 10);
   if (!viewCount || tweet.views?.state !== 'EnabledWithCount') return null;
 
-  // Skip promoted content
   if (legacy.promotedMetadata || tweet.promotedMetadata) return null;
 
   return {
@@ -118,6 +108,17 @@ function computeScore(data) {
   };
 }
 
+// === Tooltip Container (fixed, appended to body) ===
+let tooltipEl = null;
+function getTooltip() {
+  if (!tooltipEl) {
+    tooltipEl = document.createElement('div');
+    tooltipEl.className = 'xvm-tooltip';
+    document.body.appendChild(tooltipEl);
+  }
+  return tooltipEl;
+}
+
 // === Badge Rendering ===
 function renderBadges() {
   const articles = document.querySelectorAll('article[data-testid="tweet"]');
@@ -132,7 +133,6 @@ function renderBadges() {
 
     article.setAttribute('data-xvm-scored', '1');
 
-    // Find the header row: walk up from caret until we find a wide flex container
     const caretBtn = article.querySelector('[data-testid="caret"]');
     if (!caretBtn) continue;
     let headerRow = caretBtn;
@@ -148,34 +148,44 @@ function renderBadges() {
 
     const badge = document.createElement('span');
     badge.className = `xvm-badge ${colorClass}`;
-    badge.textContent = `${prefix} ${formatVelocity(velocity)}/h | ${score}%`;
+    badge.textContent = `${prefix} ${formatVelocity(velocity)}/h`;
 
-    // Tooltip with detailed data
-    const tooltip = document.createElement('div');
-    tooltip.className = 'xvm-tooltip';
-    tooltip.textContent =
+    // Tooltip: show/hide a single shared fixed element
+    const tooltipContent =
       `Views: ${data.views.toLocaleString()}\n` +
       `Likes: ${data.likes.toLocaleString()}\n` +
       `Retweets: ${data.retweets.toLocaleString()}\n` +
       `Replies: ${data.replies.toLocaleString()}\n` +
       `Bookmarks: ${data.bookmarks.toLocaleString()}\n` +
+      `Velocity: ${formatVelocity(velocity)}/h\n` +
+      `Viral Score: ${score}/100\n` +
       `Posted: ${data.createdAt}`;
-    badge.appendChild(tooltip);
 
-    // Position tooltip dynamically on hover (fixed positioning needs coordinates)
     badge.addEventListener('mouseenter', () => {
+      const tip = getTooltip();
+      tip.textContent = tooltipContent;
       const rect = badge.getBoundingClientRect();
-      tooltip.style.top = (rect.bottom + 6) + 'px';
-      tooltip.style.right = (window.innerWidth - rect.right) + 'px';
+      tip.style.display = 'block';
+      tip.style.top = (rect.bottom + 6) + 'px';
+      tip.style.left = '';
+      tip.style.right = '';
+      // Align right edge of tooltip with right edge of badge
+      const tipWidth = tip.offsetWidth;
+      let left = rect.right - tipWidth;
+      if (left < 8) left = 8;
+      tip.style.left = left + 'px';
     });
 
-    // Insert badge before the last child of header row (the button group)
+    badge.addEventListener('mouseleave', () => {
+      const tip = getTooltip();
+      tip.style.display = 'none';
+    });
+
     headerRow.insertBefore(badge, headerRow.lastElementChild);
   }
 }
 
 function getTweetIdFromArticle(article) {
-  // Collect all status links — prefer IDs that exist in our data store
   const links = article.querySelectorAll('a[href*="/status/"]');
   for (const link of links) {
     const match = link.getAttribute('href').match(/\/status\/(\d+)$/);
@@ -184,7 +194,6 @@ function getTweetIdFromArticle(article) {
       if (tweetDataStore.has(id)) return id;
     }
   }
-  // Fallback: return first status link ID
   const firstLink = article.querySelector('a[href*="/status/"]');
   if (!firstLink) return null;
   const match = firstLink.getAttribute('href').match(/\/status\/(\d+)/);
