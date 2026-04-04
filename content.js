@@ -220,10 +220,54 @@ function getTweetIdFromArticle(article) {
   return match ? match[1] : null;
 }
 
-// Periodic re-render for tweets that arrived in DOM before data was parsed
+// === Fallback: fetch timeline data if initial XHR was missed ===
+let fallbackAttempted = false;
+
+function fetchTimelineFallback() {
+  if (fallbackAttempted) return;
+  const ct0 = document.cookie.match(/ct0=([^;]+)/)?.[1];
+  if (!ct0) return;
+  fallbackAttempted = true;
+
+  const variables = encodeURIComponent(JSON.stringify({count:20,includePromotedContent:true,requestContext:"launch",withCommunity:true}));
+  const features = encodeURIComponent(JSON.stringify({
+    view_counts_everywhere_api_enabled:true,rweb_video_screen_enabled:false,
+    profile_label_improvements_pcf_label_in_post_enabled:true,responsive_web_profile_redirect_enabled:false,
+    rweb_tipjar_consumption_enabled:false,verified_phone_label_enabled:false,
+    creator_subscriptions_tweet_preview_api_enabled:true,responsive_web_graphql_timeline_navigation_enabled:true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled:false,premium_content_api_read_enabled:false,
+    communities_web_enable_tweet_community_results_fetch:true,c9s_tweet_anatomy_moderator_badge_enabled:true,
+    responsive_web_edit_tweet_api_enabled:true,graphql_is_translatable_rweb_tweet_is_translatable_enabled:true,
+    longform_notetweets_consumption_enabled:true,responsive_web_twitter_article_tweet_consumption_enabled:true,
+    responsive_web_enhance_cards_enabled:false
+  }));
+  const url = `/i/api/graphql/J62e-zdBz8cxFVOjBcq1WA/HomeTimeline?variables=${variables}&features=${features}`;
+
+  fetch(url, {
+    credentials: 'include',
+    headers: {
+      'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+      'x-csrf-token': ct0,
+      'x-twitter-auth-type': 'OAuth2Session',
+      'content-type': 'application/json'
+    }
+  }).then(r => r.json()).then(parseTweetsFromResponse).catch(() => {});
+}
+
+// Periodic re-render + fallback fetch if needed
 setInterval(() => {
   const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
   if (unscored.length > 0) {
+    // If we have unscored articles with no matching data, try fallback fetch
+    let anyMissing = false;
+    for (const a of unscored) {
+      const link = a.querySelector('a[href*="/status/"]');
+      const id = link?.href?.match(/status\/(\d+)/)?.[1];
+      if (id && !tweetDataStore.has(id)) { anyMissing = true; break; }
+    }
+    if (anyMissing) {
+      fetchTimelineFallback();
+    }
     renderBadges();
   }
 }, 2000);
@@ -257,3 +301,12 @@ if (document.body) {
 } else {
   document.addEventListener('DOMContentLoaded', startObserver);
 }
+
+// Reset fallback on SPA navigation (URL change)
+let lastUrl = location.href;
+new MutationObserver(() => {
+  if (location.href !== lastUrl) {
+    lastUrl = location.href;
+    fallbackAttempted = false;
+  }
+}).observe(document.body || document.documentElement, { childList: true, subtree: true });
