@@ -144,9 +144,9 @@ function renderBadges() {
     // Only mark scored after we confirmed headerRow is valid
     article.setAttribute('data-xvm-scored', '1');
 
-    const { velocity, score, isHot } = computeScore(data);
-    const prefix = isHot ? '\u{1F525}' : '\u26A1';
-    const colorClass = score >= 60 ? 'xvm-badge--red' : score >= 30 ? 'xvm-badge--orange' : 'xvm-badge--green';
+    const { velocity, score } = computeScore(data);
+    const prefix = velocity >= 10000 ? '\u{1F525}' : '\u26A1';
+    const colorClass = velocity >= 10000 ? 'xvm-badge--red' : velocity >= 1000 ? 'xvm-badge--orange' : 'xvm-badge--green';
 
     const badge = document.createElement('span');
     badge.className = `xvm-badge ${colorClass}`;
