@@ -43,10 +43,8 @@
 
 .xvm-tooltip {
   display: none;
-  position: absolute;
-  top: 100%;
-  right: 0;
-  margin-top: 8px;
+  position: fixed;
+  z-index: 2147483647;
   background: rgb(15, 20, 26);
   color: rgb(231, 233, 234);
   font-size: 12px;
@@ -55,8 +53,7 @@
   white-space: pre-line;
   line-height: 1.6;
   min-width: 160px;
-  z-index: 1000;
-  box-shadow: 0 0 6px rgba(101, 119, 134, 0.4);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
 .xvm-badge:hover .xvm-tooltip {

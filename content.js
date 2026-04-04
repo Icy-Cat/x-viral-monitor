@@ -162,6 +162,13 @@ function renderBadges() {
       `Posted: ${data.createdAt}`;
     badge.appendChild(tooltip);
 
+    // Position tooltip dynamically on hover (fixed positioning needs coordinates)
+    badge.addEventListener('mouseenter', () => {
+      const rect = badge.getBoundingClientRect();
+      tooltip.style.top = (rect.bottom + 6) + 'px';
+      tooltip.style.right = (window.innerWidth - rect.right) + 'px';
+    });
+
     // Insert badge before the last child of header row (the button group)
     headerRow.insertBefore(badge, headerRow.lastElementChild);
   }
