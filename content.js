@@ -145,7 +145,8 @@ function renderBadges() {
     article.setAttribute('data-xvm-scored', '1');
 
     const { velocity, score } = computeScore(data);
-    const prefix = velocity >= 10000 ? '\u{1F525}' : '\u26A1';
+    // 🌱 normal | 🚀 trending | 🔥 viral
+    const prefix = velocity >= 10000 ? '\u{1F525}' : velocity >= 1000 ? '\u{1F680}' : '\u{1F331}';
     const colorClass = velocity >= 10000 ? 'xvm-badge--red' : velocity >= 1000 ? 'xvm-badge--orange' : 'xvm-badge--green';
 
     const badge = document.createElement('span');
