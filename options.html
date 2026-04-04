@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>X Viral Monitor Settings</title>
+    <link rel="stylesheet" href="options.css">
+  </head>
+  <body>
+    <main class="settings-shell">
+      <section class="settings-card">
+        <h1>X Viral Monitor</h1>
+        <p class="settings-copy">设置推文流速分档阈值，单位为每小时浏览量。</p>
+
+        <form id="settings-form" class="settings-form">
+          <label class="field">
+            <span>普通上升线</span>
+            <input id="trending" name="trending" type="number" min="1" step="1" required>
+            <small>达到这个值后显示为 🚀</small>
+          </label>
+
+          <label class="field">
+            <span>爆发线</span>
+            <input id="viral" name="viral" type="number" min="2" step="1" required>
+            <small>达到这个值后显示为 🔥</small>
+          </label>
+
+          <div class="actions">
+            <button type="submit">保存</button>
+            <button type="button" id="reset">恢复默认</button>
+          </div>
+
+          <p id="status" class="status" role="status" aria-live="polite"></p>
+        </form>
+      </section>
+    </main>
+
+    <script src="options.js"></script>
+  </body>
+</html>
