@@ -87,5 +87,72 @@ function computeScore(data) {
   };
 }
 
-// Placeholder — implemented in Task 4
-function renderBadges() {}
+// === Badge Rendering ===
+function renderBadges() {
+  const articles = document.querySelectorAll('article[data-testid="tweet"]');
+  for (const article of articles) {
+    if (article.hasAttribute('data-xvm-scored')) continue;
+
+    const tweetId = getTweetIdFromArticle(article);
+    if (!tweetId) continue;
+
+    const data = tweetDataStore.get(tweetId);
+    if (!data) continue;
+
+    article.setAttribute('data-xvm-scored', '1');
+
+    // Ensure article is positioned for absolute badge
+    article.style.position = article.style.position || 'relative';
+
+    const { velocity, score, isHot } = computeScore(data);
+    const prefix = isHot ? '\u{1F525} ' : '\u26A1 ';
+    const colorClass = score >= 60 ? 'xvm-badge--red' : score >= 30 ? 'xvm-badge--orange' : 'xvm-badge--green';
+
+    const badge = document.createElement('div');
+    badge.className = `xvm-badge ${colorClass}`;
+    badge.textContent = `${prefix}${formatVelocity(velocity)}/h | ${score}%`;
+
+    // Tooltip with detailed data
+    const tooltip = document.createElement('div');
+    tooltip.className = 'xvm-tooltip';
+    tooltip.textContent =
+      `Views: ${data.views.toLocaleString()}\n` +
+      `Likes: ${data.likes.toLocaleString()}\n` +
+      `Retweets: ${data.retweets.toLocaleString()}\n` +
+      `Replies: ${data.replies.toLocaleString()}\n` +
+      `Bookmarks: ${data.bookmarks.toLocaleString()}\n` +
+      `Posted: ${data.createdAt}`;
+    badge.appendChild(tooltip);
+
+    article.appendChild(badge);
+  }
+}
+
+function getTweetIdFromArticle(article) {
+  const link = article.querySelector('a[href*="/status/"]');
+  if (!link) return null;
+  const match = link.getAttribute('href').match(/\/status\/(\d+)/);
+  return match ? match[1] : null;
+}
+
+// === MutationObserver ===
+const observer = new MutationObserver((mutations) => {
+  let hasNewArticles = false;
+  for (const mutation of mutations) {
+    for (const node of mutation.addedNodes) {
+      if (node.nodeType === 1 && (node.tagName === 'ARTICLE' || node.querySelector?.('article[data-testid="tweet"]'))) {
+        hasNewArticles = true;
+        break;
+      }
+    }
+    if (hasNewArticles) break;
+  }
+  if (hasNewArticles) {
+    renderBadges();
+  }
+});
+
+observer.observe(document.body || document.documentElement, {
+  childList: true,
+  subtree: true,
+});
