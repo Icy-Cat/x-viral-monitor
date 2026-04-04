@@ -1,6 +1,28 @@
 // === Tweet Data Store ===
 const tweetDataStore = new Map();
 
+// === i18n ===
+const I18N = {
+  en: {
+    views: 'Views', likes: 'Likes', retweets: 'Retweets',
+    replies: 'Replies', bookmarks: 'Bookmarks', velocity: 'Velocity',
+    viralScore: 'Viral Score', posted: 'Posted',
+  },
+  zh: {
+    views: '浏览量', likes: '点赞', retweets: '转发',
+    replies: '回复', bookmarks: '收藏', velocity: '流速',
+    viralScore: '爆帖指数', posted: '发布时间',
+  },
+  ja: {
+    views: '表示回数', likes: 'いいね', retweets: 'リポスト',
+    replies: '返信', bookmarks: 'ブックマーク', velocity: '流速',
+    viralScore: 'バズ指数', posted: '投稿日時',
+  },
+};
+const userLang = (navigator.language || 'en').split('-')[0];
+const strings = I18N[userLang] || I18N.en;
+function i18n(key) { return strings[key] || key; }
+
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
 
@@ -169,14 +191,14 @@ function renderBadges() {
       String(postedDate.getMinutes()).padStart(2, '0') + ':' +
       String(postedDate.getSeconds()).padStart(2, '0');
     const tooltipContent =
-      `Views: ${data.views.toLocaleString()}\n` +
-      `Likes: ${data.likes.toLocaleString()}\n` +
-      `Retweets: ${data.retweets.toLocaleString()}\n` +
-      `Replies: ${data.replies.toLocaleString()}\n` +
-      `Bookmarks: ${data.bookmarks.toLocaleString()}\n` +
-      `Velocity: ${formatVelocity(velocity)}/h\n` +
-      `Viral Score: ${score}/100\n` +
-      `Posted: ${postedStr}`;
+      `${i18n('views')}: ${data.views.toLocaleString()}\n` +
+      `${i18n('likes')}: ${data.likes.toLocaleString()}\n` +
+      `${i18n('retweets')}: ${data.retweets.toLocaleString()}\n` +
+      `${i18n('replies')}: ${data.replies.toLocaleString()}\n` +
+      `${i18n('bookmarks')}: ${data.bookmarks.toLocaleString()}\n` +
+      `${i18n('velocity')}: ${formatVelocity(velocity)}/h\n` +
+      `${i18n('viralScore')}: ${score}/100\n` +
+      `${i18n('posted')}: ${postedStr}`;
 
     badge.addEventListener('mouseenter', () => {
       const tip = getTooltip();
