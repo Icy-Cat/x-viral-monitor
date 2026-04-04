@@ -131,8 +131,7 @@ function renderBadges() {
     const data = tweetDataStore.get(tweetId);
     if (!data) continue;
 
-    article.setAttribute('data-xvm-scored', '1');
-
+    // Find header row before marking scored — if DOM isn't ready, skip and retry later
     const caretBtn = article.querySelector('[data-testid="caret"]');
     if (!caretBtn) continue;
     let headerRow = caretBtn;
@@ -141,6 +140,9 @@ function renderBadges() {
       headerRow = headerRow.parentElement;
     }
     if (!headerRow || headerRow === article) continue;
+
+    // Only mark scored after we confirmed headerRow is valid
+    article.setAttribute('data-xvm-scored', '1');
 
     const { velocity, score, isHot } = computeScore(data);
     const prefix = isHot ? '\u{1F525}' : '\u26A1';
@@ -151,6 +153,13 @@ function renderBadges() {
     badge.textContent = `${prefix} ${formatVelocity(velocity)}/h`;
 
     // Tooltip: show/hide a single shared fixed element
+    const postedDate = new Date(data.createdAt);
+    const postedStr = postedDate.getFullYear() + ':' +
+      String(postedDate.getMonth() + 1).padStart(2, '0') + ':' +
+      String(postedDate.getDate()).padStart(2, '0') + ' ' +
+      String(postedDate.getHours()).padStart(2, '0') + ':' +
+      String(postedDate.getMinutes()).padStart(2, '0') + ':' +
+      String(postedDate.getSeconds()).padStart(2, '0');
     const tooltipContent =
       `Views: ${data.views.toLocaleString()}\n` +
       `Likes: ${data.likes.toLocaleString()}\n` +
@@ -159,7 +168,7 @@ function renderBadges() {
       `Bookmarks: ${data.bookmarks.toLocaleString()}\n` +
       `Velocity: ${formatVelocity(velocity)}/h\n` +
       `Viral Score: ${score}/100\n` +
-      `Posted: ${data.createdAt}`;
+      `Posted: ${postedStr}`;
 
     badge.addEventListener('mouseenter', () => {
       const tip = getTooltip();
