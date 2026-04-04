@@ -1,0 +1,46 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build zip
+        run: |
+          mkdir -p dist
+          zip -r dist/x-viral-monitor-${{ github.ref_name }}.zip \
+            manifest.json content.js styles.css icons/ LICENSE README.md
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/x-viral-monitor-${{ github.ref_name }}.zip
+          body: |
+            ## X Viral Monitor ${{ github.ref_name }}
+
+            ### Install
+
+            1. Download `x-viral-monitor-${{ github.ref_name }}.zip` below
+            2. Unzip the downloaded file
+            3. Open Chrome → `chrome://extensions/`
+            4. Toggle **Developer mode** on (top right corner)
+            5. Click **Load unpacked** (top left)
+            6. Select the unzipped folder and confirm
+            7. Visit [x.com](https://x.com) and enjoy!
+
+            ### Velocity Tiers
+
+            | Icon | Velocity | Meaning |
+            |------|----------|---------|
+            | 🌱 | < 1,000/h | Normal |
+            | 🚀 | 1,000 - 10,000/h | Trending |
+            | 🔥 | ≥ 10,000/h | Viral |
