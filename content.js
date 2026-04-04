@@ -2,16 +2,16 @@
 const tweetDataStore = new Map();
 
 // === Request Interception (fetch + XHR) ===
-const TIMELINE_RE = /graphql\/.*\/(HomeTimeline|HomeLatestTimeline)/;
+const GRAPHQL_RE = /\/i\/api\/graphql\//;
 
 // Hook fetch
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
   const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-  if (url && TIMELINE_RE.test(url)) {
+  if (url && GRAPHQL_RE.test(url)) {
     const clone = response.clone();
-    clone.json().then(parseTweetsFromResponse).catch(() => {});
+    clone.json().then(scanForTweets).catch(() => {});
   }
   return response;
 };
@@ -19,10 +19,10 @@ window.fetch = async function (...args) {
 // Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
 const originalXHROpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-  if (typeof url === 'string' && TIMELINE_RE.test(url)) {
+  if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
     this.addEventListener('load', function () {
       try {
-        parseTweetsFromResponse(JSON.parse(this.responseText));
+        scanForTweets(JSON.parse(this.responseText));
       } catch (e) {}
     });
   }
@@ -30,31 +30,28 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
 };
 
 // === Data Extraction ===
-function parseTweetsFromResponse(json) {
-  const instructions = json?.data?.home?.home_timeline_urt?.instructions;
-  if (!instructions) return;
-  for (const instruction of instructions) {
-    const entries = instruction.entries || instruction.moduleItems || [];
-    for (const entry of entries) {
-      // Direct tweet entry
-      const tweetResult = entry?.content?.itemContent?.tweet_results?.result;
-      if (tweetResult) {
-        const data = extractTweetData(tweetResult);
-        if (data) tweetDataStore.set(data.id, data);
-      }
-      // Module entry (conversation threads, multi-tweet groups)
-      const moduleItems = entry?.content?.items;
-      if (moduleItems) {
-        for (const item of moduleItems) {
-          const modTweetResult = item?.item?.itemContent?.tweet_results?.result;
-          if (!modTweetResult) continue;
-          const data = extractTweetData(modTweetResult);
-          if (data) tweetDataStore.set(data.id, data);
-        }
-      }
+// Recursively scan any JSON for tweet_results objects
+function scanForTweets(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  let found = false;
+
+  if (obj.tweet_results?.result) {
+    const data = extractTweetData(obj.tweet_results.result);
+    if (data) { tweetDataStore.set(data.id, data); found = true; }
+  }
+
+  // Recurse into arrays and objects
+  if (Array.isArray(obj)) {
+    for (const item of obj) scanForTweets(item);
+  } else {
+    for (const key of Object.keys(obj)) {
+      if (key === 'tweet_results') continue; // already handled above
+      const val = obj[key];
+      if (val && typeof val === 'object') scanForTweets(val);
     }
   }
-  renderBadges();
+
+  if (found) renderBadges();
 }
 
 function extractTweetData(result) {
@@ -220,54 +217,58 @@ function getTweetIdFromArticle(article) {
   return match ? match[1] : null;
 }
 
-// === Fallback: fetch timeline data if initial XHR was missed ===
-let fallbackAttempted = false;
+// === Fallback: fetch TweetDetail for missing tweets ===
+const fetchedIds = new Set();
 
-function fetchTimelineFallback() {
-  if (fallbackAttempted) return;
+function fetchMissingTweets() {
   const ct0 = document.cookie.match(/ct0=([^;]+)/)?.[1];
   if (!ct0) return;
-  fallbackAttempted = true;
 
-  const variables = encodeURIComponent(JSON.stringify({count:20,includePromotedContent:true,requestContext:"launch",withCommunity:true}));
+  const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
+  const missingIds = [];
+  for (const a of unscored) {
+    const links = a.querySelectorAll('a[href*="/status/"]');
+    for (const l of links) {
+      const m = l.href.match(/status\/(\d+)/);
+      if (m && !tweetDataStore.has(m[1]) && !fetchedIds.has(m[1])) {
+        missingIds.push(m[1]);
+        fetchedIds.add(m[1]);
+      }
+    }
+  }
+  if (missingIds.length === 0) return;
+
+  const headers = {
+    'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+    'x-csrf-token': ct0,
+    'x-twitter-auth-type': 'OAuth2Session',
+    'content-type': 'application/json'
+  };
   const features = encodeURIComponent(JSON.stringify({
     view_counts_everywhere_api_enabled:true,rweb_video_screen_enabled:false,
-    profile_label_improvements_pcf_label_in_post_enabled:true,responsive_web_profile_redirect_enabled:false,
-    rweb_tipjar_consumption_enabled:false,verified_phone_label_enabled:false,
-    creator_subscriptions_tweet_preview_api_enabled:true,responsive_web_graphql_timeline_navigation_enabled:true,
-    responsive_web_graphql_skip_user_profile_image_extensions_enabled:false,premium_content_api_read_enabled:false,
-    communities_web_enable_tweet_community_results_fetch:true,c9s_tweet_anatomy_moderator_badge_enabled:true,
-    responsive_web_edit_tweet_api_enabled:true,graphql_is_translatable_rweb_tweet_is_translatable_enabled:true,
-    longform_notetweets_consumption_enabled:true,responsive_web_twitter_article_tweet_consumption_enabled:true,
+    profile_label_improvements_pcf_label_in_post_enabled:true,
+    responsive_web_graphql_timeline_navigation_enabled:true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled:false,
+    creator_subscriptions_tweet_preview_api_enabled:true,
+    longform_notetweets_consumption_enabled:true,
     responsive_web_enhance_cards_enabled:false
   }));
-  const url = `/i/api/graphql/J62e-zdBz8cxFVOjBcq1WA/HomeTimeline?variables=${variables}&features=${features}`;
 
-  fetch(url, {
-    credentials: 'include',
-    headers: {
-      'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
-      'x-csrf-token': ct0,
-      'x-twitter-auth-type': 'OAuth2Session',
-      'content-type': 'application/json'
-    }
-  }).then(r => r.json()).then(parseTweetsFromResponse).catch(() => {});
+  for (const tweetId of missingIds.slice(0, 10)) {
+    const variables = encodeURIComponent(JSON.stringify({
+      focalTweetId: tweetId, withCommunity: true, withBirdwatchNotes: false, withVoice: false
+    }));
+    fetch(`/i/api/graphql/rU08O-YiXdr0IZfE7qaUMg/TweetDetail?variables=${variables}&features=${features}`, {
+      credentials: 'include', headers
+    }).then(r => r.json()).then(scanForTweets).catch(() => {});
+  }
 }
 
 // Periodic re-render + fallback fetch if needed
 setInterval(() => {
   const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
   if (unscored.length > 0) {
-    // If we have unscored articles with no matching data, try fallback fetch
-    let anyMissing = false;
-    for (const a of unscored) {
-      const link = a.querySelector('a[href*="/status/"]');
-      const id = link?.href?.match(/status\/(\d+)/)?.[1];
-      if (id && !tweetDataStore.has(id)) { anyMissing = true; break; }
-    }
-    if (anyMissing) {
-      fetchTimelineFallback();
-    }
+    fetchMissingTweets();
     renderBadges();
   }
 }, 2000);
@@ -302,11 +303,11 @@ if (document.body) {
   document.addEventListener('DOMContentLoaded', startObserver);
 }
 
-// Reset fallback on SPA navigation (URL change)
+// Reset on SPA navigation (URL change)
 let lastUrl = location.href;
 new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
-    fallbackAttempted = false;
+    fetchedIds.clear();
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
