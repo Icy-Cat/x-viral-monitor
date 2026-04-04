@@ -1,36 +1,44 @@
 .xvm-badge {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  background: rgba(0, 0, 0, 0.75);
-  color: #fff;
-  font-size: 11px;
+  display: inline-flex;
+  align-items: center;
+  color: rgb(83, 100, 113);
+  font-size: 13px;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  padding: 2px 6px;
-  border-radius: 4px;
-  z-index: 1000;
-  pointer-events: auto;
+  padding: 0;
+  margin-right: 4px;
   cursor: default;
-  line-height: 1.4;
+  line-height: 20px;
   white-space: nowrap;
-  transition: opacity 0.2s;
-  opacity: 0.85;
+  position: relative;
+  transition: color 0.2s;
 }
 
 .xvm-badge:hover {
-  opacity: 1;
+  color: rgb(29, 155, 240);
 }
 
 .xvm-badge--green {
-  border-left: 2px solid #4caf50;
+  color: #4caf50;
 }
 
 .xvm-badge--orange {
-  border-left: 2px solid #ff9800;
+  color: #ff9800;
 }
 
 .xvm-badge--red {
-  border-left: 2px solid #f44336;
+  color: #f44336;
+}
+
+.xvm-badge--green:hover {
+  color: #66bb6a;
+}
+
+.xvm-badge--orange:hover {
+  color: #ffa726;
+}
+
+.xvm-badge--red:hover {
+  color: #ef5350;
 }
 
 .xvm-tooltip {
@@ -38,15 +46,17 @@
   position: absolute;
   top: 100%;
   right: 0;
-  margin-top: 4px;
-  background: rgba(0, 0, 0, 0.9);
-  color: #ccc;
-  font-size: 10px;
-  padding: 6px 8px;
-  border-radius: 4px;
+  margin-top: 8px;
+  background: rgb(15, 20, 26);
+  color: rgb(231, 233, 234);
+  font-size: 12px;
+  padding: 8px 10px;
+  border-radius: 8px;
   white-space: pre-line;
-  line-height: 1.5;
-  min-width: 140px;
+  line-height: 1.6;
+  min-width: 160px;
+  z-index: 1000;
+  box-shadow: 0 0 6px rgba(101, 119, 134, 0.4);
 }
 
 .xvm-badge:hover .xvm-tooltip {

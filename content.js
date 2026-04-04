@@ -1,16 +1,39 @@
 // === Tweet Data Store ===
 const tweetDataStore = new Map();
 
-// === Fetch Hook ===
+// === Request Interception (fetch + XHR) ===
+const TIMELINE_RE = /graphql\/.*\/(HomeTimeline|HomeLatestTimeline)/;
+
+// Hook fetch
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
   const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-  if (url && /graphql\/.*\/(HomeTimeline|HomeLatestTimeline)/.test(url)) {
+  if (url && TIMELINE_RE.test(url)) {
     const clone = response.clone();
     clone.json().then(parseTweetsFromResponse).catch(() => {});
   }
   return response;
+};
+
+// Hook XMLHttpRequest (X uses XHR for GraphQL requests)
+const originalXHROpen = XMLHttpRequest.prototype.open;
+XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+  this._xvm_url = url;
+  return originalXHROpen.call(this, method, url, ...rest);
+};
+
+const originalXHRSend = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.send = function (...args) {
+  if (this._xvm_url && TIMELINE_RE.test(this._xvm_url)) {
+    this.addEventListener('load', function () {
+      try {
+        const json = JSON.parse(this.responseText);
+        parseTweetsFromResponse(json);
+      } catch (e) {}
+    });
+  }
+  return originalXHRSend.apply(this, args);
 };
 
 // === Data Extraction ===
@@ -109,16 +132,23 @@ function renderBadges() {
 
     article.setAttribute('data-xvm-scored', '1');
 
-    // Ensure article is positioned for absolute badge
-    article.style.position = article.style.position || 'relative';
+    // Find the header row: walk up from caret until we find a wide flex container
+    const caretBtn = article.querySelector('[data-testid="caret"]');
+    if (!caretBtn) continue;
+    let headerRow = caretBtn;
+    while (headerRow && headerRow !== article) {
+      if (headerRow.getBoundingClientRect().width > 200) break;
+      headerRow = headerRow.parentElement;
+    }
+    if (!headerRow || headerRow === article) continue;
 
     const { velocity, score, isHot } = computeScore(data);
-    const prefix = isHot ? '\u{1F525} ' : '\u26A1 ';
+    const prefix = isHot ? '\u{1F525}' : '\u26A1';
     const colorClass = score >= 60 ? 'xvm-badge--red' : score >= 30 ? 'xvm-badge--orange' : 'xvm-badge--green';
 
-    const badge = document.createElement('div');
+    const badge = document.createElement('span');
     badge.className = `xvm-badge ${colorClass}`;
-    badge.textContent = `${prefix}${formatVelocity(velocity)}/h | ${score}%`;
+    badge.textContent = `${prefix} ${formatVelocity(velocity)}/h | ${score}%`;
 
     // Tooltip with detailed data
     const tooltip = document.createElement('div');
@@ -132,7 +162,8 @@ function renderBadges() {
       `Posted: ${data.createdAt}`;
     badge.appendChild(tooltip);
 
-    article.appendChild(badge);
+    // Insert badge before the last child of header row (the button group)
+    headerRow.insertBefore(badge, headerRow.lastElementChild);
   }
 }
 
