@@ -59,6 +59,7 @@ window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
+let capturedBearer = null; // dynamically captured from real requests
 
 // Extract and report rate limit headers
 function reportRateLimit(headers) {
@@ -79,6 +80,10 @@ window.fetch = async function (...args) {
   const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
   if (url && GRAPHQL_RE.test(url)) {
+    // Capture Bearer token from request headers
+    const reqInit = args[1] || (typeof args[0] === 'object' ? args[0] : {});
+    const authHeader = reqInit.headers?.authorization || reqInit.headers?.get?.('authorization');
+    if (authHeader && authHeader.startsWith('Bearer ')) capturedBearer = authHeader;
     reportRateLimit(response.headers);
     const clone = response.clone();
     clone.json().then(scanForTweets).catch(() => {});
@@ -88,6 +93,13 @@ window.fetch = async function (...args) {
 
 // Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
 const originalXHROpen = XMLHttpRequest.prototype.open;
+const originalXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+  if (name.toLowerCase() === 'authorization' && value.startsWith('Bearer ')) {
+    capturedBearer = value;
+  }
+  return originalXHRSetHeader.call(this, name, value);
+};
 XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
     this.addEventListener('load', function () {
@@ -319,8 +331,9 @@ function fetchMissingTweets() {
   }
   if (missingIds.length === 0) return;
 
+  if (!capturedBearer) return; // need a real token first
   const headers = {
-    'authorization': 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA',
+    'authorization': capturedBearer,
     'x-csrf-token': ct0,
     'x-twitter-auth-type': 'OAuth2Session',
     'content-type': 'application/json'
