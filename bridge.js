@@ -45,19 +45,3 @@ chrome.storage.onChanged.addListener((changes, areaName) => {
   });
 });
 
-// === Collection mode: relay messages between content.js (MAIN) ↔ background/sidePanel ===
-
-// From sidePanel (via background) → content.js (MAIN world)
-chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === 'XVM_START_COLLECT' || msg.type === 'XVM_STOP_COLLECT') {
-    window.postMessage(msg, '*');
-  }
-});
-
-// From content.js (MAIN world) → sidePanel (via background)
-window.addEventListener('message', (event) => {
-  if (event.source !== window) return;
-  if (event.data?.type === 'XVM_COLLECT_DATA' || event.data?.type === 'XVM_SCROLL_DONE' || event.data?.type === 'XVM_RATE_LIMIT') {
-    chrome.runtime.sendMessage({ ...event.data, target: 'sidepanel' });
-  }
-});
