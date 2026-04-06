@@ -1,0 +1,111 @@
+* { box-sizing: border-box; margin: 0; }
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  color: #e7e9ea;
+  background: #0f1419;
+}
+
+.panel { padding: 16px; }
+
+h1 {
+  font-size: 18px;
+  margin-bottom: 14px;
+  color: #f7f9f9;
+}
+
+.field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+.field span { font-size: 12px; color: #8b98a5; }
+.field input, .field select {
+  padding: 8px 10px;
+  border: 1px solid #2f3336;
+  border-radius: 8px;
+  background: #16202a;
+  color: #e7e9ea;
+  font: inherit;
+}
+.field input:focus, .field select:focus {
+  outline: none;
+  border-color: #1d9bf0;
+}
+
+.row { display: flex; gap: 10px; }
+.row .field { flex: 1; }
+
+.actions { display: flex; gap: 8px; margin: 12px 0; flex-wrap: wrap; }
+
+button {
+  padding: 8px 16px;
+  border: none;
+  border-radius: 20px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  color: #fff;
+  background: #1d9bf0;
+}
+button:hover { background: #1a8cd8; }
+button:disabled { opacity: 0.4; cursor: default; }
+button#btn-stop { background: #f44336; }
+button#btn-stop:hover:not(:disabled) { background: #d32f2f; }
+button#btn-export { background: #2f3336; }
+button#btn-export:hover:not(:disabled) { background: #3a3f44; }
+
+.progress-section { margin: 12px 0; }
+.progress-bar-bg {
+  height: 6px;
+  background: #2f3336;
+  border-radius: 3px;
+  overflow: hidden;
+}
+.progress-bar {
+  height: 100%;
+  width: 0;
+  background: #1d9bf0;
+  border-radius: 3px;
+  transition: width 0.3s;
+}
+.progress-text { font-size: 12px; color: #8b98a5; margin-top: 6px; }
+
+.stats {
+  display: flex; gap: 16px;
+  font-size: 12px; color: #8b98a5;
+  margin-bottom: 10px;
+}
+
+.hidden { display: none !important; }
+
+.table-wrap { overflow-x: auto; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+thead th {
+  position: sticky;
+  top: 0;
+  background: #16202a;
+  color: #8b98a5;
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid #2f3336;
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+thead th:hover { color: #1d9bf0; }
+tbody td {
+  padding: 6px 8px;
+  border-bottom: 1px solid #1e2732;
+  vertical-align: top;
+}
+tbody tr:hover { background: #16202a; }
+td.text-col {
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
