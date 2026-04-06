@@ -21,12 +21,12 @@
   },
   "content_scripts": [
     {
-      "matches": ["https://x.com/*"],
+      "matches": ["https://x.com/*", "https://pro.x.com/*"],
       "js": ["bridge.js"],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://x.com/*"],
+      "matches": ["https://x.com/*", "https://pro.x.com/*"],
       "js": ["content.js"],
       "css": ["styles.css"],
       "run_at": "document_start",
