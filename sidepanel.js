@@ -2,6 +2,8 @@
 let collectedTweets = new Map(); // id → tweet data
 let isRunning = false;
 let shouldStop = false;
+let rateLimitRemaining = null;
+let rateLimitReset = null;
 
 // === DOM refs ===
 const form = document.getElementById('search-form');
@@ -55,6 +57,7 @@ form.addEventListener('submit', async (e) => {
   const from = dateFrom.value;
   const to = dateTo.value;
   const granularity = parseInt(document.getElementById('granularity').value, 10);
+  const baseDelay = parseInt(document.getElementById('delay').value, 10) * 1000;
 
   if (!username || !from || !to) return;
 
@@ -82,9 +85,13 @@ form.addEventListener('submit', async (e) => {
     // Tell content script to navigate and collect
     await collectWindow(query);
 
-    // Small delay between windows
+    // Rate-limit aware delay between windows
     if (i < windows.length - 1 && !shouldStop) {
-      await sleep(1500);
+      const delay = getAdaptiveDelay(baseDelay);
+      if (delay > baseDelay) {
+        progressText.textContent = `Rate limit low (${rateLimitRemaining} left), waiting ${Math.round(delay / 1000)}s...`;
+      }
+      await sleep(delay);
     }
   }
 
@@ -100,6 +107,20 @@ btnStop.addEventListener('click', () => {
   shouldStop = true;
   btnStop.disabled = true;
 });
+
+// === Rate Limit Awareness ===
+function getAdaptiveDelay(baseDelay) {
+  if (rateLimitRemaining === null) return baseDelay;
+  if (rateLimitRemaining <= 5) {
+    // Almost exhausted: wait until reset
+    const now = Math.floor(Date.now() / 1000);
+    const waitSec = Math.max((rateLimitReset || now) - now, 30);
+    return waitSec * 1000;
+  }
+  if (rateLimitRemaining <= 20) return Math.max(baseDelay, 10000); // 10s
+  if (rateLimitRemaining <= 50) return Math.max(baseDelay, 6000);  // 6s
+  return baseDelay;
+}
 
 // === Collect one search window ===
 function collectWindow(query) {
@@ -124,6 +145,13 @@ function collectWindow(query) {
       }
       if (msg.type === 'XVM_SCROLL_DONE') {
         scrollDone = true;
+      }
+      if (msg.type === 'XVM_RATE_LIMIT') {
+        rateLimitRemaining = msg.remaining;
+        rateLimitReset = msg.reset;
+        const rlEl = document.getElementById('stat-ratelimit');
+        rlEl.textContent = `API: ${rateLimitRemaining} left`;
+        rlEl.style.color = rateLimitRemaining <= 10 ? '#f44336' : rateLimitRemaining <= 30 ? '#ff9800' : '#8b98a5';
       }
     }
     chrome.runtime.onMessage.addListener(onMessage);

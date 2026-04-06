@@ -57,7 +57,7 @@ chrome.runtime.onMessage.addListener((msg) => {
 // From content.js (MAIN world) → sidePanel (via background)
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
-  if (event.data?.type === 'XVM_COLLECT_DATA' || event.data?.type === 'XVM_SCROLL_DONE') {
+  if (event.data?.type === 'XVM_COLLECT_DATA' || event.data?.type === 'XVM_SCROLL_DONE' || event.data?.type === 'XVM_RATE_LIMIT') {
     chrome.runtime.sendMessage({ ...event.data, target: 'sidepanel' });
   }
 });

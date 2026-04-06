@@ -60,12 +60,26 @@ window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
 
+// Extract and report rate limit headers
+function reportRateLimit(headers) {
+  const remaining = headers.get('x-rate-limit-remaining');
+  const reset = headers.get('x-rate-limit-reset');
+  if (remaining !== null) {
+    window.postMessage({
+      type: 'XVM_RATE_LIMIT',
+      remaining: parseInt(remaining, 10),
+      reset: parseInt(reset, 10),
+    }, '*');
+  }
+}
+
 // Hook fetch
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
   const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
   if (url && GRAPHQL_RE.test(url)) {
+    reportRateLimit(response.headers);
     const clone = response.clone();
     clone.json().then(scanForTweets).catch(() => {});
   }
@@ -78,6 +92,16 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
     this.addEventListener('load', function () {
       try {
+        // Report rate limit from XHR headers
+        const remaining = this.getResponseHeader('x-rate-limit-remaining');
+        const reset = this.getResponseHeader('x-rate-limit-reset');
+        if (remaining !== null) {
+          window.postMessage({
+            type: 'XVM_RATE_LIMIT',
+            remaining: parseInt(remaining, 10),
+            reset: parseInt(reset, 10),
+          }, '*');
+        }
         scanForTweets(JSON.parse(this.responseText));
       } catch (e) {}
     });
