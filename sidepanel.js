@@ -278,3 +278,58 @@ btnExport.addEventListener('click', () => {
 });
 
 function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// === Tab Switching ===
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+    tab.classList.add('active');
+    document.getElementById('tab-' + tab.dataset.tab).classList.add('active');
+  });
+});
+
+// === Settings Tab Logic ===
+const SETTINGS_DEFAULTS = { trending: 1000, viral: 10000 };
+const settingsForm = document.getElementById('settings-form');
+const trendingInput = document.getElementById('trending');
+const viralInput = document.getElementById('viral');
+const resetButton = document.getElementById('reset');
+const settingsStatus = document.getElementById('settings-status');
+
+function normalizeThresholds(raw) {
+  const trending = parseInt(raw?.trending, 10);
+  const viral = parseInt(raw?.viral, 10);
+  const next = {
+    trending: Number.isFinite(trending) && trending > 0 ? trending : SETTINGS_DEFAULTS.trending,
+    viral: Number.isFinite(viral) && viral > 0 ? viral : SETTINGS_DEFAULTS.viral,
+  };
+  if (next.viral <= next.trending) next.viral = next.trending + 1;
+  return next;
+}
+
+function showStatus(msg) {
+  settingsStatus.textContent = msg;
+  clearTimeout(showStatus._t);
+  showStatus._t = setTimeout(() => { settingsStatus.textContent = ''; }, 2000);
+}
+
+chrome.storage.sync.get(SETTINGS_DEFAULTS, (items) => {
+  const v = normalizeThresholds(items);
+  trendingInput.value = v.trending;
+  viralInput.value = v.viral;
+});
+
+settingsForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const values = normalizeThresholds({ trending: trendingInput.value, viral: viralInput.value });
+  trendingInput.value = values.trending;
+  viralInput.value = values.viral;
+  chrome.storage.sync.set(values, () => showStatus('已保存'));
+});
+
+resetButton.addEventListener('click', () => {
+  trendingInput.value = SETTINGS_DEFAULTS.trending;
+  viralInput.value = SETTINGS_DEFAULTS.viral;
+  chrome.storage.sync.set(SETTINGS_DEFAULTS, () => showStatus('已恢复默认'));
+});

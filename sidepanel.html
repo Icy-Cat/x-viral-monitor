@@ -7,79 +7,113 @@
   <link rel="stylesheet" href="sidepanel.css">
 </head>
 <body>
-  <div class="panel">
-    <h1>X Tweet Analyzer</h1>
+  <main class="shell">
+    <h1>X Viral Monitor</h1>
 
-    <form id="search-form">
-      <label class="field">
-        <span>Username</span>
-        <input id="username" type="text" placeholder="elonmusk" required>
-      </label>
-      <div class="row">
+    <nav class="tabs">
+      <button class="tab active" data-tab="analyzer">Tweet Analyzer</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <!-- ========== Analyzer Tab ========== -->
+    <section id="tab-analyzer" class="tab-content active">
+      <form id="search-form" class="form-grid">
         <label class="field">
-          <span>From</span>
-          <input id="date-from" type="date" required>
+          <span>Username</span>
+          <input id="username" type="text" placeholder="elonmusk" required>
         </label>
-        <label class="field">
-          <span>To</span>
-          <input id="date-to" type="date" required>
-        </label>
+        <div class="row">
+          <label class="field">
+            <span>From</span>
+            <input id="date-from" type="date" required>
+          </label>
+          <label class="field">
+            <span>To</span>
+            <input id="date-to" type="date" required>
+          </label>
+        </div>
+        <div class="row">
+          <label class="field">
+            <span>Granularity (days)</span>
+            <select id="granularity">
+              <option value="1">1 day</option>
+              <option value="3" selected>3 days</option>
+              <option value="7">7 days</option>
+              <option value="14">14 days</option>
+              <option value="30">30 days</option>
+            </select>
+          </label>
+          <label class="field">
+            <span>Delay (sec)</span>
+            <select id="delay">
+              <option value="2">2s (fast)</option>
+              <option value="4" selected>4s (safe)</option>
+              <option value="8">8s (slow)</option>
+            </select>
+          </label>
+        </div>
+        <div class="actions">
+          <button type="submit" id="btn-start">Start</button>
+          <button type="button" id="btn-stop" disabled>Stop</button>
+          <button type="button" id="btn-export" disabled>Export CSV</button>
+        </div>
+      </form>
+
+      <div id="progress-section" class="progress-section hidden">
+        <div class="progress-bar-bg"><div id="progress-bar" class="progress-bar"></div></div>
+        <p id="progress-text" class="progress-text"></p>
       </div>
-      <div class="row">
-        <label class="field">
-          <span>Granularity (days)</span>
-          <select id="granularity">
-            <option value="1">1 day</option>
-            <option value="3" selected>3 days</option>
-            <option value="7">7 days</option>
-            <option value="14">14 days</option>
-            <option value="30">30 days</option>
-          </select>
-        </label>
-        <label class="field">
-          <span>Delay (sec)</span>
-          <select id="delay">
-            <option value="2">2s (fast)</option>
-            <option value="4" selected>4s (safe)</option>
-            <option value="8">8s (slow)</option>
-          </select>
-        </label>
+
+      <div id="stats" class="stats hidden">
+        <span id="stat-total">0 tweets</span>
+        <span id="stat-window">Window 0/0</span>
+        <span id="stat-ratelimit"></span>
       </div>
-      <div class="actions">
-        <button type="submit" id="btn-start">Start</button>
-        <button type="button" id="btn-stop" disabled>Stop</button>
-        <button type="button" id="btn-export" disabled>Export CSV</button>
+
+      <div id="table-wrap" class="table-wrap">
+        <table id="results-table">
+          <thead>
+            <tr>
+              <th data-sort="date">Date</th>
+              <th data-sort="views">Views</th>
+              <th data-sort="likes">Likes</th>
+              <th data-sort="retweets">RT</th>
+              <th data-sort="replies">Replies</th>
+              <th data-sort="engRate">Eng%</th>
+              <th>Text</th>
+            </tr>
+          </thead>
+          <tbody id="results-body"></tbody>
+        </table>
       </div>
-    </form>
+    </section>
 
-    <div id="progress-section" class="progress-section hidden">
-      <div class="progress-bar-bg"><div id="progress-bar" class="progress-bar"></div></div>
-      <p id="progress-text" class="progress-text"></p>
-    </div>
+    <!-- ========== Settings Tab ========== -->
+    <section id="tab-settings" class="tab-content">
+      <p class="section-desc">设置推文流速分档阈值，单位为每小时浏览量。</p>
 
-    <div id="stats" class="stats hidden">
-      <span id="stat-total">0 tweets</span>
-      <span id="stat-window">Window 0/0</span>
-      <span id="stat-ratelimit"></span>
-    </div>
+      <form id="settings-form" class="form-grid">
+        <label class="field">
+          <span>🚀 普通上升线</span>
+          <input id="trending" name="trending" type="number" min="1" step="1" required>
+          <small>达到这个值后显示为 🚀</small>
+        </label>
 
-    <div id="table-wrap" class="table-wrap">
-      <table id="results-table">
-        <thead>
-          <tr>
-            <th data-sort="date">Date</th>
-            <th data-sort="views">Views</th>
-            <th data-sort="likes">Likes</th>
-            <th data-sort="retweets">RT</th>
-            <th data-sort="replies">Replies</th>
-            <th data-sort="engRate">Eng%</th>
-            <th>Text</th>
-          </tr>
-        </thead>
-        <tbody id="results-body"></tbody>
-      </table>
-    </div>
-  </div>
+        <label class="field">
+          <span>🔥 爆发线</span>
+          <input id="viral" name="viral" type="number" min="2" step="1" required>
+          <small>达到这个值后显示为 🔥</small>
+        </label>
+
+        <div class="actions">
+          <button type="submit">保存</button>
+          <button type="button" id="reset">恢复默认</button>
+        </div>
+
+        <p id="settings-status" class="status-msg" role="status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
 
   <script src="sidepanel.js"></script>
 </body>
