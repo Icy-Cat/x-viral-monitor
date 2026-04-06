@@ -5,6 +5,9 @@ let shouldStop = false;
 let rateLimitRemaining = null;
 let rateLimitReset = null;
 
+const CACHE_KEY = 'xvm_collected_tweets';
+const CACHE_TTL = 3 * 60 * 60 * 1000; // 3 hours
+
 // === DOM refs ===
 const form = document.getElementById('search-form');
 const btnStart = document.getElementById('btn-start');
@@ -32,6 +35,46 @@ function fmt(d) {
     String(d.getMonth() + 1).padStart(2, '0') + '-' +
     String(d.getDate()).padStart(2, '0');
 }
+
+// === Cache: persist collected tweets in chrome.storage.local ===
+function saveCache() {
+  const data = Object.fromEntries(collectedTweets);
+  chrome.storage.local.set({ [CACHE_KEY]: data, xvm_cache_ts: Date.now() });
+}
+
+function loadCache() {
+  return new Promise((resolve) => {
+    chrome.storage.local.get([CACHE_KEY, 'xvm_cache_ts'], (items) => {
+      const ts = items.xvm_cache_ts || 0;
+      if (Date.now() - ts > CACHE_TTL) {
+        // Expired — clear
+        chrome.storage.local.remove([CACHE_KEY, 'xvm_cache_ts']);
+        resolve();
+        return;
+      }
+      const data = items[CACHE_KEY];
+      if (data && typeof data === 'object') {
+        for (const [id, t] of Object.entries(data)) {
+          collectedTweets.set(id, t);
+          addRow(t);
+        }
+        statTotal.textContent = collectedTweets.size + ' tweets';
+        if (collectedTweets.size > 0) {
+          statsEl.classList.remove('hidden');
+          btnExport.disabled = false;
+        }
+      }
+      resolve();
+    });
+  });
+}
+
+function clearCache() {
+  chrome.storage.local.remove([CACHE_KEY, 'xvm_cache_ts']);
+}
+
+// Load cache on startup
+loadCache();
 
 // === Generate time windows ===
 function generateWindows(from, to, days) {
@@ -64,6 +107,7 @@ form.addEventListener('submit', async (e) => {
   isRunning = true;
   shouldStop = false;
   collectedTweets.clear();
+  clearCache();
   tbody.innerHTML = '';
   btnStart.disabled = true;
   btnStop.disabled = false;
@@ -142,6 +186,7 @@ function collectWindow(query) {
           }
         }
         statTotal.textContent = collectedTweets.size + ' tweets';
+        saveCache();
       }
       if (msg.type === 'XVM_SCROLL_DONE') {
         scrollDone = true;
