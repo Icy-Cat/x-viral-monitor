@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 440px; height: 280px;
+    background: linear-gradient(135deg, #0f1419 0%, #1a2634 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    overflow: hidden;
+  }
+  .left { padding: 30px 20px 30px 35px; display: flex; flex-direction: column; justify-content: center; }
+  .bars { display: flex; align-items: flex-end; gap: 10px; height: 160px; }
+  .bar { width: 34px; border-radius: 6px 6px 0 0; }
+  .bar-green { height: 50px; background: #4caf50; }
+  .bar-orange { height: 85px; background: #ff9800; }
+  .bar-red { height: 130px; background: #f44336; }
+  .arrow {
+    display: flex; flex-direction: column; align-items: center;
+    margin-left: 8px; margin-bottom: -5px;
+  }
+  .arrow-head { width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-bottom: 14px solid #f44336; }
+  .arrow-shaft { width: 4px; height: 110px; background: #f44336; border-radius: 2px; }
+
+  .right { padding: 30px 30px 30px 25px; display: flex; flex-direction: column; justify-content: center; }
+  h1 { font-size: 30px; color: #e7e9ea; line-height: 1.2; font-weight: 700; }
+  .desc { font-size: 13px; color: #8b98a5; margin-top: 10px; line-height: 1.5; }
+  .tiers { margin-top: 18px; display: flex; flex-direction: column; gap: 6px; }
+  .tier { display: flex; align-items: center; gap: 6px; font-size: 13px; }
+  .tier .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+  .tier .icon { font-size: 15px; }
+  .tier .label { color: #e7e9ea; font-weight: 600; }
+  .tier .range { color: #8b98a5; }
+</style>
+</head>
+<body>
+  <div class="left">
+    <div class="bars">
+      <div class="bar bar-green"></div>
+      <div class="bar bar-orange"></div>
+      <div class="bar bar-red"></div>
+      <div class="arrow">
+        <div class="arrow-head"></div>
+        <div class="arrow-shaft"></div>
+      </div>
+    </div>
+  </div>
+  <div class="right">
+    <h1>X Viral<br>Monitor</h1>
+    <div class="desc">Real-time impression<br>velocity on every tweet</div>
+    <div class="tiers">
+      <div class="tier"><span class="icon">🌱</span><span class="label">Normal</span></div>
+      <div class="tier"><span class="icon">🚀</span><span class="label">Trending</span></div>
+      <div class="tier"><span class="icon">🔥</span><span class="label">Viral</span></div>
+    </div>
+  </div>
+</body>
+</html>

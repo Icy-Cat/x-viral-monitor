@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1280px; height: 800px;
+    background: #0f1419;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: #e7e9ea;
+    padding: 40px 60px;
+    overflow: hidden;
+  }
+  h1 { font-size: 22px; margin-bottom: 28px; font-weight: 600; }
+  h1 span { color: #8b98a5; font-weight: 400; font-size: 18px; }
+  .layout { display: flex; gap: 30px; }
+  .tweets { flex: 1; display: flex; flex-direction: column; gap: 16px; }
+  .tweet {
+    background: #1e2732;
+    border-radius: 16px;
+    padding: 18px 22px;
+    position: relative;
+  }
+  .tweet-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .user { color: #1d9bf0; font-weight: 700; font-size: 15px; }
+  .time { color: #8b98a5; font-size: 13px; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 4px;
+    font-size: 13px; font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 12px;
+    border: 1.5px solid;
+  }
+  .badge-green { color: #4caf50; border-color: #4caf50; }
+  .badge-orange { color: #ff9800; border-color: #ff9800; }
+  .badge-red { color: #f44336; border-color: #f44336; }
+  .tweet-text { font-size: 15px; line-height: 1.5; color: #e7e9ea; margin-bottom: 14px; }
+  .tweet-metrics { display: flex; gap: 28px; color: #8b98a5; font-size: 13px; }
+  .tweet-metrics span { display: flex; align-items: center; gap: 5px; }
+
+  .sidebar { width: 260px; flex-shrink: 0; }
+  .card {
+    background: #1e2732;
+    border-radius: 16px;
+    padding: 22px;
+  }
+  .card h2 { font-size: 16px; margin-bottom: 16px; font-weight: 600; }
+  .tier-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    font-size: 14px;
+  }
+  .tier-row:last-of-type { border: none; }
+  .tier-icon { font-size: 18px; width: 28px; text-align: center; }
+  .tier-label { font-weight: 600; flex: 1; }
+  .tier-range { color: #8b98a5; font-size: 13px; }
+
+  .hover-info {
+    margin-top: 20px;
+    background: #0f1419;
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 12px;
+    color: #8b98a5;
+    line-height: 1.8;
+  }
+  .hover-info .title { color: #e7e9ea; font-weight: 600; margin-bottom: 4px; font-size: 13px; }
+
+  .tooltip-demo {
+    position: absolute;
+    right: 22px; top: 50px;
+    background: #0f1419;
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 12px;
+    color: #ccc;
+    line-height: 1.8;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.5);
+    min-width: 170px;
+    display: none;
+  }
+  .tweet:nth-child(2) .tooltip-demo { display: block; }
+</style>
+</head>
+<body>
+  <h1>X Viral Monitor <span>— Real-time impression velocity badges</span></h1>
+  <div class="layout">
+    <div class="tweets">
+      <div class="tweet">
+        <div class="tweet-header">
+          <div><span class="user">@dev_sarah</span> <span class="time">· 2h</span></div>
+          <div class="badge badge-green">🌱 320/h</div>
+        </div>
+        <div class="tweet-text">Just shipped a new feature for our dashboard. Latency is down 40% and users are loving the new real-time charts.</div>
+        <div class="tweet-metrics">
+          <span>❤️ 2.1k</span><span>🔄 120</span><span>💬 34</span><span>👁️ 890</span>
+        </div>
+      </div>
+
+      <div class="tweet">
+        <div class="tweet-header">
+          <div><span class="user">@ai_weekly</span> <span class="time">· 45m</span></div>
+          <div class="badge badge-orange">🚀 5.2k/h</div>
+        </div>
+        <div class="tweet-text">Breaking: GPT-5 benchmark results show 3x improvement across reasoning tasks. Full analysis thread below 🧵</div>
+        <div class="tweet-metrics">
+          <span>❤️ 18k</span><span>🔄 3.4k</span><span>💬 892</span><span>👁️ 48k</span>
+        </div>
+        <div class="tooltip-demo">
+          Views: 48,209<br>
+          Likes: 18,342<br>
+          Retweets: 3,412<br>
+          Replies: 892<br>
+          Bookmarks: 1,205<br>
+          Velocity: 5.2k/h<br>
+          Viral Score: 67/100
+        </div>
+      </div>
+
+      <div class="tweet">
+        <div class="tweet-header">
+          <div><span class="user">@elonmusk</span> <span class="time">· 12m</span></div>
+          <div class="badge badge-red">🔥 48.3k/h</div>
+        </div>
+        <div class="tweet-text">Exciting update about Starship orbital refueling. Test window confirmed for next week. This changes everything.</div>
+        <div class="tweet-metrics">
+          <span>❤️ 142k</span><span>🔄 28k</span><span>💬 12k</span><span>👁️ 2.1M</span>
+        </div>
+      </div>
+
+      <div class="tweet">
+        <div class="tweet-header">
+          <div><span class="user">@indie_maker</span> <span class="time">· 6h</span></div>
+          <div class="badge badge-green">🌱 89/h</div>
+        </div>
+        <div class="tweet-text">Day 45 of building in public. Revenue hit $2k MRR. Here's what I learned about pricing psychology...</div>
+        <div class="tweet-metrics">
+          <span>❤️ 450</span><span>🔄 32</span><span>💬 18</span><span>👁️ 3.2k</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sidebar">
+      <div class="card">
+        <h2>Velocity Tiers</h2>
+        <div class="tier-row">
+          <span class="tier-icon">🌱</span>
+          <span class="tier-label" style="color:#4caf50">Normal</span>
+          <span class="tier-range">&lt; 1,000/h</span>
+        </div>
+        <div class="tier-row">
+          <span class="tier-icon">🚀</span>
+          <span class="tier-label" style="color:#ff9800">Trending</span>
+          <span class="tier-range">1k ~ 10k/h</span>
+        </div>
+        <div class="tier-row">
+          <span class="tier-icon">🔥</span>
+          <span class="tier-label" style="color:#f44336">Viral</span>
+          <span class="tier-range">≥ 10,000/h</span>
+        </div>
+
+        <div class="hover-info">
+          <div class="title">💡 Hover for details</div>
+          Views, Likes, Retweets,<br>
+          Replies, Bookmarks,<br>
+          Velocity, Viral Score
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
