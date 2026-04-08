@@ -1,0 +1,52 @@
+const DEFAULT_THRESHOLDS = { trending: 1000, viral: 10000 };
+
+const form = document.getElementById('settings-form');
+const trendingInput = document.getElementById('trending');
+const viralInput = document.getElementById('viral');
+const resetBtn = document.getElementById('reset');
+const statusEl = document.getElementById('status');
+
+function normalize(raw) {
+  const trending = parseInt(raw?.trending, 10);
+  const viral = parseInt(raw?.viral, 10);
+  const next = {
+    trending: Number.isFinite(trending) && trending > 0 ? trending : DEFAULT_THRESHOLDS.trending,
+    viral: Number.isFinite(viral) && viral > 0 ? viral : DEFAULT_THRESHOLDS.viral,
+  };
+  if (next.viral <= next.trending) next.viral = next.trending + 1;
+  return next;
+}
+
+function fmtNum(n) { return n >= 1000 ? (n / 1000).toFixed(0) + 'k' : n.toString(); }
+
+function updateRangeLabels(v) {
+  document.getElementById('range-green').textContent = `< ${fmtNum(v.trending)}/h`;
+  document.getElementById('range-orange').textContent = `${fmtNum(v.trending)} ~ ${fmtNum(v.viral)}/h`;
+  document.getElementById('range-red').textContent = `≥ ${fmtNum(v.viral)}/h`;
+}
+
+function flash(msg) {
+  statusEl.textContent = msg;
+  clearTimeout(flash._t);
+  flash._t = setTimeout(() => { statusEl.textContent = ''; }, 2000);
+}
+
+function fill(v) {
+  trendingInput.value = v.trending;
+  viralInput.value = v.viral;
+  updateRangeLabels(v);
+}
+
+chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => fill(normalize(items)));
+
+form.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const v = normalize({ trending: trendingInput.value, viral: viralInput.value });
+  fill(v);
+  chrome.storage.sync.set(v, () => flash('Saved ✓'));
+});
+
+resetBtn.addEventListener('click', () => {
+  fill(DEFAULT_THRESHOLDS);
+  chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash('Reset ✓'));
+});

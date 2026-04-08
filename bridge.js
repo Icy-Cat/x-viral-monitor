@@ -23,25 +23,40 @@ function pushSettings(raw) {
   }, '*');
 }
 
-chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
-  pushSettings(items);
+// Guard all chrome.* calls against extension context invalidation
+// (happens when extension is reloaded while page is still open)
+function safeChromeCall(fn) {
+  try {
+    if (chrome?.runtime?.id) fn();
+  } catch (e) {}
+}
+
+safeChromeCall(() => {
+  chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
+    pushSettings(items);
+  });
 });
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.type !== 'XVM_REQUEST_SETTINGS') return;
 
-  chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
-    pushSettings(items);
+  safeChromeCall(() => {
+    chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
+      pushSettings(items);
+    });
   });
 });
 
-chrome.storage.onChanged.addListener((changes, areaName) => {
-  if (areaName !== 'sync') return;
-  if (!changes.trending && !changes.viral) return;
+safeChromeCall(() => {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync') return;
+    if (!changes.trending && !changes.viral) return;
 
-  chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
-    pushSettings(items);
+    safeChromeCall(() => {
+      chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
+        pushSettings(items);
+      });
+    });
   });
 });
-
