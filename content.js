@@ -239,7 +239,8 @@ function renderBadges() {
 
     const badge = document.createElement('span');
     badge.className = `xvm-badge ${colorClass}`;
-    badge.textContent = `${prefix} ${formatVelocity(velocity)}/h`;
+    badge.dataset.prefix = prefix;
+    badge.dataset.velocity = formatVelocity(velocity);
 
     // Tooltip: show/hide a single shared fixed element
     const postedDate = new Date(data.createdAt);

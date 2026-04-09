@@ -12,6 +12,10 @@
   transition: color 0.2s;
 }
 
+.xvm-badge::before {
+  content: attr(data-prefix) " " attr(data-velocity) "/h";
+}
+
 .xvm-badge:hover {
   color: rgb(29, 155, 240);
 }
