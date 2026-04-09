@@ -65,6 +65,8 @@
       color: var(--muted);
     }
     .field input {
+      width: 100%;
+      min-width: 0;
       padding: 8px 10px;
       border: 1px solid var(--line);
       border-radius: 10px;
@@ -77,7 +79,10 @@
       border-color: var(--accent);
     }
     .row { display: flex; gap: 8px; }
-    .row .field { flex: 1; }
+    .row .field {
+      flex: 1 1 0;
+      min-width: 0;
+    }
 
     .actions { display: flex; gap: 8px; margin-top: 6px; }
     button {
