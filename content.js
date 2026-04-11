@@ -58,7 +58,11 @@ window.addEventListener('message', (event) => {
 window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
+// GraphQL covers timelines/TweetDetail; the v1.1 /2/notifications/* REST
+// endpoints back the Notifications and Mentions tabs and embed tweets in
+// globalObjects.tweets, so we have to intercept them too.
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
+const TWEET_API_RE = /\/i\/api\/(graphql\/|2\/notifications\/)/;
 
 // Extract and report rate limit headers
 function reportRateLimit(headers) {
@@ -78,8 +82,8 @@ const originalFetch = window.fetch;
 window.fetch = async function (...args) {
   const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-  if (url && GRAPHQL_RE.test(url)) {
-    reportRateLimit(response.headers);
+  if (url && TWEET_API_RE.test(url)) {
+    if (GRAPHQL_RE.test(url)) reportRateLimit(response.headers);
     const clone = response.clone();
     clone.json().then(scanForTweets).catch(() => {});
   }
@@ -89,18 +93,20 @@ window.fetch = async function (...args) {
 // Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
 const originalXHROpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-  if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
+  if (typeof url === 'string' && TWEET_API_RE.test(url)) {
+    const isGraphql = GRAPHQL_RE.test(url);
     this.addEventListener('load', function () {
       try {
-        // Report rate limit from XHR headers
-        const remaining = this.getResponseHeader('x-rate-limit-remaining');
-        const reset = this.getResponseHeader('x-rate-limit-reset');
-        if (remaining !== null) {
-          window.postMessage({
-            type: 'XVM_RATE_LIMIT',
-            remaining: parseInt(remaining, 10),
-            reset: parseInt(reset, 10),
-          }, '*');
+        if (isGraphql) {
+          const remaining = this.getResponseHeader('x-rate-limit-remaining');
+          const reset = this.getResponseHeader('x-rate-limit-reset');
+          if (remaining !== null) {
+            window.postMessage({
+              type: 'XVM_RATE_LIMIT',
+              remaining: parseInt(remaining, 10),
+              reset: parseInt(reset, 10),
+            }, '*');
+          }
         }
         scanForTweets(JSON.parse(this.responseText));
       } catch (e) {}
@@ -120,12 +126,21 @@ function scanForTweets(obj) {
     if (data) { tweetDataStore.set(data.id, data); found = true; }
   }
 
+  // /i/api/2/notifications/* responses are v1.1-shaped: tweet objects live
+  // in globalObjects.tweets keyed by id_str, with no tweet_results wrapper.
+  if (obj.globalObjects?.tweets && typeof obj.globalObjects.tweets === 'object') {
+    for (const id of Object.keys(obj.globalObjects.tweets)) {
+      const data = extractLegacyTweetData(obj.globalObjects.tweets[id]);
+      if (data) { tweetDataStore.set(data.id, data); found = true; }
+    }
+  }
+
   // Recurse into arrays and objects
   if (Array.isArray(obj)) {
     for (const item of obj) scanForTweets(item);
   } else {
     for (const key of Object.keys(obj)) {
-      if (key === 'tweet_results') continue; // already handled above
+      if (key === 'tweet_results' || key === 'globalObjects') continue; // already handled above
       const val = obj[key];
       if (val && typeof val === 'object') scanForTweets(val);
     }
@@ -158,6 +173,28 @@ function extractTweetData(result) {
     bookmarks: legacy.bookmark_count || 0,
     createdAt: legacy.created_at,
     text: legacy.full_text || '',
+  };
+}
+
+// v1.1 REST shape (used by /i/api/2/notifications/*): fields are flat on the
+// tweet object and view counts live under ext_views instead of views.
+function extractLegacyTweetData(tweet) {
+  if (!tweet || !tweet.id_str) return null;
+  if (tweet.retweeted_status_id_str) return null; // skip retweets, original is also in globalObjects
+
+  const viewsObj = tweet.ext_views || tweet.views;
+  const viewCount = parseInt(viewsObj?.count, 10);
+  if (!viewCount) return null;
+
+  return {
+    id: tweet.id_str,
+    views: viewCount,
+    likes: tweet.favorite_count || 0,
+    retweets: tweet.retweet_count || 0,
+    replies: tweet.reply_count || 0,
+    bookmarks: tweet.bookmark_count || 0,
+    createdAt: tweet.created_at,
+    text: tweet.full_text || '',
   };
 }
 
