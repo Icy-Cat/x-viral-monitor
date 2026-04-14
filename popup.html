@@ -136,7 +136,8 @@
       color: var(--muted);
       line-height: 1.5;
     }
-    .feature-row label { cursor: pointer; flex: 1; }
+    .feature-row .ft-body { flex: 1; min-width: 0; }
+    .feature-row label { cursor: pointer; display: block; }
     .ft-cache {
       display: flex;
       align-items: center;
@@ -199,14 +200,16 @@
 
     <div class="feature-row">
       <input id="feat-bookmark-folders" type="checkbox">
-      <label for="feat-bookmark-folders">
-        <div class="ft-title">🔖 Bookmark folder menu</div>
-        <div class="ft-desc">Hover a tweet's bookmark button to pick a folder or create a new one. Requires X Premium.</div>
+      <div class="ft-body">
+        <label for="feat-bookmark-folders">
+          <div class="ft-title">🔖 Bookmark folder menu</div>
+          <div class="ft-desc">Hover a tweet's bookmark button to pick a folder or create a new one. Requires X Premium.</div>
+        </label>
         <div class="ft-cache">
           <span id="folder-cache-info">No folders cached</span>
           <button type="button" id="refresh-folders">Refresh</button>
         </div>
-      </label>
+      </div>
     </div>
   </div>
 

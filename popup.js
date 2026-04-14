@@ -66,7 +66,7 @@ function renderCacheInfo(cache) {
 
 function triggerRefresh() {
   refreshBtn.disabled = true;
-  chrome.storage.sync.set({ bookmarkRefreshAt: Date.now() });
+  chrome.storage.local.set({ bookmarkRefreshAt: Date.now() });
   setTimeout(() => {
     chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
       renderCacheInfo(items.bookmarkFoldersCache);

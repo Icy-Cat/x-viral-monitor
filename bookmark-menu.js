@@ -63,34 +63,45 @@
     window.postMessage({ type: 'XVM_REQUEST_FOLDER_REFRESH' }, '*');
   }
 
-  // Ensure the tweet is in "All Bookmarks" before assigning it to a folder.
-  // Prefer clicking the native bookmark button so X's React state updates the
-  // icon; fall back to the CreateBookmark mutation if no button is in the DOM
-  // (e.g. the article was scrolled out of view).
-  async function ensureBookmarked(tweetId) {
+  function findArticleByTweetId(tweetId) {
     const articles = document.querySelectorAll('article[data-testid="tweet"]');
     for (const article of articles) {
       const links = article.querySelectorAll('a[href*="/status/"]');
-      let matches = false;
       for (const link of links) {
         const m = (link.getAttribute('href') || '').match(/\/status\/(\d+)/);
-        if (m && m[1] === tweetId) { matches = true; break; }
+        if (m && m[1] === tweetId) return article;
       }
-      if (!matches) continue;
-      if (article.querySelector('[data-testid="removeBookmark"]')) return 'already';
-      const addBtn = article.querySelector('[data-testid="bookmark"]');
-      if (addBtn) {
-        addBtn.click();
-        await new Promise((r) => setTimeout(r, 180));
-        return 'clicked';
-      }
-      break;
     }
+    return null;
+  }
+
+  // Ensure the tweet is in "All Bookmarks" before assigning it to a folder.
+  // Prefers clicking the native bookmark button so X's React state updates the
+  // icon. Polls the DOM until the button flips to removeBookmark (up to 2s),
+  // guaranteeing the CreateBookmark mutation has committed on the server before
+  // we fire bookmarkTweetToFolder. Falls back to the CreateBookmark API if the
+  // article isn't in the DOM or the native click doesn't take effect in time.
+  async function ensureBookmarked(tweetId) {
+    const initial = findArticleByTweetId(tweetId);
+    if (initial?.querySelector('[data-testid="removeBookmark"]')) return 'already';
+
+    const addBtn = initial?.querySelector('[data-testid="bookmark"]');
+    if (addBtn) {
+      addBtn.click();
+      const deadline = Date.now() + 2000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 80));
+        const current = findArticleByTweetId(tweetId);
+        if (current?.querySelector('[data-testid="removeBookmark"]')) return 'clicked';
+      }
+    }
+
     // Fallback: direct mutation. Data will be correct even if the icon lags.
     try {
       await gql('CreateBookmark', 'POST', { tweet_id: tweetId });
       return 'api';
     } catch (e) {
+      console.warn('[XVM] ensureBookmarked API fallback failed', e);
       return 'failed';
     }
   }
@@ -106,12 +117,95 @@
     return null;
   }
 
+  async function fetchFoldersDirect() {
+    const d = await gql('BookmarkFoldersSlice', 'GET', {});
+    const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
+    return items.map((i) => ({ id: i.id, name: i.name }));
+  }
+
+  function foldersEqual(a, b) {
+    if (a.length !== b.length) return false;
+    for (let i = 0; i < a.length; i += 1) {
+      if (a[i].id !== b[i].id || a[i].name !== b[i].name) return false;
+    }
+    return true;
+  }
+
   function ensureMenu() {
     if (menuEl) return menuEl;
     menuEl = document.createElement('div');
     menuEl.className = 'xvm-bk-menu';
     menuEl.addEventListener('mouseenter', () => clearTimeout(hideTimer));
     menuEl.addEventListener('mouseleave', scheduleHide);
+
+    // Delegated click handler for folder items (re-rendered via innerHTML)
+    menuEl.addEventListener('click', async (ev) => {
+      const el = ev.target instanceof Element
+        ? ev.target.closest('.xvm-bk-item')
+        : null;
+      if (!el || !currentTweetId) return;
+      const id = el.dataset.id;
+      const tweetId = currentTweetId;
+      const contains = containsCache.get(tweetId);
+      const isIn = contains instanceof Set && contains.has(id);
+      if (el.classList.contains('xvm-bk-pending')) return;
+      el.classList.add('xvm-bk-pending');
+      try {
+        if (isIn) {
+          await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
+          contains.delete(id);
+        } else {
+          const cur = containsCache.get(tweetId);
+          if (!(cur instanceof Set) || cur.size === 0) {
+            await ensureBookmarked(tweetId);
+          }
+          await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
+          const after = containsCache.get(tweetId);
+          if (after instanceof Set) after.add(id);
+          else containsCache.set(tweetId, new Set([id]));
+        }
+        if (currentTweetId === tweetId) renderMenu(tweetId);
+      } catch (e) {
+        console.warn('[XVM] folder op failed', e);
+        el.classList.remove('xvm-bk-pending');
+        el.classList.add('xvm-bk-error');
+      }
+    });
+
+    // Delegated keydown on the new-folder input
+    menuEl.addEventListener('keydown', async (ev) => {
+      const input = ev.target instanceof HTMLInputElement ? ev.target : null;
+      if (!input || !input.classList.contains('xvm-bk-input')) return;
+      if (ev.key !== 'Enter' || !currentTweetId) return;
+      ev.preventDefault();
+      const name = input.value.trim();
+      if (!name) return;
+      const tweetId = currentTweetId;
+      input.disabled = true;
+      try {
+        await gql('createBookmarkFolder', 'POST', { name });
+        const fresh = await fetchFoldersDirect();
+        if (!foldersEqual(cachedFolders, fresh)) cachedFolders = fresh;
+        requestRefresh();
+        const created = fresh.find((f) => f.name === name);
+        if (created) {
+          const cur = containsCache.get(tweetId);
+          if (!(cur instanceof Set) || cur.size === 0) {
+            await ensureBookmarked(tweetId);
+          }
+          await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
+          const after = containsCache.get(tweetId);
+          if (after instanceof Set) after.add(created.id);
+          else containsCache.set(tweetId, new Set([created.id]));
+        }
+        if (currentTweetId === tweetId) renderMenu(tweetId);
+      } catch (e) {
+        console.warn('[XVM] create folder flow failed', e);
+        input.disabled = false;
+        input.classList.add('xvm-bk-error');
+      }
+    });
+
     document.body.appendChild(menuEl);
     return menuEl;
   }
@@ -173,66 +267,6 @@
       </div>
     `;
 
-    m.querySelectorAll('.xvm-bk-item').forEach((el) => {
-      el.addEventListener('click', async () => {
-        const id = el.dataset.id;
-        const contains = containsCache.get(tweetId);
-        const isIn = contains instanceof Set && contains.has(id);
-        el.classList.add('xvm-bk-pending');
-        try {
-          if (isIn) {
-            await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
-            contains.delete(id);
-          } else {
-            // Make sure the tweet is in "All Bookmarks" so the native icon
-            // reflects the saved state before we assign it to a folder.
-            const cur = containsCache.get(tweetId);
-            if (!(cur instanceof Set) || cur.size === 0) {
-              await ensureBookmarked(tweetId);
-            }
-            await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
-            const after = containsCache.get(tweetId);
-            if (after instanceof Set) after.add(id);
-            else containsCache.set(tweetId, new Set([id]));
-          }
-          if (currentTweetId === tweetId) renderMenu(tweetId);
-        } catch (e) {
-          el.classList.remove('xvm-bk-pending');
-          el.classList.add('xvm-bk-error');
-        }
-      });
-    });
-
-    const input = m.querySelector('.xvm-bk-input');
-    input.addEventListener('keydown', async (ev) => {
-      if (ev.key !== 'Enter') return;
-      ev.preventDefault();
-      const name = input.value.trim();
-      if (!name) return;
-      input.disabled = true;
-      try {
-        await gql('createBookmarkFolder', 'POST', { name });
-        requestRefresh();
-        // Wait briefly for bridge to push the updated cache
-        await new Promise((r) => setTimeout(r, 500));
-        const created = cachedFolders.find((f) => f.name === name);
-        if (created) {
-          const cur = containsCache.get(tweetId);
-          if (!(cur instanceof Set) || cur.size === 0) {
-            await ensureBookmarked(tweetId);
-          }
-          await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
-          const after = containsCache.get(tweetId);
-          if (after instanceof Set) after.add(created.id);
-          else containsCache.set(tweetId, new Set([created.id]));
-        }
-        if (currentTweetId === tweetId) renderMenu(tweetId);
-      } catch (e) {
-        input.disabled = false;
-        input.classList.add('xvm-bk-error');
-      }
-    });
-
     positionMenu();
   }
 
@@ -266,9 +300,14 @@
     }
   }
 
+  function findBookmarkBtn(target) {
+    if (!(target instanceof Element)) return null;
+    return target.closest('[data-testid="bookmark"], [data-testid="removeBookmark"]');
+  }
+
   document.addEventListener('mouseover', (e) => {
     if (!enabled) return;
-    const btn = e.target.closest?.('[data-testid="bookmark"], [data-testid="removeBookmark"]');
+    const btn = findBookmarkBtn(e.target);
     if (!btn) return;
     clearTimeout(hideTimer);
     clearTimeout(hoverTimer);
@@ -277,7 +316,7 @@
 
   document.addEventListener('mouseout', (e) => {
     if (!enabled) return;
-    const btn = e.target.closest?.('[data-testid="bookmark"], [data-testid="removeBookmark"]');
+    const btn = findBookmarkBtn(e.target);
     if (!btn) return;
     clearTimeout(hoverTimer);
     scheduleHide();
@@ -295,9 +334,11 @@
       return;
     }
     if (type === 'XVM_FOLDERS_UPDATE') {
-      cachedFolders = Array.isArray(event.data.folders) ? event.data.folders : [];
-      containsCache.clear();
-      if (currentTweetId && menuEl && menuEl.style.display !== 'none') {
+      const next = Array.isArray(event.data.folders) ? event.data.folders : [];
+      const changed = !foldersEqual(cachedFolders, next);
+      cachedFolders = next;
+      if (changed) containsCache.clear();
+      if (changed && currentTweetId && menuEl && menuEl.style.display !== 'none') {
         renderMenu(currentTweetId);
       }
     }

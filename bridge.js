@@ -90,13 +90,15 @@ safeChromeCall(() => {
           chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => pushSettings(items));
         });
       }
+    }
+    if (areaName === 'local') {
       if (changes.bookmarkRefreshAt) {
         refreshFolders();
       }
-    }
-    if (areaName === 'local' && changes.bookmarkFoldersCache) {
-      const c = changes.bookmarkFoldersCache.newValue;
-      if (c?.folders) pushFolders(c.folders, c.cachedAt || 0);
+      if (changes.bookmarkFoldersCache) {
+        const c = changes.bookmarkFoldersCache.newValue;
+        if (c?.folders) pushFolders(c.folders, c.cachedAt || 0);
+      }
     }
   });
 });
@@ -112,7 +114,10 @@ async function refreshFolders() {
   refreshInFlight = (async () => {
     try {
       const ct0 = document.cookie.match(/ct0=([^;]+)/)?.[1];
-      if (!ct0) return;
+      if (!ct0) {
+        console.warn('[XVM] refreshFolders: no ct0 cookie, user not logged in');
+        return;
+      }
       const url = `/i/api/graphql/${OP_LIST.qid}/${OP_LIST.name}?variables=${encodeURIComponent('{}')}`;
       const r = await fetch(url, {
         credentials: 'include',
@@ -123,7 +128,10 @@ async function refreshFolders() {
           'content-type': 'application/json',
         },
       });
-      if (!r.ok) return;
+      if (!r.ok) {
+        console.warn('[XVM] refreshFolders HTTP', r.status);
+        return;
+      }
       const d = await r.json();
       const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
       const folders = items.map((i) => ({ id: i.id, name: i.name }));
@@ -133,8 +141,9 @@ async function refreshFolders() {
         chrome.storage.local.set({ bookmarkFoldersCache: { folders, cachedAt } });
       });
       pushFolders(folders, cachedAt);
-    } catch (e) {}
-    finally {
+    } catch (e) {
+      console.warn('[XVM] refreshFolders failed', e);
+    } finally {
       refreshInFlight = null;
     }
   })();
