@@ -19,8 +19,20 @@
 
   // Folder list cache (pushed from bridge.js)
   let cachedFolders = [];
-  // In-memory per-tweet containment cache (tweet_id -> Set(folder_id))
+  // In-memory per-tweet containment cache: tweet_id -> { ids: Set, at: ms }
   const containsCache = new Map();
+  const CONTAINS_TTL_MS = 30_000;
+
+  function getContainsFresh(tweetId) {
+    const e = containsCache.get(tweetId);
+    if (!e) return null;
+    if (Date.now() - e.at > CONTAINS_TTL_MS) return null;
+    return e.ids;
+  }
+
+  function setContains(tweetId, ids) {
+    containsCache.set(tweetId, { ids, at: Date.now() });
+  }
 
   function getCsrf() {
     return document.cookie.match(/ct0=([^;]+)/)?.[1];
@@ -54,8 +66,13 @@
     const d = await gql('BookmarkFoldersSlice', 'GET', { tweet_id: tweetId });
     const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
     const ids = new Set(items.filter((i) => i.contains_requested_tweet).map((i) => i.id));
-    containsCache.set(tweetId, ids);
-    if (items.length !== cachedFolders.length) requestRefresh();
+    setContains(tweetId, ids);
+    // Compare full folder list (not just count) to catch renames.
+    const freshList = items.map((i) => ({ id: i.id, name: i.name }));
+    if (!foldersEqual(cachedFolders, freshList)) {
+      cachedFolders = freshList;
+      requestRefresh(); // let bridge persist; our in-memory copy is already updated
+    }
     return ids;
   }
 
@@ -146,7 +163,7 @@
       if (!el || !currentTweetId) return;
       const id = el.dataset.id;
       const tweetId = currentTweetId;
-      const contains = containsCache.get(tweetId);
+      const contains = getContainsFresh(tweetId);
       const isIn = contains instanceof Set && contains.has(id);
       if (el.classList.contains('xvm-bk-pending')) return;
       el.classList.add('xvm-bk-pending');
@@ -154,15 +171,15 @@
         if (isIn) {
           await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
           contains.delete(id);
+          setContains(tweetId, contains); // refresh TTL
         } else {
-          const cur = containsCache.get(tweetId);
-          if (!(cur instanceof Set) || cur.size === 0) {
+          if (!contains || contains.size === 0) {
             await ensureBookmarked(tweetId);
           }
           await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
-          const after = containsCache.get(tweetId);
-          if (after instanceof Set) after.add(id);
-          else containsCache.set(tweetId, new Set([id]));
+          const after = getContainsFresh(tweetId) || new Set();
+          after.add(id);
+          setContains(tweetId, after);
         }
         if (currentTweetId === tweetId) renderMenu(tweetId);
       } catch (e) {
@@ -189,14 +206,14 @@
         requestRefresh();
         const created = fresh.find((f) => f.name === name);
         if (created) {
-          const cur = containsCache.get(tweetId);
-          if (!(cur instanceof Set) || cur.size === 0) {
+          const cur = getContainsFresh(tweetId);
+          if (!cur || cur.size === 0) {
             await ensureBookmarked(tweetId);
           }
           await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
-          const after = containsCache.get(tweetId);
-          if (after instanceof Set) after.add(created.id);
-          else containsCache.set(tweetId, new Set([created.id]));
+          const after = getContainsFresh(tweetId) || new Set();
+          after.add(created.id);
+          setContains(tweetId, after);
         }
         if (currentTweetId === tweetId) renderMenu(tweetId);
       } catch (e) {
@@ -241,7 +258,7 @@
       return;
     }
 
-    const containing = containsCache.get(tweetId);
+    const containing = getContainsFresh(tweetId);
     const hasContains = containing instanceof Set;
 
     const header = hasContains && containing.size
@@ -253,7 +270,7 @@
     const list = cachedFolders.map((f) => {
       const inIt = hasContains && containing.has(f.id);
       return `
-        <div class="xvm-bk-item${inIt ? ' xvm-bk-checked' : ''}" data-id="${f.id}">
+        <div class="xvm-bk-item${inIt ? ' xvm-bk-checked' : ''}" data-id="${escapeHtml(f.id)}">
           <span class="xvm-bk-check">${inIt ? '✓' : ''}</span>
           <span class="xvm-bk-name">${escapeHtml(f.name)}</span>
         </div>`;
@@ -281,21 +298,38 @@
   async function openForButton(btn) {
     const tweetId = getTweetIdFromButton(btn);
     if (!tweetId) return;
-    anchorBtn = btn;
+
+    // Re-find a live button in case React replaced the original article
+    // during the hover delay. getBoundingClientRect on a detached element
+    // returns zero, which would anchor the menu at the viewport corner.
+    let liveBtn = btn;
+    if (!btn.isConnected) {
+      const freshArticle = findArticleByTweetId(tweetId);
+      liveBtn = freshArticle?.querySelector('[data-testid="bookmark"], [data-testid="removeBookmark"]') || null;
+      if (!liveBtn) return; // nothing to anchor to
+    }
+    anchorBtn = liveBtn;
     currentTweetId = tweetId;
 
     // Render instantly from cache
     renderMenu(tweetId);
 
-    // Background containment lookup
-    if (!containsCache.has(tweetId)) {
+    // Background containment lookup (skip if cached and fresh)
+    if (!getContainsFresh(tweetId)) {
       try {
         await fetchContains(tweetId);
         if (currentTweetId === tweetId) renderMenu(tweetId);
       } catch (e) {
-        if (currentTweetId === tweetId && !cachedFolders.length) {
+        console.warn('[XVM] fetchContains failed', e);
+        if (currentTweetId !== tweetId) return;
+        if (!cachedFolders.length) {
           renderEmpty('Failed to load folders. X Premium may be required.', true);
+          return;
         }
+        // Mark containment as "unknown but resolved" so the header stops
+        // saying "Checking…" and the user can still click folders.
+        setContains(tweetId, new Set());
+        renderMenu(tweetId);
       }
     }
   }
@@ -337,7 +371,8 @@
       const next = Array.isArray(event.data.folders) ? event.data.folders : [];
       const changed = !foldersEqual(cachedFolders, next);
       cachedFolders = next;
-      if (changed) containsCache.clear();
+      // containsCache stores folder IDs; IDs survive rename, and deleted
+      // folders are naturally filtered out at render time. Don't wipe it.
       if (changed && currentTweetId && menuEl && menuEl.style.display !== 'none') {
         renderMenu(currentTweetId);
       }

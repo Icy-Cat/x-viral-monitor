@@ -112,6 +112,9 @@ async function refreshFolders() {
   if (Date.now() - lastFetchAt < 3000) return; // debounce
 
   refreshInFlight = (async () => {
+    // Stamp now so failures still benefit from the debounce window and we
+    // don't hammer X on repeated 401/500 responses.
+    lastFetchAt = Date.now();
     try {
       const ct0 = document.cookie.match(/ct0=([^;]+)/)?.[1];
       if (!ct0) {

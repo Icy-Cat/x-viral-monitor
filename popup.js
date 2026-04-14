@@ -64,15 +64,15 @@ function renderCacheInfo(cache) {
   cacheInfoEl.textContent = `${cache.folders.length} folders · ${ageStr}`;
 }
 
+let refreshFallbackTimer = null;
+
 function triggerRefresh() {
   refreshBtn.disabled = true;
   chrome.storage.local.set({ bookmarkRefreshAt: Date.now() });
-  setTimeout(() => {
-    chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
-      renderCacheInfo(items.bookmarkFoldersCache);
-      refreshBtn.disabled = false;
-    });
-  }, 1500);
+  // Fallback in case bridge fails to respond (no logged-in tab, network
+  // error, etc.) — re-enable the button so the user isn't stuck.
+  clearTimeout(refreshFallbackTimer);
+  refreshFallbackTimer = setTimeout(() => { refreshBtn.disabled = false; }, 5000);
 }
 
 chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
@@ -82,6 +82,8 @@ chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.bookmarkFoldersCache) {
     renderCacheInfo(changes.bookmarkFoldersCache.newValue);
+    refreshBtn.disabled = false;
+    clearTimeout(refreshFallbackTimer);
   }
 });
 
