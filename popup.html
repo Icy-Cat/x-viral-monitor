@@ -107,6 +107,36 @@
       margin-top: 6px;
       min-height: 1.2em;
     }
+
+    .feature-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .feature-row input[type="checkbox"] {
+      margin-top: 2px;
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+    .feature-row .ft-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .feature-row .ft-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .feature-row label { cursor: pointer; flex: 1; }
   </style>
 </head>
 <body>
@@ -142,6 +172,16 @@
       </div>
       <p id="status" class="status-msg" role="status"></p>
     </form>
+
+    <div class="divider"></div>
+
+    <div class="feature-row">
+      <input id="feat-leaderboard" type="checkbox">
+      <label for="feat-leaderboard">
+        <div class="ft-title">📊 Velocity leaderboard</div>
+        <div class="ft-desc">Floating sidebar on the right showing the top 3 fastest-growing tweets visible on the current page. Click to scroll to the tweet.</div>
+      </label>
+    </div>
   </div>
 
   <script src="popup.js"></script>

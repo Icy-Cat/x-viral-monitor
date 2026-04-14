@@ -1,4 +1,6 @@
 const DEFAULT_THRESHOLDS = { trending: 1000, viral: 10000 };
+const DEFAULT_FEATURES = { featureVelocityLeaderboard: false };
+const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
 // Apply chrome.i18n translations to any element marked with data-i18n.
 // Falls back to the hardcoded English text in the HTML if a key is missing.
@@ -19,6 +21,7 @@ const trendingInput = document.getElementById('trending');
 const viralInput = document.getElementById('viral');
 const resetBtn = document.getElementById('reset');
 const statusEl = document.getElementById('status');
+const leaderboardToggle = document.getElementById('feat-leaderboard');
 
 function normalize(raw) {
   const trending = parseInt(raw?.trending, 10);
@@ -51,7 +54,16 @@ function fill(v) {
   updateRangeLabels(v);
 }
 
-chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => fill(normalize(items)));
+chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
+  fill(normalize(items));
+  leaderboardToggle.checked = !!items.featureVelocityLeaderboard;
+});
+
+leaderboardToggle.addEventListener('change', () => {
+  chrome.storage.sync.set({ featureVelocityLeaderboard: leaderboardToggle.checked }, () => {
+    flash(leaderboardToggle.checked ? 'Leaderboard ON ✓' : 'Leaderboard OFF');
+  });
+});
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();

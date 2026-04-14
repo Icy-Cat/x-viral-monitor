@@ -41,6 +41,8 @@ function normalizeThresholds(raw) {
   return next;
 }
 
+let leaderboardEnabled = false;
+
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.type !== 'XVM_SETTINGS_UPDATE') return;
@@ -53,6 +55,16 @@ window.addEventListener('message', (event) => {
     badge.remove();
   });
   renderBadges();
+
+  const nextLb = !!event.data.featureVelocityLeaderboard;
+  if (nextLb !== leaderboardEnabled) {
+    leaderboardEnabled = nextLb;
+    if (leaderboardEnabled) {
+      renderLeaderboard();
+    } else {
+      hideLeaderboard();
+    }
+  }
 });
 
 window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
@@ -282,6 +294,93 @@ function renderBadges() {
 
     headerRow.insertBefore(badge, headerRow.lastElementChild);
   }
+
+  if (leaderboardEnabled) renderLeaderboard();
+}
+
+// === Velocity Leaderboard ===
+let leaderboardEl = null;
+let leaderboardRaf = 0;
+
+function ensureLeaderboard() {
+  if (leaderboardEl) return leaderboardEl;
+  leaderboardEl = document.createElement('div');
+  leaderboardEl.className = 'xvm-lb';
+  leaderboardEl.innerHTML = `
+    <div class="xvm-lb-head"><span class="xvm-lb-title">🔥 Hot on this page</span></div>
+    <ul class="xvm-lb-list"></ul>
+  `;
+  document.body.appendChild(leaderboardEl);
+  return leaderboardEl;
+}
+
+function hideLeaderboard() {
+  if (leaderboardEl) leaderboardEl.style.display = 'none';
+}
+
+function collectRanked() {
+  const out = [];
+  const seen = new Set();
+  const articles = document.querySelectorAll('article[data-testid="tweet"]');
+  for (const article of articles) {
+    const id = getTweetIdFromArticle(article);
+    if (!id || seen.has(id)) continue;
+    const data = tweetDataStore.get(id);
+    if (!data) continue;
+    seen.add(id);
+    const { velocity } = computeScore(data);
+    let handle = '';
+    const userLink = article.querySelector('a[href^="/"][role="link"] span');
+    if (userLink) handle = userLink.textContent || '';
+    if (!handle) {
+      const m = (data.text || '').slice(0, 60);
+      handle = m;
+    }
+    out.push({ id, article, velocity, handle, text: data.text });
+  }
+  return out.sort((a, b) => b.velocity - a.velocity);
+}
+
+function renderLeaderboard() {
+  cancelAnimationFrame(leaderboardRaf);
+  leaderboardRaf = requestAnimationFrame(() => {
+    const el = ensureLeaderboard();
+    const top = collectRanked().slice(0, 3);
+    if (!top.length) {
+      el.style.display = 'none';
+      return;
+    }
+    el.style.display = 'block';
+    const list = el.querySelector('.xvm-lb-list');
+    list.innerHTML = top.map((t, i) => {
+      const tier = t.velocity >= velocityThresholds.viral ? 'red'
+        : t.velocity >= velocityThresholds.trending ? 'orange'
+        : 'green';
+      const icon = tier === 'red' ? '\u{1F525}' : tier === 'orange' ? '\u{1F680}' : '\u{1F331}';
+      const label = (t.handle || '').trim().slice(0, 22) || '(tweet)';
+      return `
+        <li class="xvm-lb-item xvm-lb-${tier}" data-id="${t.id}">
+          <span class="xvm-lb-rank">${i + 1}</span>
+          <span class="xvm-lb-icon">${icon}</span>
+          <span class="xvm-lb-label" title="${(t.text || '').replace(/"/g, '&quot;').slice(0, 200)}">${label.replace(/</g, '&lt;')}</span>
+          <span class="xvm-lb-vel">${formatVelocity(t.velocity)}/h</span>
+        </li>`;
+    }).join('');
+
+    list.querySelectorAll('.xvm-lb-item').forEach((li) => {
+      li.addEventListener('click', () => {
+        const id = li.dataset.id;
+        const entry = collectRanked().find((e) => e.id === id);
+        if (entry?.article?.isConnected) {
+          entry.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          entry.article.animate(
+            [{ outline: '2px solid rgba(29,155,240,0.9)' }, { outline: '2px solid rgba(29,155,240,0)' }],
+            { duration: 1600 },
+          );
+        }
+      });
+    });
+  });
 }
 
 function getTweetIdFromArticle(article) {
@@ -304,8 +403,18 @@ setInterval(() => {
   const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
   if (unscored.length > 0) {
     renderBadges();
+  } else if (leaderboardEnabled) {
+    renderLeaderboard();
   }
 }, 2000);
+
+// Refresh leaderboard on scroll as virtualized articles come and go
+let lbScrollTick = false;
+window.addEventListener('scroll', () => {
+  if (!leaderboardEnabled || lbScrollTick) return;
+  lbScrollTick = true;
+  setTimeout(() => { lbScrollTick = false; renderLeaderboard(); }, 250);
+}, { passive: true });
 
 // === MutationObserver ===
 const observer = new MutationObserver((mutations) => {
