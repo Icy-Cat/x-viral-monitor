@@ -21,7 +21,7 @@
     },
     {
       "matches": ["https://x.com/*", "https://pro.x.com/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "bookmark-menu.js"],
       "css": ["styles.css"],
       "run_at": "document_start",
       "world": "MAIN"

@@ -59,3 +59,97 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
+
+.xvm-bk-menu {
+  display: none;
+  position: fixed;
+  z-index: 2147483647;
+  width: 240px;
+  max-height: 340px;
+  overflow: hidden;
+  background: rgb(21, 32, 43);
+  color: rgb(231, 233, 234);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  padding: 8px 0;
+}
+
+.xvm-bk-header {
+  padding: 6px 12px 8px;
+  font-size: 11px;
+  color: rgb(139, 152, 165);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  margin-bottom: 4px;
+}
+.xvm-bk-header b {
+  color: rgb(29, 155, 240);
+  font-weight: 600;
+}
+.xvm-bk-muted { color: rgb(113, 118, 123); }
+
+.xvm-bk-list {
+  max-height: 220px;
+  overflow-y: auto;
+  padding: 2px 0;
+}
+.xvm-bk-list::-webkit-scrollbar { width: 6px; }
+.xvm-bk-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
+
+.xvm-bk-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+.xvm-bk-item:hover { background: rgba(255, 255, 255, 0.06); }
+.xvm-bk-checked { color: rgb(29, 155, 240); }
+.xvm-bk-pending { opacity: 0.5; pointer-events: none; }
+.xvm-bk-item.xvm-bk-error { background: rgba(244, 67, 54, 0.12); }
+
+.xvm-bk-check {
+  display: inline-block;
+  width: 14px;
+  text-align: center;
+  color: rgb(29, 155, 240);
+  font-weight: 700;
+}
+.xvm-bk-name {
+  flex: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.xvm-bk-new {
+  padding: 8px 10px 2px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+  margin-top: 4px;
+}
+.xvm-bk-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 10px;
+  background: rgba(255, 255, 255, 0.04);
+  color: rgb(231, 233, 234);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  font: inherit;
+  outline: none;
+}
+.xvm-bk-input:focus { border-color: rgb(29, 155, 240); }
+.xvm-bk-input.xvm-bk-error { border-color: rgb(244, 67, 54); }
+
+.xvm-bk-loading, .xvm-bk-error-msg, .xvm-bk-empty {
+  padding: 14px 12px;
+  text-align: center;
+  font-size: 12px;
+  color: rgb(139, 152, 165);
+}
+.xvm-bk-error-msg { color: rgb(244, 67, 54); }

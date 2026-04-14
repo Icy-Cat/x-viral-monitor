@@ -2,6 +2,10 @@ const DEFAULT_THRESHOLDS = {
   trending: 1000,
   viral: 10000,
 };
+const DEFAULT_FEATURES = {
+  featureBookmarkFolders: false,
+};
+const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
 function normalizeThresholds(raw) {
   const trending = Number.parseInt(raw?.trending, 10);
@@ -20,6 +24,7 @@ function pushSettings(raw) {
   window.postMessage({
     type: 'XVM_SETTINGS_UPDATE',
     thresholds: normalizeThresholds(raw),
+    featureBookmarkFolders: !!raw?.featureBookmarkFolders,
   }, '*');
 }
 
@@ -32,7 +37,7 @@ function safeChromeCall(fn) {
 }
 
 safeChromeCall(() => {
-  chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
+  chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
     pushSettings(items);
   });
 });
@@ -42,7 +47,7 @@ window.addEventListener('message', (event) => {
   if (event.data?.type !== 'XVM_REQUEST_SETTINGS') return;
 
   safeChromeCall(() => {
-    chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
+    chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
       pushSettings(items);
     });
   });
@@ -51,10 +56,10 @@ window.addEventListener('message', (event) => {
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral) return;
+    if (!changes.trending && !changes.viral && !changes.featureBookmarkFolders) return;
 
     safeChromeCall(() => {
-      chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => {
+      chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
         pushSettings(items);
       });
     });

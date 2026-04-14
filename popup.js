@@ -1,10 +1,13 @@
 const DEFAULT_THRESHOLDS = { trending: 1000, viral: 10000 };
+const DEFAULT_FEATURES = { featureBookmarkFolders: false };
+const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
 const form = document.getElementById('settings-form');
 const trendingInput = document.getElementById('trending');
 const viralInput = document.getElementById('viral');
 const resetBtn = document.getElementById('reset');
 const statusEl = document.getElementById('status');
+const bookmarkToggle = document.getElementById('feat-bookmark-folders');
 
 function normalize(raw) {
   const trending = parseInt(raw?.trending, 10);
@@ -37,7 +40,16 @@ function fill(v) {
   updateRangeLabels(v);
 }
 
-chrome.storage.sync.get(DEFAULT_THRESHOLDS, (items) => fill(normalize(items)));
+chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
+  fill(normalize(items));
+  bookmarkToggle.checked = !!items.featureBookmarkFolders;
+});
+
+bookmarkToggle.addEventListener('change', () => {
+  chrome.storage.sync.set({ featureBookmarkFolders: bookmarkToggle.checked }, () => {
+    flash(bookmarkToggle.checked ? 'Bookmark menu ON ✓' : 'Bookmark menu OFF');
+  });
+});
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
