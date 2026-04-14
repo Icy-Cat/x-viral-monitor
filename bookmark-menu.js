@@ -2,7 +2,6 @@
   'use strict';
 
   const X_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
-
   const OPS = {
     BookmarkFoldersSlice: 'i78YDd0Tza-dV4SYs58kRg',
     bookmarkTweetToFolder: '4KHZvvNbHNf07bsgnL9gWA',
@@ -16,8 +15,11 @@
   let currentTweetId = null;
   let hoverTimer = null;
   let hideTimer = null;
-  let foldersCache = null;
-  let cacheTweetId = null;
+
+  // Folder list cache (pushed from bridge.js)
+  let cachedFolders = [];
+  // In-memory per-tweet containment cache (tweet_id -> Set(folder_id))
+  const containsCache = new Map();
 
   function getCsrf() {
     return document.cookie.match(/ct0=([^;]+)/)?.[1];
@@ -47,9 +49,17 @@
     return r.json();
   }
 
-  async function fetchFolders(tweetId) {
-    const d = await gql('BookmarkFoldersSlice', 'GET', tweetId ? { tweet_id: tweetId } : {});
-    return d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
+  async function fetchContains(tweetId) {
+    const d = await gql('BookmarkFoldersSlice', 'GET', { tweet_id: tweetId });
+    const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
+    const ids = new Set(items.filter((i) => i.contains_requested_tweet).map((i) => i.id));
+    containsCache.set(tweetId, ids);
+    if (items.length !== cachedFolders.length) requestRefresh();
+    return ids;
+  }
+
+  function requestRefresh() {
+    window.postMessage({ type: 'XVM_REQUEST_FOLDER_REFRESH' }, '*');
   }
 
   function getTweetIdFromButton(btn) {
@@ -84,65 +94,68 @@
       left = rect.left - menuWidth - 8;
     }
     m.style.left = left + 'px';
-    m.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 280)) + 'px';
+    m.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 320)) + 'px';
   }
 
   function escapeHtml(s) {
     return (s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
 
-  function renderLoading() {
+  function renderEmpty(msg, isError) {
     const m = ensureMenu();
-    m.innerHTML = '<div class="xvm-bk-loading">Loading folders…</div>';
+    m.innerHTML = `<div class="xvm-bk-empty${isError ? ' xvm-bk-error-msg' : ''}">${escapeHtml(msg)}</div>`;
     positionMenu();
   }
 
-  function renderError(msg) {
+  function renderMenu(tweetId) {
     const m = ensureMenu();
-    m.innerHTML = `<div class="xvm-bk-error-msg">${escapeHtml(msg)}</div>`;
-    positionMenu();
-  }
+    if (!cachedFolders.length) {
+      renderEmpty('No folders cached. Open the extension popup to refresh.');
+      return;
+    }
 
-  function renderMenu(tweetId, folders) {
-    const m = ensureMenu();
-    const containing = folders.filter((f) => f.contains_requested_tweet);
+    const containing = containsCache.get(tweetId);
+    const hasContains = containing instanceof Set;
 
-    const header = containing.length
-      ? `<div class="xvm-bk-header">In folder: <b>${containing.map((f) => escapeHtml(f.name)).join(', ')}</b></div>`
-      : '<div class="xvm-bk-header xvm-bk-muted">Not in any folder</div>';
+    const header = hasContains && containing.size
+      ? `<div class="xvm-bk-header">In folder: <b>${cachedFolders.filter((f) => containing.has(f.id)).map((f) => escapeHtml(f.name)).join(', ')}</b></div>`
+      : hasContains
+        ? '<div class="xvm-bk-header xvm-bk-muted">Not in any folder</div>'
+        : '<div class="xvm-bk-header xvm-bk-muted">Checking current folder…</div>';
 
-    const list = folders.length
-      ? folders.map((f) => `
-          <div class="xvm-bk-item${f.contains_requested_tweet ? ' xvm-bk-checked' : ''}" data-id="${f.id}" data-contains="${f.contains_requested_tweet ? '1' : '0'}">
-            <span class="xvm-bk-check">${f.contains_requested_tweet ? '✓' : ''}</span>
-            <span class="xvm-bk-name">${escapeHtml(f.name)}</span>
-          </div>`).join('')
-      : '<div class="xvm-bk-muted xvm-bk-empty">No folders yet. Create one below.</div>';
+    const list = cachedFolders.map((f) => {
+      const inIt = hasContains && containing.has(f.id);
+      return `
+        <div class="xvm-bk-item${inIt ? ' xvm-bk-checked' : ''}" data-id="${f.id}">
+          <span class="xvm-bk-check">${inIt ? '✓' : ''}</span>
+          <span class="xvm-bk-name">${escapeHtml(f.name)}</span>
+        </div>`;
+    }).join('');
 
     m.innerHTML = `
       ${header}
       <div class="xvm-bk-list">${list}</div>
       <div class="xvm-bk-new">
-        <input class="xvm-bk-input" placeholder="+ New folder (press Enter)" maxlength="50" />
+        <input class="xvm-bk-input" placeholder="+ New folder (Enter)" maxlength="50" />
       </div>
     `;
 
     m.querySelectorAll('.xvm-bk-item').forEach((el) => {
       el.addEventListener('click', async () => {
         const id = el.dataset.id;
-        const contains = el.dataset.contains === '1';
+        const contains = containsCache.get(tweetId);
+        const isIn = contains instanceof Set && contains.has(id);
         el.classList.add('xvm-bk-pending');
         try {
-          if (contains) {
+          if (isIn) {
             await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
+            contains.delete(id);
           } else {
             await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
+            if (contains instanceof Set) contains.add(id);
+            else containsCache.set(tweetId, new Set([id]));
           }
-          foldersCache = null;
-          const refreshed = await fetchFolders(tweetId);
-          foldersCache = refreshed;
-          cacheTweetId = tweetId;
-          if (currentTweetId === tweetId) renderMenu(tweetId, refreshed);
+          if (currentTweetId === tweetId) renderMenu(tweetId);
         } catch (e) {
           el.classList.remove('xvm-bk-pending');
           el.classList.add('xvm-bk-error');
@@ -159,16 +172,17 @@
       input.disabled = true;
       try {
         await gql('createBookmarkFolder', 'POST', { name });
-        const updated = await fetchFolders(tweetId);
-        const created = updated.find((f) => f.name === name);
+        requestRefresh();
+        // Wait briefly for bridge to push the updated cache
+        await new Promise((r) => setTimeout(r, 500));
+        const created = cachedFolders.find((f) => f.name === name);
         if (created) {
           await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
+          const cur = containsCache.get(tweetId);
+          if (cur instanceof Set) cur.add(created.id);
+          else containsCache.set(tweetId, new Set([created.id]));
         }
-        foldersCache = null;
-        const refreshed = await fetchFolders(tweetId);
-        foldersCache = refreshed;
-        cacheTweetId = tweetId;
-        if (currentTweetId === tweetId) renderMenu(tweetId, refreshed);
+        if (currentTweetId === tweetId) renderMenu(tweetId);
       } catch (e) {
         input.disabled = false;
         input.classList.add('xvm-bk-error');
@@ -192,22 +206,18 @@
     anchorBtn = btn;
     currentTweetId = tweetId;
 
-    if (foldersCache && cacheTweetId === tweetId) {
-      renderMenu(tweetId, foldersCache);
-      return;
-    }
-    renderLoading();
-    try {
-      const folders = await fetchFolders(tweetId);
-      if (currentTweetId !== tweetId) return;
-      foldersCache = folders;
-      cacheTweetId = tweetId;
-      renderMenu(tweetId, folders);
-    } catch (e) {
-      if (e?.message === 'not-logged-in') {
-        renderError('Not signed in to X.');
-      } else {
-        renderError('Failed to load folders. X Premium may be required.');
+    // Render instantly from cache
+    renderMenu(tweetId);
+
+    // Background containment lookup
+    if (!containsCache.has(tweetId)) {
+      try {
+        await fetchContains(tweetId);
+        if (currentTweetId === tweetId) renderMenu(tweetId);
+      } catch (e) {
+        if (currentTweetId === tweetId && !cachedFolders.length) {
+          renderEmpty('Failed to load folders. X Premium may be required.', true);
+        }
       }
     }
   }
@@ -231,13 +241,21 @@
 
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;
-    if (event.data?.type !== 'XVM_SETTINGS_UPDATE') return;
-    const next = !!event.data.featureBookmarkFolders;
-    if (next !== enabled) {
-      enabled = next;
-      foldersCache = null;
-      cacheTweetId = null;
-      if (!enabled && menuEl) menuEl.style.display = 'none';
+    const type = event.data?.type;
+    if (type === 'XVM_SETTINGS_UPDATE') {
+      const next = !!event.data.featureBookmarkFolders;
+      if (next !== enabled) {
+        enabled = next;
+        if (!enabled && menuEl) menuEl.style.display = 'none';
+      }
+      return;
+    }
+    if (type === 'XVM_FOLDERS_UPDATE') {
+      cachedFolders = Array.isArray(event.data.folders) ? event.data.folders : [];
+      containsCache.clear();
+      if (currentTweetId && menuEl && menuEl.style.display !== 'none') {
+        renderMenu(currentTweetId);
+      }
     }
   });
 })();

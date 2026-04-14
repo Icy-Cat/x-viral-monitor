@@ -137,6 +137,28 @@
       line-height: 1.5;
     }
     .feature-row label { cursor: pointer; flex: 1; }
+    .ft-cache {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 8px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+    .ft-cache button {
+      flex: 0 0 auto;
+      padding: 4px 10px;
+      font-size: 10px;
+      font-weight: 600;
+      color: #fff8f1;
+      background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+      border: none;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+    .ft-cache button:hover { opacity: 0.9; }
+    .ft-cache button:disabled { opacity: 0.5; cursor: default; }
   </style>
 </head>
 <body>
@@ -179,7 +201,11 @@
       <input id="feat-bookmark-folders" type="checkbox">
       <label for="feat-bookmark-folders">
         <div class="ft-title">🔖 Bookmark folder menu</div>
-        <div class="ft-desc">Hover over any tweet's bookmark button to pick a folder, see where it's saved, or create a new folder. Requires X Premium.</div>
+        <div class="ft-desc">Hover a tweet's bookmark button to pick a folder or create a new one. Requires X Premium.</div>
+        <div class="ft-cache">
+          <span id="folder-cache-info">No folders cached</span>
+          <button type="button" id="refresh-folders">Refresh</button>
+        </div>
       </label>
     </div>
   </div>

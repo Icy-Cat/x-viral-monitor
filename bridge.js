@@ -7,6 +7,9 @@ const DEFAULT_FEATURES = {
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
+const X_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+const OP_LIST = { name: 'BookmarkFoldersSlice', qid: 'i78YDd0Tza-dV4SYs58kRg' };
+
 function normalizeThresholds(raw) {
   const trending = Number.parseInt(raw?.trending, 10);
   const viral = Number.parseInt(raw?.viral, 10);
@@ -28,8 +31,15 @@ function pushSettings(raw) {
   }, '*');
 }
 
+function pushFolders(folders, cachedAt) {
+  window.postMessage({
+    type: 'XVM_FOLDERS_UPDATE',
+    folders: folders || [],
+    cachedAt: cachedAt || 0,
+  }, '*');
+}
+
 // Guard all chrome.* calls against extension context invalidation
-// (happens when extension is reloaded while page is still open)
 function safeChromeCall(fn) {
   try {
     if (chrome?.runtime?.id) fn();
@@ -42,26 +52,102 @@ safeChromeCall(() => {
   });
 });
 
+safeChromeCall(() => {
+  chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
+    const c = items.bookmarkFoldersCache;
+    if (c?.folders) pushFolders(c.folders, c.cachedAt || 0);
+  });
+});
+
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
-  if (event.data?.type !== 'XVM_REQUEST_SETTINGS') return;
+  const type = event.data?.type;
 
-  safeChromeCall(() => {
-    chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
-      pushSettings(items);
+  if (type === 'XVM_REQUEST_SETTINGS') {
+    safeChromeCall(() => {
+      chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => pushSettings(items));
     });
-  });
+    safeChromeCall(() => {
+      chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
+        const c = items.bookmarkFoldersCache;
+        if (c?.folders) pushFolders(c.folders, c.cachedAt || 0);
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_REQUEST_FOLDER_REFRESH') {
+    refreshFolders();
+    return;
+  }
 });
 
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureBookmarkFolders) return;
+    if (areaName === 'sync') {
+      if (changes.trending || changes.viral || changes.featureBookmarkFolders) {
+        safeChromeCall(() => {
+          chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => pushSettings(items));
+        });
+      }
+      if (changes.bookmarkRefreshAt) {
+        refreshFolders();
+      }
+    }
+    if (areaName === 'local' && changes.bookmarkFoldersCache) {
+      const c = changes.bookmarkFoldersCache.newValue;
+      if (c?.folders) pushFolders(c.folders, c.cachedAt || 0);
+    }
+  });
+});
 
-    safeChromeCall(() => {
-      chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
-        pushSettings(items);
+// === Folder fetch / cache ===
+let refreshInFlight = null;
+let lastFetchAt = 0;
+
+async function refreshFolders() {
+  if (refreshInFlight) return refreshInFlight;
+  if (Date.now() - lastFetchAt < 3000) return; // debounce
+
+  refreshInFlight = (async () => {
+    try {
+      const ct0 = document.cookie.match(/ct0=([^;]+)/)?.[1];
+      if (!ct0) return;
+      const url = `/i/api/graphql/${OP_LIST.qid}/${OP_LIST.name}?variables=${encodeURIComponent('{}')}`;
+      const r = await fetch(url, {
+        credentials: 'include',
+        headers: {
+          'authorization': X_BEARER,
+          'x-csrf-token': ct0,
+          'x-twitter-auth-type': 'OAuth2Session',
+          'content-type': 'application/json',
+        },
       });
-    });
+      if (!r.ok) return;
+      const d = await r.json();
+      const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
+      const folders = items.map((i) => ({ id: i.id, name: i.name }));
+      const cachedAt = Date.now();
+      lastFetchAt = cachedAt;
+      safeChromeCall(() => {
+        chrome.storage.local.set({ bookmarkFoldersCache: { folders, cachedAt } });
+      });
+      pushFolders(folders, cachedAt);
+    } catch (e) {}
+    finally {
+      refreshInFlight = null;
+    }
+  })();
+  return refreshInFlight;
+}
+
+// Initial fetch if cache is empty or older than 6 hours
+safeChromeCall(() => {
+  chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
+    const c = items.bookmarkFoldersCache;
+    const stale = !c || !c.cachedAt || (Date.now() - c.cachedAt > 6 * 3600 * 1000);
+    if (stale) {
+      setTimeout(refreshFolders, 500);
+    }
   });
 });

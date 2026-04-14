@@ -8,6 +8,8 @@ const viralInput = document.getElementById('viral');
 const resetBtn = document.getElementById('reset');
 const statusEl = document.getElementById('status');
 const bookmarkToggle = document.getElementById('feat-bookmark-folders');
+const cacheInfoEl = document.getElementById('folder-cache-info');
+const refreshBtn = document.getElementById('refresh-folders');
 
 function normalize(raw) {
   const trending = parseInt(raw?.trending, 10);
@@ -50,6 +52,43 @@ bookmarkToggle.addEventListener('change', () => {
     flash(bookmarkToggle.checked ? 'Bookmark menu ON ✓' : 'Bookmark menu OFF');
   });
 });
+
+function renderCacheInfo(cache) {
+  if (!cache?.folders?.length) {
+    cacheInfoEl.textContent = 'No folders cached';
+    return;
+  }
+  const ageMs = Date.now() - (cache.cachedAt || 0);
+  const mins = Math.max(0, Math.round(ageMs / 60000));
+  const ageStr = mins < 1 ? 'just now' : mins < 60 ? `${mins}m ago` : `${Math.round(mins / 60)}h ago`;
+  cacheInfoEl.textContent = `${cache.folders.length} folders · ${ageStr}`;
+}
+
+function triggerRefresh() {
+  refreshBtn.disabled = true;
+  chrome.storage.sync.set({ bookmarkRefreshAt: Date.now() });
+  setTimeout(() => {
+    chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
+      renderCacheInfo(items.bookmarkFoldersCache);
+      refreshBtn.disabled = false;
+    });
+  }, 1500);
+}
+
+chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
+  renderCacheInfo(items.bookmarkFoldersCache);
+});
+
+chrome.storage.onChanged.addListener((changes, area) => {
+  if (area === 'local' && changes.bookmarkFoldersCache) {
+    renderCacheInfo(changes.bookmarkFoldersCache.newValue);
+  }
+});
+
+refreshBtn.addEventListener('click', triggerRefresh);
+
+// Auto-refresh when popup opens
+triggerRefresh();
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
