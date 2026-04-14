@@ -7,6 +7,7 @@
     bookmarkTweetToFolder: '4KHZvvNbHNf07bsgnL9gWA',
     removeTweetFromBookmarkFolder: '2Qbj9XZvtUvyJB4gFwWfaA',
     createBookmarkFolder: '6Xxqpq8TM_CREYiuof_h5w',
+    CreateBookmark: 'aoDbu3RHznuiSkQ9aNM67Q',
   };
 
   let enabled = false;
@@ -60,6 +61,38 @@
 
   function requestRefresh() {
     window.postMessage({ type: 'XVM_REQUEST_FOLDER_REFRESH' }, '*');
+  }
+
+  // Ensure the tweet is in "All Bookmarks" before assigning it to a folder.
+  // Prefer clicking the native bookmark button so X's React state updates the
+  // icon; fall back to the CreateBookmark mutation if no button is in the DOM
+  // (e.g. the article was scrolled out of view).
+  async function ensureBookmarked(tweetId) {
+    const articles = document.querySelectorAll('article[data-testid="tweet"]');
+    for (const article of articles) {
+      const links = article.querySelectorAll('a[href*="/status/"]');
+      let matches = false;
+      for (const link of links) {
+        const m = (link.getAttribute('href') || '').match(/\/status\/(\d+)/);
+        if (m && m[1] === tweetId) { matches = true; break; }
+      }
+      if (!matches) continue;
+      if (article.querySelector('[data-testid="removeBookmark"]')) return 'already';
+      const addBtn = article.querySelector('[data-testid="bookmark"]');
+      if (addBtn) {
+        addBtn.click();
+        await new Promise((r) => setTimeout(r, 180));
+        return 'clicked';
+      }
+      break;
+    }
+    // Fallback: direct mutation. Data will be correct even if the icon lags.
+    try {
+      await gql('CreateBookmark', 'POST', { tweet_id: tweetId });
+      return 'api';
+    } catch (e) {
+      return 'failed';
+    }
   }
 
   function getTweetIdFromButton(btn) {
@@ -151,8 +184,15 @@
             await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
             contains.delete(id);
           } else {
+            // Make sure the tweet is in "All Bookmarks" so the native icon
+            // reflects the saved state before we assign it to a folder.
+            const cur = containsCache.get(tweetId);
+            if (!(cur instanceof Set) || cur.size === 0) {
+              await ensureBookmarked(tweetId);
+            }
             await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
-            if (contains instanceof Set) contains.add(id);
+            const after = containsCache.get(tweetId);
+            if (after instanceof Set) after.add(id);
             else containsCache.set(tweetId, new Set([id]));
           }
           if (currentTweetId === tweetId) renderMenu(tweetId);
@@ -177,9 +217,13 @@
         await new Promise((r) => setTimeout(r, 500));
         const created = cachedFolders.find((f) => f.name === name);
         if (created) {
-          await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
           const cur = containsCache.get(tweetId);
-          if (cur instanceof Set) cur.add(created.id);
+          if (!(cur instanceof Set) || cur.size === 0) {
+            await ensureBookmarked(tweetId);
+          }
+          await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
+          const after = containsCache.get(tweetId);
+          if (after instanceof Set) after.add(created.id);
           else containsCache.set(tweetId, new Set([created.id]));
         }
         if (currentTweetId === tweetId) renderMenu(tweetId);
