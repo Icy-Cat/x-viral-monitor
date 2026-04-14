@@ -51,15 +51,24 @@
         'content-type': 'application/json',
       },
     };
+    let r;
     if (method === 'GET') {
       const url = `/i/api/graphql/${qid}/${op}?variables=${encodeURIComponent(JSON.stringify(vars))}`;
-      const r = await fetch(url, init);
-      return r.json();
+      r = await fetch(url, init);
+    } else {
+      init.method = 'POST';
+      init.body = JSON.stringify({ variables: vars, queryId: qid });
+      r = await fetch(`/i/api/graphql/${qid}/${op}`, init);
     }
-    init.method = 'POST';
-    init.body = JSON.stringify({ variables: vars, queryId: qid });
-    const r = await fetch(`/i/api/graphql/${qid}/${op}`, init);
-    return r.json();
+    if (!r.ok) throw new Error(`${op} HTTP ${r.status}`);
+    const d = await r.json();
+    if (Array.isArray(d?.errors) && d.errors.length) {
+      const msg = d.errors[0]?.message || 'graphql error';
+      const err = new Error(`${op}: ${msg}`);
+      err.graphqlErrors = d.errors;
+      throw err;
+    }
+    return d;
   }
 
   async function fetchContains(tweetId) {
@@ -67,11 +76,12 @@
     const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
     const ids = new Set(items.filter((i) => i.contains_requested_tweet).map((i) => i.id));
     setContains(tweetId, ids);
-    // Compare full folder list (not just count) to catch renames.
+    // If the fresh list differs from our cache, ask bridge to refresh (its
+    // no-tweet-id endpoint is authoritative). Never overwrite cachedFolders
+    // here — an empty or partial response would wipe a good cache.
     const freshList = items.map((i) => ({ id: i.id, name: i.name }));
-    if (!foldersEqual(cachedFolders, freshList)) {
-      cachedFolders = freshList;
-      requestRefresh(); // let bridge persist; our in-memory copy is already updated
+    if (items.length > 0 && !foldersEqual(cachedFolders, freshList)) {
+      requestRefresh();
     }
     return ids;
   }
@@ -157,9 +167,7 @@
 
     // Delegated click handler for folder items (re-rendered via innerHTML)
     menuEl.addEventListener('click', async (ev) => {
-      const el = ev.target instanceof Element
-        ? ev.target.closest('.xvm-bk-item')
-        : null;
+      const el = ev.target.closest('.xvm-bk-item');
       if (!el || !currentTweetId) return;
       const id = el.dataset.id;
       const tweetId = currentTweetId;
@@ -170,8 +178,11 @@
       try {
         if (isIn) {
           await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
-          contains.delete(id);
-          setContains(tweetId, contains); // refresh TTL
+          // Re-read the latest Set after awaiting so a concurrent refetch
+          // that replaced containsCache doesn't get clobbered by a stale ref.
+          const latest = getContainsFresh(tweetId) || new Set();
+          latest.delete(id);
+          setContains(tweetId, latest);
         } else {
           if (!contains || contains.size === 0) {
             await ensureBookmarked(tweetId);
@@ -191,8 +202,8 @@
 
     // Delegated keydown on the new-folder input
     menuEl.addEventListener('keydown', async (ev) => {
-      const input = ev.target instanceof HTMLInputElement ? ev.target : null;
-      if (!input || !input.classList.contains('xvm-bk-input')) return;
+      const input = ev.target;
+      if (!(input && input.classList?.contains('xvm-bk-input'))) return;
       if (ev.key !== 'Enter' || !currentTweetId) return;
       ev.preventDefault();
       const name = input.value.trim();
@@ -205,16 +216,17 @@
         if (!foldersEqual(cachedFolders, fresh)) cachedFolders = fresh;
         requestRefresh();
         const created = fresh.find((f) => f.name === name);
-        if (created) {
-          const cur = getContainsFresh(tweetId);
-          if (!cur || cur.size === 0) {
-            await ensureBookmarked(tweetId);
-          }
-          await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
-          const after = getContainsFresh(tweetId) || new Set();
-          after.add(created.id);
-          setContains(tweetId, after);
+        if (!created) {
+          throw new Error('createBookmarkFolder: folder not found after refetch');
         }
+        const cur = getContainsFresh(tweetId);
+        if (!cur || cur.size === 0) {
+          await ensureBookmarked(tweetId);
+        }
+        await gql('bookmarkTweetToFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: created.id });
+        const after = getContainsFresh(tweetId) || new Set();
+        after.add(created.id);
+        setContains(tweetId, after);
         if (currentTweetId === tweetId) renderMenu(tweetId);
       } catch (e) {
         console.warn('[XVM] create folder flow failed', e);
@@ -346,7 +358,7 @@
     clearTimeout(hideTimer);
     clearTimeout(hoverTimer);
     hoverTimer = setTimeout(() => openForButton(btn), 350);
-  }, true);
+  });
 
   document.addEventListener('mouseout', (e) => {
     if (!enabled) return;
@@ -354,7 +366,7 @@
     if (!btn) return;
     clearTimeout(hoverTimer);
     scheduleHide();
-  }, true);
+  });
 
   window.addEventListener('message', (event) => {
     if (event.source !== window) return;

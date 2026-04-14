@@ -160,6 +160,25 @@
     }
     .ft-cache button:hover { opacity: 0.9; }
     .ft-cache button:disabled { opacity: 0.5; cursor: default; }
+
+    .feature-row.is-unsupported { opacity: 0.68; }
+    .feature-row.is-unsupported input[type="checkbox"] {
+      pointer-events: none;
+      opacity: 0.6;
+    }
+    .ft-premium-msg {
+      display: none;
+      margin-top: 6px;
+      padding: 6px 10px;
+      background: rgba(191, 90, 42, 0.12);
+      border: 1px solid rgba(191, 90, 42, 0.32);
+      border-radius: 8px;
+      font-size: 11px;
+      color: var(--accent-strong);
+      line-height: 1.5;
+    }
+    .feature-row.is-unsupported .ft-premium-msg { display: block; }
+    .feature-row.is-unsupported .ft-cache button { display: none; }
   </style>
 </head>
 <body>
@@ -198,13 +217,14 @@
 
     <div class="divider"></div>
 
-    <div class="feature-row">
+    <div class="feature-row" id="feature-row-bookmark">
       <input id="feat-bookmark-folders" type="checkbox">
       <div class="ft-body">
         <label for="feat-bookmark-folders">
           <div class="ft-title">🔖 Bookmark folder menu</div>
           <div class="ft-desc">Hover a tweet's bookmark button to pick a folder or create a new one. Requires X Premium.</div>
         </label>
+        <div class="ft-premium-msg">⚠️ This feature is only available for X Premium subscribers. The toggle has been disabled.</div>
         <div class="ft-cache">
           <span id="folder-cache-info">No folders cached</span>
           <button type="button" id="refresh-folders">Refresh</button>

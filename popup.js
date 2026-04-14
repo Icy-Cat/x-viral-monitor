@@ -8,6 +8,7 @@ const viralInput = document.getElementById('viral');
 const resetBtn = document.getElementById('reset');
 const statusEl = document.getElementById('status');
 const bookmarkToggle = document.getElementById('feat-bookmark-folders');
+const bookmarkRow = document.getElementById('feature-row-bookmark');
 const cacheInfoEl = document.getElementById('folder-cache-info');
 const refreshBtn = document.getElementById('refresh-folders');
 
@@ -47,7 +48,26 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   bookmarkToggle.checked = !!items.featureBookmarkFolders;
 });
 
+function applyUnsupportedState(unsupported) {
+  if (unsupported) {
+    bookmarkRow.classList.add('is-unsupported');
+    bookmarkToggle.checked = false;
+    refreshBtn.disabled = true;
+  } else {
+    bookmarkRow.classList.remove('is-unsupported');
+    refreshBtn.disabled = false;
+  }
+}
+
+chrome.storage.local.get({ bookmarkNotSupported: false }, (items) => {
+  applyUnsupportedState(!!items.bookmarkNotSupported);
+});
+
 bookmarkToggle.addEventListener('change', () => {
+  if (bookmarkRow.classList.contains('is-unsupported')) {
+    bookmarkToggle.checked = false;
+    return;
+  }
   chrome.storage.sync.set({ featureBookmarkFolders: bookmarkToggle.checked }, () => {
     flash(bookmarkToggle.checked ? 'Bookmark menu ON ✓' : 'Bookmark menu OFF');
   });
@@ -82,8 +102,17 @@ chrome.storage.local.get({ bookmarkFoldersCache: null }, (items) => {
 chrome.storage.onChanged.addListener((changes, area) => {
   if (area === 'local' && changes.bookmarkFoldersCache) {
     renderCacheInfo(changes.bookmarkFoldersCache.newValue);
-    refreshBtn.disabled = false;
     clearTimeout(refreshFallbackTimer);
+    if (!bookmarkRow.classList.contains('is-unsupported')) {
+      refreshBtn.disabled = false;
+    }
+  }
+  if (area === 'local' && changes.bookmarkNotSupported) {
+    applyUnsupportedState(!!changes.bookmarkNotSupported.newValue);
+  }
+  if (area === 'sync' && changes.featureBookmarkFolders) {
+    // Bridge may have auto-disabled the toggle after detecting non-Premium.
+    bookmarkToggle.checked = !!changes.featureBookmarkFolders.newValue;
   }
 });
 

@@ -136,12 +136,46 @@ async function refreshFolders() {
         return;
       }
       const d = await r.json();
-      const items = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice?.items || [];
+
+      // Detect non-Premium / unsupported account. Premium users return an
+      // object with `items` (possibly empty). Non-Premium responses are
+      // either an errors field mentioning premium/permission, or a null
+      // bookmark_collections_slice, or a missing field entirely.
+      const slice = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice;
+      const errs = Array.isArray(d?.errors) ? d.errors : [];
+      const errText = errs.map((e) => e?.message || '').join(' ').toLowerCase();
+      const unsupported = (
+        slice === null ||
+        slice === undefined ||
+        /premium|blue|subscription|permission|not allowed/.test(errText)
+      );
+
+      if (unsupported) {
+        console.warn('[XVM] bookmark folders unsupported for this account', errs);
+        safeChromeCall(() => {
+          chrome.storage.local.set({
+            bookmarkFoldersCache: { folders: [], cachedAt: Date.now() },
+            bookmarkNotSupported: true,
+          });
+        });
+        // Auto-disable the toggle so it can't be turned on without Premium.
+        safeChromeCall(() => {
+          chrome.storage.sync.set({ featureBookmarkFolders: false });
+        });
+        pushFolders([], Date.now());
+        return;
+      }
+
+      const items = slice?.items || [];
       const folders = items.map((i) => ({ id: i.id, name: i.name }));
       const cachedAt = Date.now();
       lastFetchAt = cachedAt;
       safeChromeCall(() => {
-        chrome.storage.local.set({ bookmarkFoldersCache: { folders, cachedAt } });
+        // Clear any stale "not supported" flag — the account now works.
+        chrome.storage.local.set({
+          bookmarkFoldersCache: { folders, cachedAt },
+          bookmarkNotSupported: false,
+        });
       });
       pushFolders(folders, cachedAt);
     } catch (e) {
