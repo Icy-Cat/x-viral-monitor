@@ -158,6 +158,62 @@
       text-align: center;
     }
     .ft-lb-count input:focus { outline: none; border-color: var(--accent); }
+
+    .ft-lb-cols { margin-top: 10px; }
+    .ft-lb-cols-hint {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .col-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .col-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 11px;
+      cursor: grab;
+      user-select: none;
+      transition: background 0.12s, border-color 0.12s, transform 0.12s;
+    }
+    .col-item:active { cursor: grabbing; }
+    .col-item.dragging {
+      opacity: 0.4;
+      border-color: var(--accent);
+    }
+    .col-item.drag-over {
+      border-color: var(--accent);
+      background: rgba(191, 90, 42, 0.08);
+    }
+    .col-item .col-grip {
+      color: #9b877a;
+      font-size: 12px;
+      letter-spacing: -2px;
+      pointer-events: none;
+    }
+    .col-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 12px;
+      height: 12px;
+      margin: 0;
+      pointer-events: auto;
+    }
+    .col-item .col-name {
+      flex: 1;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .col-item.col-hidden .col-name { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -207,6 +263,10 @@
           <label for="lb-count">Show top</label>
           <input id="lb-count" type="number" min="1" max="50" step="1">
           <span>tweets</span>
+        </div>
+        <div class="ft-lb-cols">
+          <div class="ft-lb-cols-hint">Drag to reorder · check to show</div>
+          <ul id="lb-col-list" class="col-list"></ul>
         </div>
       </div>
     </div>

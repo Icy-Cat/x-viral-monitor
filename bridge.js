@@ -2,9 +2,20 @@ const DEFAULT_THRESHOLDS = {
   trending: 1000,
   viral: 10000,
 };
+const DEFAULT_COLUMNS = [
+  { id: 'rank',     visible: true  },
+  { id: 'icon',     visible: true  },
+  { id: 'handle',   visible: false },
+  { id: 'preview',  visible: true  },
+  { id: 'views',    visible: true  },
+  { id: 'velocity', visible: true  },
+];
+const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((c) => c.id);
+
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   leaderboardCount: 10,
+  leaderboardColumns: DEFAULT_COLUMNS,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
@@ -12,6 +23,24 @@ function normalizeLeaderboardCount(v) {
   const n = Number.parseInt(v, 10);
   if (!Number.isFinite(n)) return 10;
   return Math.max(1, Math.min(50, n));
+}
+
+function normalizeLeaderboardColumns(raw) {
+  if (!Array.isArray(raw)) return DEFAULT_COLUMNS.map((c) => ({ ...c }));
+  const seen = new Set();
+  const out = [];
+  for (const c of raw) {
+    if (!c || typeof c.id !== 'string') continue;
+    if (!KNOWN_COLUMN_IDS.includes(c.id)) continue;
+    if (seen.has(c.id)) continue;
+    seen.add(c.id);
+    out.push({ id: c.id, visible: !!c.visible });
+  }
+  // Append any columns the user's stored config is missing (forward compat)
+  for (const def of DEFAULT_COLUMNS) {
+    if (!seen.has(def.id)) out.push({ ...def });
+  }
+  return out;
 }
 
 function normalizeThresholds(raw) {
@@ -33,6 +62,7 @@ function pushSettings(raw) {
     thresholds: normalizeThresholds(raw),
     featureVelocityLeaderboard: !!raw?.featureVelocityLeaderboard,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
+    leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
   }, '*');
 }
 
@@ -85,7 +115,7 @@ window.addEventListener('message', (event) => {
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.leaderboardCount) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.leaderboardCount && !changes.leaderboardColumns) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {

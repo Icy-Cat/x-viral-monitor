@@ -158,12 +158,22 @@
   font-weight: 600;
 }
 .xvm-lb-icon { flex-shrink: 0; }
-.xvm-lb-label {
-  flex: 1;
+.xvm-lb-handle {
+  flex: 1 1 0;
+  min-width: 0;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #24180f;
+}
+.xvm-lb-preview {
+  flex: 2 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #3a2b1f;
+  font-size: 11.5px;
 }
 .xvm-lb-views {
   font-variant-numeric: tabular-nums;

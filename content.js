@@ -43,6 +43,15 @@ function normalizeThresholds(raw) {
 
 let leaderboardEnabled = false;
 let leaderboardCount = 10;
+const DEFAULT_LB_COLUMNS = [
+  { id: 'rank',     visible: true  },
+  { id: 'icon',     visible: true  },
+  { id: 'handle',   visible: false },
+  { id: 'preview',  visible: true  },
+  { id: 'views',    visible: true  },
+  { id: 'velocity', visible: true  },
+];
+let leaderboardColumns = DEFAULT_LB_COLUMNS.map((c) => ({ ...c }));
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
@@ -59,8 +68,13 @@ window.addEventListener('message', (event) => {
 
   const nextLb = !!event.data.featureVelocityLeaderboard;
   const nextCount = Number.isFinite(event.data.leaderboardCount) ? event.data.leaderboardCount : 10;
+  const nextCols = Array.isArray(event.data.leaderboardColumns) && event.data.leaderboardColumns.length
+    ? event.data.leaderboardColumns
+    : leaderboardColumns;
   const countChanged = nextCount !== leaderboardCount;
+  const colsChanged = JSON.stringify(nextCols) !== JSON.stringify(leaderboardColumns);
   leaderboardCount = nextCount;
+  leaderboardColumns = nextCols;
   if (nextLb !== leaderboardEnabled) {
     leaderboardEnabled = nextLb;
     if (leaderboardEnabled) {
@@ -68,7 +82,7 @@ window.addEventListener('message', (event) => {
     } else {
       hideLeaderboard();
     }
-  } else if (leaderboardEnabled && countChanged) {
+  } else if (leaderboardEnabled && (countChanged || colsChanged)) {
     renderLeaderboard();
   }
 });
@@ -444,6 +458,33 @@ function formatViews(n) {
   return String(n);
 }
 
+function lbEscapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, (c) => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+const LB_COLUMN_RENDERERS = {
+  rank: (_t, i) => `<span class="xvm-lb-rank">${i + 1}</span>`,
+  icon: (t) => {
+    const tier = t.velocity >= velocityThresholds.viral ? 'red'
+      : t.velocity >= velocityThresholds.trending ? 'orange'
+      : 'green';
+    const icon = tier === 'red' ? '\u{1F525}' : tier === 'orange' ? '\u{1F680}' : '\u{1F331}';
+    return `<span class="xvm-lb-icon">${icon}</span>`;
+  },
+  handle: (t) => {
+    const handle = (t.handle || '').trim().slice(0, 22) || '(tweet)';
+    return `<span class="xvm-lb-handle" title="${lbEscapeHtml(t.handle)}">${lbEscapeHtml(handle)}</span>`;
+  },
+  preview: (t) => {
+    const text = (t.text || '').replace(/\s+/g, ' ').trim();
+    return `<span class="xvm-lb-preview" title="${lbEscapeHtml(text.slice(0, 280))}">${lbEscapeHtml(text)}</span>`;
+  },
+  views: (t) => `<span class="xvm-lb-views" title="Total views">\u{1F441} ${formatViews(t.views)}</span>`,
+  velocity: (t) => `<span class="xvm-lb-vel">${formatVelocity(t.velocity)}/h</span>`,
+};
+
 function hideLeaderboard() {
   if (leaderboardEl) leaderboardEl.style.display = 'none';
   clearLink();
@@ -484,20 +525,13 @@ function renderLeaderboard() {
     }
     el.style.display = 'block';
     const list = el.querySelector('.xvm-lb-list');
+    const visibleCols = leaderboardColumns.filter((c) => c.visible && LB_COLUMN_RENDERERS[c.id]);
     list.innerHTML = top.map((t, i) => {
       const tier = t.velocity >= velocityThresholds.viral ? 'red'
         : t.velocity >= velocityThresholds.trending ? 'orange'
         : 'green';
-      const icon = tier === 'red' ? '\u{1F525}' : tier === 'orange' ? '\u{1F680}' : '\u{1F331}';
-      const label = (t.handle || '').trim().slice(0, 22) || '(tweet)';
-      return `
-        <li class="xvm-lb-item xvm-lb-${tier}" data-id="${t.id}">
-          <span class="xvm-lb-rank">${i + 1}</span>
-          <span class="xvm-lb-icon">${icon}</span>
-          <span class="xvm-lb-label" title="${(t.text || '').replace(/"/g, '&quot;').slice(0, 200)}">${label.replace(/</g, '&lt;')}</span>
-          <span class="xvm-lb-views" title="Total views">👁 ${formatViews(t.views)}</span>
-          <span class="xvm-lb-vel">${formatVelocity(t.velocity)}/h</span>
-        </li>`;
+      const cells = visibleCols.map((c) => LB_COLUMN_RENDERERS[c.id](t, i)).join('');
+      return `<li class="xvm-lb-item xvm-lb-${tier}" data-id="${t.id}">${cells}</li>`;
     }).join('');
 
     list.querySelectorAll('.xvm-lb-item').forEach((li) => {
