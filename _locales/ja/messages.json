@@ -1,0 +1,41 @@
+{
+  "extName": {
+    "message": "X バイラルモニター"
+  },
+  "extDescription": {
+    "message": "X の投稿に表示速度とバズ指数をリアルタイム表示"
+  },
+  "popupSubtitle": {
+    "message": "X 投稿のリアルタイム表示流速"
+  },
+  "tierNormal": {
+    "message": "通常"
+  },
+  "tierTrending": {
+    "message": "上昇中"
+  },
+  "tierViral": {
+    "message": "バズ中"
+  },
+  "hoverHint": {
+    "message": "バッジにホバーして表示数・いいね・リポスト・返信・ブックマーク・バズ指数を確認。"
+  },
+  "thresholdTrending": {
+    "message": "🚀 上昇中のしきい値"
+  },
+  "thresholdViral": {
+    "message": "🔥 バズのしきい値"
+  },
+  "btnSave": {
+    "message": "保存"
+  },
+  "btnReset": {
+    "message": "リセット"
+  },
+  "flashSaved": {
+    "message": "保存しました ✓"
+  },
+  "flashReset": {
+    "message": "リセットしました ✓"
+  }
+}

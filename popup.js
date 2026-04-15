@@ -1,5 +1,19 @@
 const DEFAULT_THRESHOLDS = { trending: 1000, viral: 10000 };
 
+// Apply chrome.i18n translations to any element marked with data-i18n.
+// Falls back to the hardcoded English text in the HTML if a key is missing.
+function t(key) {
+  try {
+    return chrome.i18n.getMessage(key) || '';
+  } catch (e) {
+    return '';
+  }
+}
+document.querySelectorAll('[data-i18n]').forEach((el) => {
+  const msg = t(el.dataset.i18n);
+  if (msg) el.textContent = msg;
+});
+
 const form = document.getElementById('settings-form');
 const trendingInput = document.getElementById('trending');
 const viralInput = document.getElementById('viral');
@@ -43,10 +57,10 @@ form.addEventListener('submit', (e) => {
   e.preventDefault();
   const v = normalize({ trending: trendingInput.value, viral: viralInput.value });
   fill(v);
-  chrome.storage.sync.set(v, () => flash('Saved ✓'));
+  chrome.storage.sync.set(v, () => flash(t('flashSaved') || 'Saved ✓'));
 });
 
 resetBtn.addEventListener('click', () => {
   fill(DEFAULT_THRESHOLDS);
-  chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash('Reset ✓'));
+  chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash(t('flashReset') || 'Reset ✓'));
 });

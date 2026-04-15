@@ -1,0 +1,41 @@
+{
+  "extName": {
+    "message": "X 爆款监测"
+  },
+  "extDescription": {
+    "message": "在 X 推文上实时显示浏览流速与爆帖指数"
+  },
+  "popupSubtitle": {
+    "message": "X 推文的实时曝光流速"
+  },
+  "tierNormal": {
+    "message": "正常"
+  },
+  "tierTrending": {
+    "message": "蹿升"
+  },
+  "tierViral": {
+    "message": "爆款"
+  },
+  "hoverHint": {
+    "message": "悬停徽章查看浏览量、点赞、转发、回复、收藏与爆帖指数。"
+  },
+  "thresholdTrending": {
+    "message": "🚀 蹿升阈值"
+  },
+  "thresholdViral": {
+    "message": "🔥 爆款阈值"
+  },
+  "btnSave": {
+    "message": "保存"
+  },
+  "btnReset": {
+    "message": "重置"
+  },
+  "flashSaved": {
+    "message": "已保存 ✓"
+  },
+  "flashReset": {
+    "message": "已重置 ✓"
+  }
+}
