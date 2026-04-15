@@ -316,13 +316,45 @@ function ensureLeaderboard() {
     <div class="xvm-lb-head" title="Drag to move">
       <span class="xvm-lb-grip">⋮⋮</span>
       <span class="xvm-lb-title">🔥 Hot on this page</span>
+      <button class="xvm-lb-back" type="button" title="Return to previous scroll position" aria-label="Return to previous scroll position" hidden>
+        <svg viewBox="0 0 20 20" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 4L6 10l6 6"></path>
+          <path d="M6 10h10"></path>
+        </svg>
+      </button>
     </div>
     <ul class="xvm-lb-list"></ul>
   `;
   document.body.appendChild(leaderboardEl);
   applyLeaderboardPosition();
   installLeaderboardDrag();
+  installLeaderboardBackButton();
   return leaderboardEl;
+}
+
+// === Back-to-previous-scroll ===
+let savedScrollY = null;
+function setBackButtonVisible(visible) {
+  if (!leaderboardEl) return;
+  const btn = leaderboardEl.querySelector('.xvm-lb-back');
+  if (!btn) return;
+  if (visible) btn.removeAttribute('hidden');
+  else btn.setAttribute('hidden', '');
+}
+function installLeaderboardBackButton() {
+  const btn = leaderboardEl.querySelector('.xvm-lb-back');
+  if (!btn) return;
+  // Prevent the drag handler from kicking in when pressing the button
+  btn.addEventListener('mousedown', (e) => e.stopPropagation());
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (savedScrollY === null) return;
+    const target = savedScrollY;
+    clearLink();
+    window.scrollTo({ top: target, behavior: 'smooth' });
+    savedScrollY = null;
+    setBackButtonVisible(false);
+  });
 }
 
 // === Leaderboard drag + persisted position ===
@@ -477,6 +509,13 @@ function renderLeaderboard() {
         if (linkState && linkState.tweetId === id) {
           clearLink();
           return;
+        }
+        // Remember current scroll position so the back button can restore it.
+        // Only set if we don't already have one stacked — multiple jumps in a
+        // row return to the original pre-jump position, not the last jump.
+        if (savedScrollY === null) {
+          savedScrollY = window.scrollY;
+          setBackButtonVisible(true);
         }
         entry.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setLink(id, li, entry.article);
