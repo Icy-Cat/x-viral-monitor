@@ -22,6 +22,11 @@
   // In-memory per-tweet containment cache: tweet_id -> { ids: Set, at: ms }
   const containsCache = new Map();
   const CONTAINS_TTL_MS = 30_000;
+  // Tweets whose containment fetch most recently failed — tracked separately
+  // from containsCache so we don't confuse "checked, in no folders" with
+  // "couldn't check". A present entry means: last fetch threw; render menu
+  // in an error state and re-check on click.
+  const containsFailed = new Set();
 
   function getContainsFresh(tweetId) {
     const e = containsCache.get(tweetId);
@@ -32,6 +37,7 @@
 
   function setContains(tweetId, ids) {
     containsCache.set(tweetId, { ids, at: Date.now() });
+    containsFailed.delete(tweetId);
   }
 
   function getCsrf() {
@@ -171,10 +177,27 @@
       if (!el || !currentTweetId) return;
       const id = el.dataset.id;
       const tweetId = currentTweetId;
-      const contains = getContainsFresh(tweetId);
-      const isIn = contains instanceof Set && contains.has(id);
       if (el.classList.contains('xvm-bk-pending')) return;
       el.classList.add('xvm-bk-pending');
+
+      // If we don't have a known containment set (pending or previous
+      // failure), try to fetch it now so we pick the right mutation. A
+      // failure here is fatal for this click — we must not guess.
+      let contains = getContainsFresh(tweetId);
+      if (!(contains instanceof Set)) {
+        try {
+          contains = await fetchContains(tweetId);
+          if (currentTweetId === tweetId) renderMenu(tweetId);
+        } catch (e) {
+          console.warn('[XVM] containment recheck failed', e);
+          containsFailed.add(tweetId);
+          el.classList.remove('xvm-bk-pending');
+          el.classList.add('xvm-bk-error');
+          if (currentTweetId === tweetId) renderMenu(tweetId);
+          return;
+        }
+      }
+      const isIn = contains instanceof Set && contains.has(id);
       try {
         if (isIn) {
           await gql('removeTweetFromBookmarkFolder', 'POST', { tweet_id: tweetId, bookmark_collection_id: id });
@@ -272,18 +295,29 @@
 
     const containing = getContainsFresh(tweetId);
     const hasContains = containing instanceof Set;
+    const failed = containsFailed.has(tweetId);
 
-    const header = hasContains && containing.size
-      ? `<div class="xvm-bk-header">In folder: <b>${cachedFolders.filter((f) => containing.has(f.id)).map((f) => escapeHtml(f.name)).join(', ')}</b></div>`
-      : hasContains
-        ? '<div class="xvm-bk-header xvm-bk-muted">Not in any folder</div>'
-        : '<div class="xvm-bk-header xvm-bk-muted">Checking current folder…</div>';
+    let header;
+    if (hasContains && containing.size) {
+      header = `<div class="xvm-bk-header">In folder: <b>${cachedFolders.filter((f) => containing.has(f.id)).map((f) => escapeHtml(f.name)).join(', ')}</b></div>`;
+    } else if (hasContains) {
+      header = '<div class="xvm-bk-header xvm-bk-muted">Not in any folder</div>';
+    } else if (failed) {
+      header = '<div class="xvm-bk-header xvm-bk-error-msg">Couldn\u2019t check current folder. Click a folder to retry.</div>';
+    } else {
+      header = '<div class="xvm-bk-header xvm-bk-muted">Checking current folder…</div>';
+    }
 
+    // When containment is unknown (pending or failed), mark items with a
+    // neutral "?" so the user sees we don't yet know the state — avoids the
+    // misleading "all unchecked" that sends clicks down the wrong mutation.
+    const unknown = !hasContains;
     const list = cachedFolders.map((f) => {
       const inIt = hasContains && containing.has(f.id);
+      const glyph = inIt ? '✓' : (unknown ? '?' : '');
       return `
-        <div class="xvm-bk-item${inIt ? ' xvm-bk-checked' : ''}" data-id="${escapeHtml(f.id)}">
-          <span class="xvm-bk-check">${inIt ? '✓' : ''}</span>
+        <div class="xvm-bk-item${inIt ? ' xvm-bk-checked' : ''}${unknown ? ' xvm-bk-unknown' : ''}" data-id="${escapeHtml(f.id)}">
+          <span class="xvm-bk-check">${glyph}</span>
           <span class="xvm-bk-name">${escapeHtml(f.name)}</span>
         </div>`;
     }).join('');
@@ -338,9 +372,10 @@
           renderEmpty('Failed to load folders. X Premium may be required.', true);
           return;
         }
-        // Mark containment as "unknown but resolved" so the header stops
-        // saying "Checking…" and the user can still click folders.
-        setContains(tweetId, new Set());
+        // Leave containsCache untouched so we don't claim "in no folders" —
+        // record the failure so renderMenu shows an error header and the
+        // click handler re-checks before firing a mutation.
+        containsFailed.add(tweetId);
         renderMenu(tweetId);
       }
     }
@@ -375,7 +410,10 @@
       const next = !!event.data.featureBookmarkFolders;
       if (next !== enabled) {
         enabled = next;
-        if (!enabled && menuEl) menuEl.style.display = 'none';
+        if (!enabled) {
+          if (menuEl) menuEl.style.display = 'none';
+          containsFailed.clear();
+        }
       }
       return;
     }

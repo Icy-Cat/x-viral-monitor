@@ -137,20 +137,16 @@ async function refreshFolders() {
       }
       const d = await r.json();
 
-      // Detect non-Premium / unsupported account. Premium users return an
-      // object with `items` (possibly empty). Non-Premium responses are
-      // either an errors field mentioning premium/permission, or a null
-      // bookmark_collections_slice, or a missing field entirely.
+      // Only flag "unsupported" when X explicitly tells us so via the errors
+      // field. A missing/null `bookmark_collections_slice` without any error
+      // message is treated as a transient fetch issue — don't lock Premium
+      // users out just because the response shape drifted temporarily.
       const slice = d?.data?.viewer?.user_results?.result?.bookmark_collections_slice;
       const errs = Array.isArray(d?.errors) ? d.errors : [];
       const errText = errs.map((e) => e?.message || '').join(' ').toLowerCase();
-      const unsupported = (
-        slice === null ||
-        slice === undefined ||
-        /premium|blue|subscription|permission|not allowed/.test(errText)
-      );
+      const explicitlyUnsupported = errs.length > 0 && /premium|blue|subscription|permission|not allowed|unauthorized/.test(errText);
 
-      if (unsupported) {
+      if (explicitlyUnsupported) {
         console.warn('[XVM] bookmark folders unsupported for this account', errs);
         safeChromeCall(() => {
           chrome.storage.local.set({
@@ -163,6 +159,13 @@ async function refreshFolders() {
           chrome.storage.sync.set({ featureBookmarkFolders: false });
         });
         pushFolders([], Date.now());
+        return;
+      }
+
+      // No explicit unsupported signal, but the slice is missing — likely a
+      // transient upstream issue. Bail without touching cache or flags.
+      if (slice === null || slice === undefined) {
+        console.warn('[XVM] refreshFolders: bookmark_collections_slice missing, treating as transient');
         return;
       }
 

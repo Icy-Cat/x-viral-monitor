@@ -115,6 +115,8 @@
 .xvm-bk-item:hover { background: rgba(191, 90, 42, 0.08); }
 .xvm-bk-checked { color: #bf5a2a; font-weight: 600; }
 .xvm-bk-checked:hover { background: rgba(191, 90, 42, 0.14); }
+.xvm-bk-unknown .xvm-bk-check { color: #9b877a; }
+.xvm-bk-unknown .xvm-bk-name { color: #6e5b4d; }
 .xvm-bk-pending { opacity: 0.5; pointer-events: none; }
 .xvm-bk-item.xvm-bk-error { background: rgba(244, 67, 54, 0.12); }
 
