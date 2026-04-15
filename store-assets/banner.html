@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    width: 1400px; height: 560px;
+    background: linear-gradient(135deg, #0a0e13 0%, #0f1419 30%, #162028 70%, #0f1419 100%);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Subtle grid background */
+  body::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(29,155,240,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(29,155,240,0.03) 1px, transparent 1px);
+    background-size: 60px 60px;
+  }
+
+  /* Glow accents */
+  .glow-green {
+    position: absolute;
+    width: 300px; height: 300px;
+    background: radial-gradient(circle, rgba(76,175,80,0.12), transparent 70%);
+    left: 80px; bottom: 40px;
+  }
+  .glow-orange {
+    position: absolute;
+    width: 250px; height: 250px;
+    background: radial-gradient(circle, rgba(255,152,0,0.08), transparent 70%);
+    left: 350px; top: 30px;
+  }
+  .glow-red {
+    position: absolute;
+    width: 400px; height: 400px;
+    background: radial-gradient(circle, rgba(244,67,54,0.1), transparent 70%);
+    right: 100px; top: -50px;
+  }
+
+  .content {
+    display: flex;
+    align-items: center;
+    gap: 80px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Left: bars + arrow */
+  .chart {
+    display: flex;
+    align-items: flex-end;
+    gap: 14px;
+    height: 280px;
+  }
+  .bar {
+    width: 52px;
+    border-radius: 8px 8px 0 0;
+    position: relative;
+  }
+  .bar-green { height: 90px; background: linear-gradient(180deg, #66bb6a, #4caf50); }
+  .bar-orange { height: 155px; background: linear-gradient(180deg, #ffa726, #ff9800); }
+  .bar-red { height: 240px; background: linear-gradient(180deg, #ef5350, #f44336); }
+  .bar::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0; height: 100%;
+    background: linear-gradient(180deg, rgba(255,255,255,0.1), transparent 60%);
+    border-radius: inherit;
+  }
+
+  .arrow {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-left: 12px;
+    margin-bottom: -8px;
+  }
+  .arrow-head {
+    width: 0; height: 0;
+    border-left: 14px solid transparent;
+    border-right: 14px solid transparent;
+    border-bottom: 20px solid #f44336;
+    filter: drop-shadow(0 -4px 8px rgba(244,67,54,0.4));
+  }
+  .arrow-shaft {
+    width: 5px; height: 200px;
+    background: linear-gradient(180deg, #f44336, rgba(244,67,54,0.2));
+    border-radius: 3px;
+  }
+
+  /* Right: text */
+  .text-block { max-width: 680px; }
+  h1 {
+    font-size: 56px;
+    font-weight: 700;
+    color: #e7e9ea;
+    line-height: 1.15;
+    margin-bottom: 16px;
+    letter-spacing: -0.5px;
+  }
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(90deg, #f44336, #ff9800);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  .tagline {
+    font-size: 20px;
+    color: #8b98a5;
+    line-height: 1.6;
+    margin-bottom: 32px;
+  }
+
+  .tiers {
+    display: flex;
+    gap: 24px;
+  }
+  .tier-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    border-radius: 24px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    font-size: 16px;
+    color: #e7e9ea;
+    backdrop-filter: blur(4px);
+  }
+  .tier-pill .emoji { font-size: 20px; }
+  .tier-pill .vel { font-weight: 600; }
+</style>
+</head>
+<body>
+  <div class="glow-green"></div>
+  <div class="glow-orange"></div>
+  <div class="glow-red"></div>
+
+  <div class="content">
+    <div class="chart">
+      <div class="bar bar-green"></div>
+      <div class="bar bar-orange"></div>
+      <div class="bar bar-red"></div>
+      <div class="arrow">
+        <div class="arrow-head"></div>
+        <div class="arrow-shaft"></div>
+      </div>
+    </div>
+
+    <div class="text-block">
+      <h1>Spot <em>Viral Tweets</em><br>Before They Peak</h1>
+      <div class="tagline">Real-time impression velocity badges on every tweet.<br>Know what's blowing up — at a glance.</div>
+      <div class="tiers">
+        <div class="tier-pill"><span class="emoji">🌱</span><span class="vel">Normal</span></div>
+        <div class="tier-pill"><span class="emoji">🚀</span><span class="vel">Trending</span></div>
+        <div class="tier-pill"><span class="emoji">🔥</span><span class="vel">Viral</span></div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
