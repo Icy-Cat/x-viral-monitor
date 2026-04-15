@@ -42,6 +42,7 @@ function normalizeThresholds(raw) {
 }
 
 let leaderboardEnabled = false;
+let leaderboardCount = 10;
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
@@ -57,6 +58,9 @@ window.addEventListener('message', (event) => {
   renderBadges();
 
   const nextLb = !!event.data.featureVelocityLeaderboard;
+  const nextCount = Number.isFinite(event.data.leaderboardCount) ? event.data.leaderboardCount : 10;
+  const countChanged = nextCount !== leaderboardCount;
+  leaderboardCount = nextCount;
   if (nextLb !== leaderboardEnabled) {
     leaderboardEnabled = nextLb;
     if (leaderboardEnabled) {
@@ -64,6 +68,8 @@ window.addEventListener('message', (event) => {
     } else {
       hideLeaderboard();
     }
+  } else if (leaderboardEnabled && countChanged) {
+    renderLeaderboard();
   }
 });
 
@@ -419,7 +425,7 @@ function renderLeaderboard() {
   cancelAnimationFrame(leaderboardRaf);
   leaderboardRaf = requestAnimationFrame(() => {
     const el = ensureLeaderboard();
-    const top = collectRanked().slice(0, 3);
+    const top = collectRanked().slice(0, leaderboardCount);
     if (!top.length) {
       el.style.display = 'none';
       return;

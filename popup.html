@@ -136,7 +136,28 @@
       color: var(--muted);
       line-height: 1.5;
     }
-    .feature-row label { cursor: pointer; flex: 1; }
+    .feature-row .ft-body { flex: 1; min-width: 0; }
+    .feature-row label { cursor: pointer; display: block; }
+    .ft-lb-count {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ft-lb-count input {
+      width: 52px;
+      padding: 4px 6px;
+      font: inherit;
+      font-size: 11px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .ft-lb-count input:focus { outline: none; border-color: var(--accent); }
   </style>
 </head>
 <body>
@@ -177,10 +198,17 @@
 
     <div class="feature-row">
       <input id="feat-leaderboard" type="checkbox">
-      <label for="feat-leaderboard">
-        <div class="ft-title">📊 Velocity leaderboard</div>
-        <div class="ft-desc">Floating sidebar on the right showing the top 3 fastest-growing tweets visible on the current page. Click to scroll to the tweet.</div>
-      </label>
+      <div class="ft-body">
+        <label for="feat-leaderboard">
+          <div class="ft-title">📊 Velocity leaderboard</div>
+          <div class="ft-desc">Draggable floating panel showing the fastest-growing tweets visible on the current page. Click a row to scroll to the tweet.</div>
+        </label>
+        <div class="ft-lb-count">
+          <label for="lb-count">Show top</label>
+          <input id="lb-count" type="number" min="1" max="50" step="1">
+          <span>tweets</span>
+        </div>
+      </div>
     </div>
   </div>
 

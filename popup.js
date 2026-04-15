@@ -1,5 +1,5 @@
 const DEFAULT_THRESHOLDS = { trending: 1000, viral: 10000 };
-const DEFAULT_FEATURES = { featureVelocityLeaderboard: false };
+const DEFAULT_FEATURES = { featureVelocityLeaderboard: false, leaderboardCount: 10 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
 // Apply chrome.i18n translations to any element marked with data-i18n.
@@ -22,6 +22,13 @@ const viralInput = document.getElementById('viral');
 const resetBtn = document.getElementById('reset');
 const statusEl = document.getElementById('status');
 const leaderboardToggle = document.getElementById('feat-leaderboard');
+const leaderboardCountInput = document.getElementById('lb-count');
+
+function normalizeCount(v) {
+  const n = parseInt(v, 10);
+  if (!Number.isFinite(n)) return 10;
+  return Math.max(1, Math.min(50, n));
+}
 
 function normalize(raw) {
   const trending = parseInt(raw?.trending, 10);
@@ -57,12 +64,19 @@ function fill(v) {
 chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   fill(normalize(items));
   leaderboardToggle.checked = !!items.featureVelocityLeaderboard;
+  leaderboardCountInput.value = normalizeCount(items.leaderboardCount);
 });
 
 leaderboardToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureVelocityLeaderboard: leaderboardToggle.checked }, () => {
     flash(leaderboardToggle.checked ? 'Leaderboard ON ✓' : 'Leaderboard OFF');
   });
+});
+
+leaderboardCountInput.addEventListener('change', () => {
+  const n = normalizeCount(leaderboardCountInput.value);
+  leaderboardCountInput.value = n;
+  chrome.storage.sync.set({ leaderboardCount: n }, () => flash(`Showing top ${n} ✓`));
 });
 
 form.addEventListener('submit', (e) => {

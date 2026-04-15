@@ -4,8 +4,15 @@ const DEFAULT_THRESHOLDS = {
 };
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
+  leaderboardCount: 10,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
+
+function normalizeLeaderboardCount(v) {
+  const n = Number.parseInt(v, 10);
+  if (!Number.isFinite(n)) return 10;
+  return Math.max(1, Math.min(50, n));
+}
 
 function normalizeThresholds(raw) {
   const trending = Number.parseInt(raw?.trending, 10);
@@ -25,6 +32,7 @@ function pushSettings(raw) {
     type: 'XVM_SETTINGS_UPDATE',
     thresholds: normalizeThresholds(raw),
     featureVelocityLeaderboard: !!raw?.featureVelocityLeaderboard,
+    leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
   }, '*');
 }
 
@@ -77,7 +85,7 @@ window.addEventListener('message', (event) => {
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.leaderboardCount) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {

@@ -108,7 +108,7 @@
   list-style: none;
   margin: 0;
   padding: 2px 0;
-  max-height: 100px;
+  max-height: 300px;
   overflow-y: auto;
 }
 .xvm-lb-list::-webkit-scrollbar { width: 5px; }
