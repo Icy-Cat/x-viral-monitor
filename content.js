@@ -307,11 +307,85 @@ function ensureLeaderboard() {
   leaderboardEl = document.createElement('div');
   leaderboardEl.className = 'xvm-lb';
   leaderboardEl.innerHTML = `
-    <div class="xvm-lb-head"><span class="xvm-lb-title">🔥 Hot on this page</span></div>
+    <div class="xvm-lb-head" title="Drag to move">
+      <span class="xvm-lb-grip">⋮⋮</span>
+      <span class="xvm-lb-title">🔥 Hot on this page</span>
+    </div>
     <ul class="xvm-lb-list"></ul>
   `;
   document.body.appendChild(leaderboardEl);
+  applyLeaderboardPosition();
+  installLeaderboardDrag();
   return leaderboardEl;
+}
+
+// === Leaderboard drag + persisted position ===
+const LB_POS_KEY = 'xvmLeaderboardPos';
+let leaderboardPos = null; // {left, top} in px from top-left of viewport
+function applyLeaderboardPosition() {
+  if (!leaderboardEl) return;
+  if (leaderboardPos && Number.isFinite(leaderboardPos.left) && Number.isFinite(leaderboardPos.top)) {
+    leaderboardEl.style.left = clampToViewport(leaderboardPos.left, 'x') + 'px';
+    leaderboardEl.style.top = clampToViewport(leaderboardPos.top, 'y') + 'px';
+    leaderboardEl.style.right = 'auto';
+  }
+}
+function clampToViewport(v, axis) {
+  if (!leaderboardEl) return v;
+  const rect = leaderboardEl.getBoundingClientRect();
+  if (axis === 'x') return Math.max(8, Math.min(v, window.innerWidth - rect.width - 8));
+  return Math.max(8, Math.min(v, window.innerHeight - rect.height - 8));
+}
+
+// Load persisted position via bridge
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type === 'XVM_LB_POS_LOAD' && event.data.pos) {
+    leaderboardPos = event.data.pos;
+    applyLeaderboardPosition();
+  }
+});
+window.postMessage({ type: 'XVM_LB_POS_REQUEST' }, '*');
+
+function installLeaderboardDrag() {
+  if (!leaderboardEl) return;
+  const head = leaderboardEl.querySelector('.xvm-lb-head');
+  if (!head) return;
+  let dragState = null;
+  head.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const rect = leaderboardEl.getBoundingClientRect();
+    dragState = {
+      offsetX: e.clientX - rect.left,
+      offsetY: e.clientY - rect.top,
+    };
+    leaderboardEl.classList.add('xvm-lb-dragging');
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!dragState) return;
+    const left = clampToViewport(e.clientX - dragState.offsetX, 'x');
+    const top = clampToViewport(e.clientY - dragState.offsetY, 'y');
+    leaderboardEl.style.left = left + 'px';
+    leaderboardEl.style.top = top + 'px';
+    leaderboardEl.style.right = 'auto';
+    leaderboardPos = { left, top };
+  });
+  window.addEventListener('mouseup', () => {
+    if (!dragState) return;
+    dragState = null;
+    leaderboardEl.classList.remove('xvm-lb-dragging');
+    if (leaderboardPos) {
+      window.postMessage({ type: 'XVM_LB_POS_SAVE', pos: leaderboardPos }, '*');
+    }
+  });
+}
+
+function formatViews(n) {
+  if (!Number.isFinite(n) || n <= 0) return '0';
+  if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
+  if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+  return String(n);
 }
 
 function hideLeaderboard() {
@@ -336,7 +410,7 @@ function collectRanked() {
       const m = (data.text || '').slice(0, 60);
       handle = m;
     }
-    out.push({ id, article, velocity, handle, text: data.text });
+    out.push({ id, article, velocity, views: data.views || 0, handle, text: data.text });
   }
   return out.sort((a, b) => b.velocity - a.velocity);
 }
@@ -363,6 +437,7 @@ function renderLeaderboard() {
           <span class="xvm-lb-rank">${i + 1}</span>
           <span class="xvm-lb-icon">${icon}</span>
           <span class="xvm-lb-label" title="${(t.text || '').replace(/"/g, '&quot;').slice(0, 200)}">${label.replace(/</g, '&lt;')}</span>
+          <span class="xvm-lb-views" title="Total views">👁 ${formatViews(t.views)}</span>
           <span class="xvm-lb-vel">${formatVelocity(t.velocity)}/h</span>
         </li>`;
     }).join('');

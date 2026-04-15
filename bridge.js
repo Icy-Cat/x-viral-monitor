@@ -44,13 +44,34 @@ safeChromeCall(() => {
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
-  if (event.data?.type !== 'XVM_REQUEST_SETTINGS') return;
+  const type = event.data?.type;
 
-  safeChromeCall(() => {
-    chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
-      pushSettings(items);
+  if (type === 'XVM_REQUEST_SETTINGS') {
+    safeChromeCall(() => {
+      chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
+        pushSettings(items);
+      });
     });
-  });
+    return;
+  }
+
+  if (type === 'XVM_LB_POS_REQUEST') {
+    safeChromeCall(() => {
+      chrome.storage.local.get({ xvmLeaderboardPos: null }, (items) => {
+        if (items.xvmLeaderboardPos) {
+          window.postMessage({ type: 'XVM_LB_POS_LOAD', pos: items.xvmLeaderboardPos }, '*');
+        }
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_LB_POS_SAVE' && event.data.pos) {
+    safeChromeCall(() => {
+      chrome.storage.local.set({ xvmLeaderboardPos: event.data.pos });
+    });
+    return;
+  }
 });
 
 safeChromeCall(() => {
