@@ -358,6 +358,22 @@ function installLeaderboardDrag() {
   const head = leaderboardEl.querySelector('.xvm-lb-head');
   if (!head) return;
   let dragState = null;
+  let dragRaf = 0;
+  let pendingClientX = 0;
+  let pendingClientY = 0;
+
+  const flushDrag = () => {
+    dragRaf = 0;
+    if (!dragState) return;
+    const left = clampToViewport(pendingClientX - dragState.offsetX, 'x');
+    const top = clampToViewport(pendingClientY - dragState.offsetY, 'y');
+    leaderboardEl.style.left = left + 'px';
+    leaderboardEl.style.top = top + 'px';
+    leaderboardEl.style.right = 'auto';
+    leaderboardPos = { left, top };
+    if (linkState) updateLinkGeometry();
+  };
+
   head.addEventListener('mousedown', (e) => {
     if (e.button !== 0) return;
     const rect = leaderboardEl.getBoundingClientRect();
@@ -370,16 +386,18 @@ function installLeaderboardDrag() {
   });
   window.addEventListener('mousemove', (e) => {
     if (!dragState) return;
-    const left = clampToViewport(e.clientX - dragState.offsetX, 'x');
-    const top = clampToViewport(e.clientY - dragState.offsetY, 'y');
-    leaderboardEl.style.left = left + 'px';
-    leaderboardEl.style.top = top + 'px';
-    leaderboardEl.style.right = 'auto';
-    leaderboardPos = { left, top };
-  });
+    pendingClientX = e.clientX;
+    pendingClientY = e.clientY;
+    if (dragRaf) return;
+    dragRaf = requestAnimationFrame(flushDrag);
+  }, { passive: true });
   window.addEventListener('mouseup', () => {
     if (!dragState) return;
     dragState = null;
+    if (dragRaf) {
+      cancelAnimationFrame(dragRaf);
+      dragRaf = 0;
+    }
     leaderboardEl.classList.remove('xvm-lb-dragging');
     if (leaderboardPos) {
       window.postMessage({ type: 'XVM_LB_POS_SAVE', pos: leaderboardPos }, '*');
@@ -567,10 +585,13 @@ function updateLinkGeometry() {
   e.setAttribute('cy', endY);
 }
 
-function runLinkLoop() {
-  if (!linkState) return;
-  updateLinkGeometry();
-  linkState.rafHandle = requestAnimationFrame(runLinkLoop);
+let linkUpdateRaf = 0;
+function scheduleLinkUpdate() {
+  if (!linkState || linkUpdateRaf) return;
+  linkUpdateRaf = requestAnimationFrame(() => {
+    linkUpdateRaf = 0;
+    updateLinkGeometry();
+  });
 }
 
 function setLink(tweetId, itemEl, article) {
@@ -578,8 +599,8 @@ function setLink(tweetId, itemEl, article) {
   const svg = ensureLinkSvg();
   itemEl.classList.add('xvm-lb-item-selected');
   article.classList.add('xvm-article-linked');
-  linkState = { tweetId, itemEl, article, svg, rafHandle: 0 };
-  runLinkLoop();
+  linkState = { tweetId, itemEl, article, svg };
+  updateLinkGeometry();
 }
 
 function clearLink() {
@@ -590,9 +611,17 @@ function clearLink() {
   const stale = findArticleByTweetId(linkState.tweetId);
   stale?.classList.remove('xvm-article-linked');
   linkState.svg?.remove();
-  cancelAnimationFrame(linkState.rafHandle);
   linkState = null;
+  if (linkUpdateRaf) {
+    cancelAnimationFrame(linkUpdateRaf);
+    linkUpdateRaf = 0;
+  }
 }
+
+// Event-driven link geometry updates — no idle rAF loop burning CPU.
+// Capture phase so we catch scroll events on inner scroll containers too.
+window.addEventListener('scroll', scheduleLinkUpdate, { capture: true, passive: true });
+window.addEventListener('resize', scheduleLinkUpdate, { passive: true });
 
 document.addEventListener('click', (e) => {
   if (!linkState) return;
