@@ -159,15 +159,18 @@
 }
 .xvm-lb-icon { flex-shrink: 0; }
 .xvm-lb-handle {
-  flex: 1 1 0;
-  min-width: 0;
+  /* flex-shrink:0 so the handle is allowed to show in full and it's
+     the preview column that gets truncated first when they coexist. */
+  flex: 0 0 auto;
+  max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #24180f;
+  font-weight: 500;
 }
 .xvm-lb-preview {
-  flex: 2 1 0;
+  flex: 1 1 0;
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;

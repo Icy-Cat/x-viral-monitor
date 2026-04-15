@@ -474,8 +474,11 @@ const LB_COLUMN_RENDERERS = {
     return `<span class="xvm-lb-icon">${icon}</span>`;
   },
   handle: (t) => {
-    const handle = (t.handle || '').trim().slice(0, 22) || '(tweet)';
-    return `<span class="xvm-lb-handle" title="${lbEscapeHtml(t.handle)}">${lbEscapeHtml(handle)}</span>`;
+    const handle = (t.handle || '').trim() || '(tweet)';
+    // Let CSS text-overflow do the truncation so the full name is shown
+    // whenever there's space, and only clipped when the row is actually
+    // too narrow. This plays nicer with mixed CJK/Latin names.
+    return `<span class="xvm-lb-handle" title="${lbEscapeHtml(handle)}">${lbEscapeHtml(handle)}</span>`;
   },
   preview: (t) => {
     const text = (t.text || '').replace(/\s+/g, ' ').trim();
