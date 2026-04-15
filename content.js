@@ -317,9 +317,9 @@ function ensureLeaderboard() {
       <span class="xvm-lb-grip">⋮⋮</span>
       <span class="xvm-lb-title">🔥 Hot on this page</span>
       <button class="xvm-lb-back" type="button" title="Return to previous scroll position" aria-label="Return to previous scroll position" hidden>
-        <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M4 16 L16 16 L16 4 L4 4"></path>
-          <path d="M4 4 L8 1 M4 4 L8 7"></path>
+        <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M4 16 L12.5 16 Q16 16 16 12.5 L16 8.5 Q16 5 12.5 5 L5 5"></path>
+          <path d="M8 2 L5 5 L8 8"></path>
         </svg>
       </button>
     </div>
