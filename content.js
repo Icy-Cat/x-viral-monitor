@@ -396,6 +396,7 @@ function formatViews(n) {
 
 function hideLeaderboard() {
   if (leaderboardEl) leaderboardEl.style.display = 'none';
+  clearLink();
 }
 
 function collectRanked() {
@@ -428,6 +429,7 @@ function renderLeaderboard() {
     const top = collectRanked().slice(0, leaderboardCount);
     if (!top.length) {
       el.style.display = 'none';
+      clearLink();
       return;
     }
     el.style.display = 'block';
@@ -449,20 +451,160 @@ function renderLeaderboard() {
     }).join('');
 
     list.querySelectorAll('.xvm-lb-item').forEach((li) => {
-      li.addEventListener('click', () => {
+      li.addEventListener('click', (ev) => {
+        ev.stopPropagation();
         const id = li.dataset.id;
         const entry = collectRanked().find((e) => e.id === id);
-        if (entry?.article?.isConnected) {
-          entry.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          entry.article.animate(
-            [{ outline: '2px solid rgba(29,155,240,0.9)' }, { outline: '2px solid rgba(29,155,240,0)' }],
-            { duration: 1600 },
-          );
+        if (!entry?.article?.isConnected) return;
+        if (linkState && linkState.tweetId === id) {
+          clearLink();
+          return;
         }
+        entry.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setLink(id, li, entry.article);
       });
     });
+
+    // Restore link highlight if the linked item is in the freshly rendered list
+    if (linkState) {
+      const relinkItem = list.querySelector(`.xvm-lb-item[data-id="${CSS.escape(linkState.tweetId)}"]`);
+      if (relinkItem) {
+        linkState.itemEl = relinkItem;
+        relinkItem.classList.add('xvm-lb-item-selected');
+      } else {
+        clearLink();
+      }
+    }
   });
 }
+
+// === Leaderboard ↔ article connector (infinite-canvas style) ===
+// linkState: { tweetId, itemEl, article, svg, rafHandle }
+let linkState = null;
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+function ensureLinkSvg() {
+  const svg = document.createElementNS(SVG_NS, 'svg');
+  svg.setAttribute('class', 'xvm-lb-link');
+  svg.style.position = 'fixed';
+  svg.style.left = '0';
+  svg.style.top = '0';
+  svg.style.width = '100vw';
+  svg.style.height = '100vh';
+  svg.style.pointerEvents = 'none';
+  svg.style.zIndex = '2147483645';
+  svg.innerHTML = `
+    <path class="xvm-lb-link-path" fill="none" />
+    <circle class="xvm-lb-link-dot xvm-lb-link-start" r="5" />
+    <circle class="xvm-lb-link-dot xvm-lb-link-end" r="5" />
+  `;
+  document.body.appendChild(svg);
+  return svg;
+}
+
+function findArticleByTweetId(tweetId) {
+  const articles = document.querySelectorAll('article[data-testid="tweet"]');
+  for (const article of articles) {
+    const id = getTweetIdFromArticle(article);
+    if (id === tweetId) return article;
+  }
+  return null;
+}
+
+function updateLinkGeometry() {
+  if (!linkState) return;
+  const { tweetId, itemEl, svg } = linkState;
+
+  // Re-resolve article each frame — React can swap the node on virtualization
+  let article = linkState.article;
+  if (!article || !article.isConnected) {
+    article = findArticleByTweetId(tweetId);
+    linkState.article = article;
+  }
+
+  if (!itemEl.isConnected || !article) {
+    if (!article) svg.style.display = 'none';
+    return;
+  }
+  svg.style.display = '';
+
+  const itemRect = itemEl.getBoundingClientRect();
+  const articleRect = article.getBoundingClientRect();
+
+  // Re-apply article highlight (React may have stripped it on re-render)
+  if (!article.classList.contains('xvm-article-linked')) {
+    article.classList.add('xvm-article-linked');
+  }
+
+  // Pick the item side that faces the article
+  const itemCx = itemRect.left + itemRect.width / 2;
+  const articleCx = articleRect.left + articleRect.width / 2;
+  const startOnRight = articleCx >= itemCx;
+
+  const startX = startOnRight ? itemRect.right : itemRect.left;
+  const startY = itemRect.top + itemRect.height / 2;
+
+  // Clamp article endpoint vertically to the visible article region
+  const articleVisibleTop = Math.max(articleRect.top, 8);
+  const articleVisibleBottom = Math.min(articleRect.bottom, window.innerHeight - 8);
+  const endY = Math.max(articleVisibleTop, Math.min(startY, articleVisibleBottom));
+  const endX = startOnRight ? articleRect.left : articleRect.right;
+
+  // Cubic bezier with horizontal control handles — the "canvas connection" feel
+  const dx = Math.abs(endX - startX);
+  const handle = Math.max(60, dx * 0.4);
+  const c1x = startX + (startOnRight ? handle : -handle);
+  const c2x = endX - (startOnRight ? handle : -handle);
+
+  const path = svg.querySelector('.xvm-lb-link-path');
+  path.setAttribute('d', `M ${startX},${startY} C ${c1x},${startY} ${c2x},${endY} ${endX},${endY}`);
+
+  const s = svg.querySelector('.xvm-lb-link-start');
+  s.setAttribute('cx', startX);
+  s.setAttribute('cy', startY);
+  const e = svg.querySelector('.xvm-lb-link-end');
+  e.setAttribute('cx', endX);
+  e.setAttribute('cy', endY);
+}
+
+function runLinkLoop() {
+  if (!linkState) return;
+  updateLinkGeometry();
+  linkState.rafHandle = requestAnimationFrame(runLinkLoop);
+}
+
+function setLink(tweetId, itemEl, article) {
+  clearLink();
+  const svg = ensureLinkSvg();
+  itemEl.classList.add('xvm-lb-item-selected');
+  article.classList.add('xvm-article-linked');
+  linkState = { tweetId, itemEl, article, svg, rafHandle: 0 };
+  runLinkLoop();
+}
+
+function clearLink() {
+  if (!linkState) return;
+  linkState.itemEl?.classList.remove('xvm-lb-item-selected');
+  linkState.article?.classList.remove('xvm-article-linked');
+  // Also clean any stale highlights on the current DOM article for this id
+  const stale = findArticleByTweetId(linkState.tweetId);
+  stale?.classList.remove('xvm-article-linked');
+  linkState.svg?.remove();
+  cancelAnimationFrame(linkState.rafHandle);
+  linkState = null;
+}
+
+document.addEventListener('click', (e) => {
+  if (!linkState) return;
+  const insideItem = linkState.itemEl && linkState.itemEl.contains(e.target);
+  const insideArticle = linkState.article && linkState.article.contains(e.target);
+  const insidePanel = leaderboardEl && leaderboardEl.contains(e.target);
+  if (!insideItem && !insideArticle && !insidePanel) clearLink();
+});
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && linkState) clearLink();
+});
 
 function getTweetIdFromArticle(article) {
   const links = article.querySelectorAll('a[href*="/status/"]');
