@@ -1,0 +1,43 @@
+{
+  "extName": {
+    "message": "X Viral Monitor",
+    "description": "Extension name"
+  },
+  "extDescription": {
+    "message": "Show impression velocity and viral score on X tweets",
+    "description": "Extension description"
+  },
+  "popupSubtitle": {
+    "message": "Real-time impression velocity on X tweets"
+  },
+  "tierNormal": {
+    "message": "Normal"
+  },
+  "tierTrending": {
+    "message": "Trending"
+  },
+  "tierViral": {
+    "message": "Viral"
+  },
+  "hoverHint": {
+    "message": "Hover badges to see views, likes, RT, replies, bookmarks and viral score."
+  },
+  "thresholdTrending": {
+    "message": "🚀 Trending threshold"
+  },
+  "thresholdViral": {
+    "message": "🔥 Viral threshold"
+  },
+  "btnSave": {
+    "message": "Save"
+  },
+  "btnReset": {
+    "message": "Reset"
+  },
+  "flashSaved": {
+    "message": "Saved ✓"
+  },
+  "flashReset": {
+    "message": "Reset ✓"
+  }
+}

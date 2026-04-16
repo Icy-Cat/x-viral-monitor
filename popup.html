@@ -111,14 +111,14 @@
 </head>
 <body>
   <div class="popup">
-    <h1>X Viral Monitor</h1>
-    <p class="subtitle">Real-time impression velocity on X tweets</p>
+    <h1 data-i18n="extName">X Viral Monitor</h1>
+    <p class="subtitle" data-i18n="popupSubtitle">Real-time impression velocity on X tweets</p>
 
     <div class="info-box">
-      <div class="tier"><span class="icon">🌱</span><span class="label">Normal</span><span class="range" id="range-green">< 1,000/h</span></div>
-      <div class="tier"><span class="icon">🚀</span><span class="label">Trending</span><span class="range" id="range-orange">1,000 ~ 10,000/h</span></div>
-      <div class="tier"><span class="icon">🔥</span><span class="label">Viral</span><span class="range" id="range-red">≥ 10,000/h</span></div>
-      <div style="margin-top:6px; font-size:11px;">
+      <div class="tier"><span class="icon">🌱</span><span class="label" data-i18n="tierNormal">Normal</span><span class="range" id="range-green">< 1,000/h</span></div>
+      <div class="tier"><span class="icon">🚀</span><span class="label" data-i18n="tierTrending">Trending</span><span class="range" id="range-orange">1,000 ~ 10,000/h</span></div>
+      <div class="tier"><span class="icon">🔥</span><span class="label" data-i18n="tierViral">Viral</span><span class="range" id="range-red">≥ 10,000/h</span></div>
+      <div style="margin-top:6px; font-size:11px;" data-i18n="hoverHint">
         Hover over badges to see Views, Likes, RT, Replies, Bookmarks, Viral Score.
       </div>
     </div>
@@ -128,17 +128,17 @@
     <form id="settings-form">
       <div class="row">
         <label class="field">
-          <span>🚀 Trending threshold</span>
+          <span data-i18n="thresholdTrending">🚀 Trending threshold</span>
           <input id="trending" type="number" min="1" step="1" required>
         </label>
         <label class="field">
-          <span>🔥 Viral threshold</span>
+          <span data-i18n="thresholdViral">🔥 Viral threshold</span>
           <input id="viral" type="number" min="2" step="1" required>
         </label>
       </div>
       <div class="actions">
-        <button type="submit">Save</button>
-        <button type="button" id="reset">Reset</button>
+        <button type="submit" data-i18n="btnSave">Save</button>
+        <button type="button" id="reset" data-i18n="btnReset">Reset</button>
       </div>
       <p id="status" class="status-msg" role="status"></p>
     </form>
