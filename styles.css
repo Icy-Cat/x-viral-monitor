@@ -59,3 +59,203 @@
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
   pointer-events: none;
 }
+
+.xvm-lb {
+  display: none;
+  position: fixed;
+  right: 16px;
+  top: 72px;
+  width: 280px;
+  background: #fffcf6;
+  color: #24180f;
+  border: 1px solid rgba(86, 60, 34, 0.18);
+  border-radius: 14px;
+  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  box-shadow: 0 10px 28px rgba(36, 24, 15, 0.22), 0 2px 6px rgba(36, 24, 15, 0.08);
+  z-index: 2147483646;
+  overflow: hidden;
+}
+.xvm-lb.xvm-lb-dragging {
+  box-shadow: 0 16px 36px rgba(36, 24, 15, 0.32), 0 2px 6px rgba(36, 24, 15, 0.12);
+  opacity: 0.96;
+}
+
+.xvm-lb-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid rgba(86, 60, 34, 0.14);
+  background: linear-gradient(180deg, rgba(191, 90, 42, 0.06), rgba(191, 90, 42, 0));
+  cursor: grab;
+  user-select: none;
+}
+.xvm-lb-head:active,
+.xvm-lb.xvm-lb-dragging .xvm-lb-head { cursor: grabbing; }
+.xvm-lb-grip {
+  font-size: 10px;
+  color: #9b877a;
+  letter-spacing: -1px;
+}
+.xvm-lb-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6e5b4d;
+  letter-spacing: 0.02em;
+}
+.xvm-lb-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #bf5a2a;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.xvm-lb-back:hover {
+  background: rgba(191, 90, 42, 0.14);
+  color: #8f3d17;
+}
+.xvm-lb-back[hidden] { display: none; }
+
+.xvm-lb-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.xvm-lb-list::-webkit-scrollbar { width: 5px; }
+.xvm-lb-list::-webkit-scrollbar-thumb {
+  background: rgba(86, 60, 34, 0.2);
+  border-radius: 2px;
+}
+
+.xvm-lb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  height: 28px;
+  user-select: none;
+  transition: background 0.12s;
+}
+.xvm-lb-item:hover { background: rgba(191, 90, 42, 0.08); }
+.xvm-lb-rank {
+  width: 14px;
+  text-align: center;
+  color: #9b877a;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+}
+.xvm-lb-icon { flex-shrink: 0; }
+.xvm-lb-handle {
+  /* flex-shrink:0 so the handle is allowed to show in full and it's
+     the preview column that gets truncated first when they coexist. */
+  flex: 0 0 auto;
+  max-width: 180px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #24180f;
+  font-weight: 500;
+}
+.xvm-lb-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #3a2b1f;
+  font-size: 11.5px;
+}
+.xvm-lb-views {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: #6e5b4d;
+  flex-shrink: 0;
+}
+.xvm-lb-vel {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.xvm-lb-green .xvm-lb-vel { color: #3b8a3f; }
+.xvm-lb-orange .xvm-lb-vel { color: #bf5a2a; }
+.xvm-lb-red .xvm-lb-vel { color: #c23c1c; }
+
+.xvm-lb-item-selected {
+  background: rgba(191, 90, 42, 0.14);
+  box-shadow: inset 0 0 0 1.5px #bf5a2a;
+  border-radius: 6px;
+}
+.xvm-lb-item-selected:hover { background: rgba(191, 90, 42, 0.18); }
+
+article[data-testid="tweet"].xvm-article-linked {
+  outline: 2px solid #bf5a2a;
+  outline-offset: -1px;
+  border-radius: 12px;
+  transition: outline-color 0.18s;
+}
+
+.xvm-lb-link-path {
+  stroke: #bf5a2a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 2px 4px rgba(191, 90, 42, 0.35));
+}
+.xvm-lb-link-dot {
+  fill: #fff8f1;
+  stroke: #bf5a2a;
+  stroke-width: 2;
+  filter: drop-shadow(0 1px 3px rgba(191, 90, 42, 0.4));
+}
+.xvm-lb-link-start { animation: xvm-lb-pulse 1.8s ease-in-out infinite; }
+@keyframes xvm-lb-pulse {
+  0%, 100% { r: 5; }
+  50% { r: 7; }
+}
+
+
+/* === Toast for Copy-as-Markdown === */
+.xvm-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 12px);
+  background: rgba(15, 20, 25, 0.92);
+  color: #fff;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 2147483646;
+  pointer-events: none;
+}
+.xvm-toast--show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.xvm-copy-md-source {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(113, 118, 123);
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}

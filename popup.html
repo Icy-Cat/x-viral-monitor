@@ -107,6 +107,113 @@
       margin-top: 6px;
       min-height: 1.2em;
     }
+
+    .feature-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 12px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      margin-bottom: 12px;
+    }
+    .feature-row input[type="checkbox"] {
+      margin-top: 2px;
+      accent-color: var(--accent);
+      width: 14px;
+      height: 14px;
+      flex-shrink: 0;
+    }
+    .feature-row .ft-title {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 2px;
+    }
+    .feature-row .ft-desc {
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+    .feature-row .ft-body { flex: 1; min-width: 0; }
+    .feature-row label { cursor: pointer; display: block; }
+    .ft-lb-count {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 8px;
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .ft-lb-count input {
+      width: 52px;
+      padding: 4px 6px;
+      font: inherit;
+      font-size: 11px;
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      text-align: center;
+    }
+    .ft-lb-count input:focus { outline: none; border-color: var(--accent); }
+
+    .ft-lb-cols { margin-top: 10px; }
+    .ft-lb-cols-hint {
+      font-size: 10px;
+      color: var(--muted);
+      margin-bottom: 4px;
+    }
+    .col-list {
+      list-style: none;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .col-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.85);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 11px;
+      cursor: grab;
+      user-select: none;
+      transition: background 0.12s, border-color 0.12s, transform 0.12s;
+    }
+    .col-item:active { cursor: grabbing; }
+    .col-item.dragging {
+      opacity: 0.4;
+      border-color: var(--accent);
+    }
+    .col-item.drag-over {
+      border-color: var(--accent);
+      background: rgba(191, 90, 42, 0.08);
+    }
+    .col-item .col-grip {
+      color: #9b877a;
+      font-size: 12px;
+      letter-spacing: -2px;
+      pointer-events: none;
+    }
+    .col-item input[type="checkbox"] {
+      accent-color: var(--accent);
+      width: 12px;
+      height: 12px;
+      margin: 0;
+      pointer-events: auto;
+    }
+    .col-item .col-name {
+      flex: 1;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .col-item.col-hidden .col-name { color: var(--muted); }
   </style>
 </head>
 <body>
@@ -142,6 +249,37 @@
       </div>
       <p id="status" class="status-msg" role="status"></p>
     </form>
+
+    <div class="divider"></div>
+
+    <div class="feature-row">
+      <input id="feat-copy-md" type="checkbox">
+      <div class="ft-body">
+        <label for="feat-copy-md">
+          <div class="ft-title">📋 Copy tweet as Markdown</div>
+          <div class="ft-desc">Adds a "Copy as Markdown" entry at the bottom of X's native share menu. Copies the tweet text, author, link and date in Markdown format.</div>
+        </label>
+      </div>
+    </div>
+
+    <div class="feature-row">
+      <input id="feat-leaderboard" type="checkbox">
+      <div class="ft-body">
+        <label for="feat-leaderboard">
+          <div class="ft-title">📊 Velocity leaderboard</div>
+          <div class="ft-desc">Draggable floating panel showing the fastest-growing tweets visible on the current page. Click a row to scroll to the tweet.</div>
+        </label>
+        <div class="ft-lb-count">
+          <label for="lb-count">Show top</label>
+          <input id="lb-count" type="number" min="1" max="50" step="1">
+          <span>tweets</span>
+        </div>
+        <div class="ft-lb-cols">
+          <div class="ft-lb-cols-hint">Drag to reorder · check to show</div>
+          <ul id="lb-col-list" class="col-list"></ul>
+        </div>
+      </div>
+    </div>
   </div>
 
   <script src="popup.js"></script>
