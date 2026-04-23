@@ -18,6 +18,7 @@ const COLUMN_LABELS = {
 const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((c) => c.id);
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
+  featureCopyAsMarkdown: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
 };
@@ -59,6 +60,7 @@ const viralInput = document.getElementById('viral');
 const resetBtn = document.getElementById('reset');
 const statusEl = document.getElementById('status');
 const leaderboardToggle = document.getElementById('feat-leaderboard');
+const copyMdToggle = document.getElementById('feat-copy-md');
 const leaderboardCountInput = document.getElementById('lb-count');
 const colListEl = document.getElementById('lb-col-list');
 
@@ -104,6 +106,7 @@ function fill(v) {
 chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   fill(normalize(items));
   leaderboardToggle.checked = !!items.featureVelocityLeaderboard;
+  copyMdToggle.checked = items.featureCopyAsMarkdown !== false;
   leaderboardCountInput.value = normalizeCount(items.leaderboardCount);
   columnsState = normalizeColumns(items.leaderboardColumns);
   renderColList();
@@ -181,6 +184,12 @@ function persistColumns() {
 leaderboardToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureVelocityLeaderboard: leaderboardToggle.checked }, () => {
     flash(leaderboardToggle.checked ? 'Leaderboard ON ✓' : 'Leaderboard OFF');
+  });
+});
+
+copyMdToggle.addEventListener('change', () => {
+  chrome.storage.sync.set({ featureCopyAsMarkdown: copyMdToggle.checked }, () => {
+    flash(copyMdToggle.checked ? 'Copy-as-Markdown ON ✓' : 'Copy-as-Markdown OFF');
   });
 });
 

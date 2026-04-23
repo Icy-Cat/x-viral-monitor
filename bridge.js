@@ -14,6 +14,7 @@ const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((c) => c.id);
 
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
+  featureCopyAsMarkdown: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
 };
@@ -61,6 +62,7 @@ function pushSettings(raw) {
     type: 'XVM_SETTINGS_UPDATE',
     thresholds: normalizeThresholds(raw),
     featureVelocityLeaderboard: !!raw?.featureVelocityLeaderboard,
+    featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
     leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
   }, '*');
@@ -115,7 +117,7 @@ window.addEventListener('message', (event) => {
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.leaderboardCount && !changes.leaderboardColumns) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.leaderboardCount && !changes.leaderboardColumns) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {

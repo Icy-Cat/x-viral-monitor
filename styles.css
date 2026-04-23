@@ -225,3 +225,37 @@ article[data-testid="tweet"].xvm-article-linked {
   0%, 100% { r: 5; }
   50% { r: 7; }
 }
+
+
+/* === Toast for Copy-as-Markdown === */
+.xvm-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 32px;
+  transform: translate(-50%, 12px);
+  background: rgba(15, 20, 25, 0.92);
+  color: #fff;
+  font-size: 14px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  padding: 10px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+  opacity: 0;
+  transition: opacity 180ms ease, transform 180ms ease;
+  z-index: 2147483646;
+  pointer-events: none;
+}
+.xvm-toast--show {
+  opacity: 1;
+  transform: translate(-50%, 0);
+}
+
+.xvm-copy-md-source {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  font-weight: 400;
+  color: rgb(113, 118, 123);
+  opacity: 0.85;
+  letter-spacing: 0.01em;
+}
