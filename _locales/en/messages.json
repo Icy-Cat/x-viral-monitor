@@ -39,5 +39,121 @@
   },
   "flashReset": {
     "message": "Reset ✓"
+  },
+  "featureCopyMdTitle": {
+    "message": "📋 Copy tweet as Markdown"
+  },
+  "featureCopyMdDesc": {
+    "message": "Adds a \"Copy as Markdown\" entry at the bottom of X's native share menu. Copies the tweet text, author, link and date in Markdown format."
+  },
+  "featureLeaderboardTitle": {
+    "message": "📊 Velocity leaderboard"
+  },
+  "featureLeaderboardDesc": {
+    "message": "Draggable floating panel showing the fastest-growing tweets visible on the current page. Click a row to scroll to the tweet."
+  },
+  "featureLeaderboardShowTop": {
+    "message": "Show top"
+  },
+  "featureLeaderboardTweets": {
+    "message": "tweets"
+  },
+  "featureLeaderboardColsHint": {
+    "message": "Drag to reorder · check to show"
+  },
+  "popupColRank": {
+    "message": "Rank"
+  },
+  "popupColIcon": {
+    "message": "Tier icon"
+  },
+  "popupColHandle": {
+    "message": "Username"
+  },
+  "popupColPreview": {
+    "message": "Tweet preview"
+  },
+  "popupColViews": {
+    "message": "Views"
+  },
+  "popupColVelocity": {
+    "message": "Velocity"
+  },
+  "contentViews": {
+    "message": "Views"
+  },
+  "contentLikes": {
+    "message": "Likes"
+  },
+  "contentRetweets": {
+    "message": "Retweets"
+  },
+  "contentReplies": {
+    "message": "Replies"
+  },
+  "contentBookmarks": {
+    "message": "Bookmarks"
+  },
+  "contentVelocity": {
+    "message": "Velocity"
+  },
+  "contentViralScore": {
+    "message": "Viral Score"
+  },
+  "contentPosted": {
+    "message": "Posted"
+  },
+  "contentLeaderboardTitle": {
+    "message": "Hot on this page"
+  },
+  "contentLeaderboardDragToMove": {
+    "message": "Drag to move"
+  },
+  "contentLeaderboardBackToPrevious": {
+    "message": "Return to previous scroll position"
+  },
+  "contentLeaderboardTotalViews": {
+    "message": "Total views"
+  },
+  "contentCopyMdLabel": {
+    "message": "Copy as Markdown"
+  },
+  "contentCopyMdDone": {
+    "message": "Copied!"
+  },
+  "contentCopyMdAttribution": {
+    "message": "via X Viral Monitor"
+  },
+  "contentCopyMdNoTweetFound": {
+    "message": "No tweet found"
+  },
+  "contentCopyMdCopyFailed": {
+    "message": "Copy failed"
+  },
+  "contentFallbackTweetLabel": {
+    "message": "tweet"
+  },
+  "flashColumnsSaved": {
+    "message": "Columns saved ✓"
+  },
+  "flashLeaderboardOn": {
+    "message": "Leaderboard ON ✓"
+  },
+  "flashLeaderboardOff": {
+    "message": "Leaderboard OFF"
+  },
+  "flashCopyMdOn": {
+    "message": "Copy-as-Markdown ON ✓"
+  },
+  "flashCopyMdOff": {
+    "message": "Copy-as-Markdown OFF"
+  },
+  "flashShowingTop": {
+    "message": "Showing top $COUNT$ ✓",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

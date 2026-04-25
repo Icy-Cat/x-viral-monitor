@@ -11,6 +11,26 @@ const DEFAULT_COLUMNS = [
   { id: 'velocity', visible: true  },
 ];
 const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((c) => c.id);
+const CONTENT_MESSAGE_KEYS = [
+  'contentViews',
+  'contentLikes',
+  'contentRetweets',
+  'contentReplies',
+  'contentBookmarks',
+  'contentVelocity',
+  'contentViralScore',
+  'contentPosted',
+  'contentLeaderboardTitle',
+  'contentLeaderboardDragToMove',
+  'contentLeaderboardBackToPrevious',
+  'contentLeaderboardTotalViews',
+  'contentCopyMdLabel',
+  'contentCopyMdDone',
+  'contentCopyMdAttribution',
+  'contentCopyMdNoTweetFound',
+  'contentCopyMdCopyFailed',
+  'contentFallbackTweetLabel',
+];
 
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
@@ -57,6 +77,18 @@ function normalizeThresholds(raw) {
   return next;
 }
 
+function getLocalizedMessages() {
+  const out = {};
+  for (const key of CONTENT_MESSAGE_KEYS) {
+    try {
+      out[key] = chrome.i18n.getMessage(key) || key;
+    } catch (_) {
+      out[key] = key;
+    }
+  }
+  return out;
+}
+
 function pushSettings(raw) {
   window.postMessage({
     type: 'XVM_SETTINGS_UPDATE',
@@ -65,6 +97,7 @@ function pushSettings(raw) {
     featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
     leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
+    messages: getLocalizedMessages(),
   }, '*');
 }
 
@@ -106,9 +139,27 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (type === 'XVM_LB_SIZE_REQUEST') {
+    safeChromeCall(() => {
+      chrome.storage.local.get({ xvmLeaderboardWidth: null }, (items) => {
+        if (Number.isFinite(items.xvmLeaderboardWidth)) {
+          window.postMessage({ type: 'XVM_LB_SIZE_LOAD', width: items.xvmLeaderboardWidth }, '*');
+        }
+      });
+    });
+    return;
+  }
+
   if (type === 'XVM_LB_POS_SAVE' && event.data.pos) {
     safeChromeCall(() => {
       chrome.storage.local.set({ xvmLeaderboardPos: event.data.pos });
+    });
+    return;
+  }
+
+  if (type === 'XVM_LB_SIZE_SAVE' && Number.isFinite(event.data.width)) {
+    safeChromeCall(() => {
+      chrome.storage.local.set({ xvmLeaderboardWidth: event.data.width });
     });
     return;
   }

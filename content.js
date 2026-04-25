@@ -7,26 +7,21 @@ const DEFAULT_THRESHOLDS = {
 let velocityThresholds = { ...DEFAULT_THRESHOLDS };
 
 // === i18n ===
-const I18N = {
-  en: {
-    views: 'Views', likes: 'Likes', retweets: 'Retweets',
-    replies: 'Replies', bookmarks: 'Bookmarks', velocity: 'Velocity',
-    viralScore: 'Viral Score', posted: 'Posted',
-  },
-  zh: {
-    views: '浏览量', likes: '点赞', retweets: '转发',
-    replies: '回复', bookmarks: '收藏', velocity: '流速',
-    viralScore: '爆帖指数', posted: '发布时间',
-  },
-  ja: {
-    views: '表示回数', likes: 'いいね', retweets: 'リポスト',
-    replies: '返信', bookmarks: 'ブックマーク', velocity: '流速',
-    viralScore: 'バズ指数', posted: '投稿日時',
-  },
-};
-const userLang = (navigator.language || 'en').split('-')[0];
-const strings = I18N[userLang] || I18N.en;
-function i18n(key) { return strings[key] || key; }
+let localizedStrings = {};
+function i18n(key) { return localizedStrings[key] || key; }
+
+function applyLocalizedUi() {
+  if (!leaderboardEl) return;
+  const head = leaderboardEl.querySelector('.xvm-lb-head');
+  const title = leaderboardEl.querySelector('.xvm-lb-title');
+  const back = leaderboardEl.querySelector('.xvm-lb-back');
+  if (head) head.title = i18n('contentLeaderboardDragToMove');
+  if (title) title.textContent = `🔥 ${i18n('contentLeaderboardTitle')}`;
+  if (back) {
+    back.title = i18n('contentLeaderboardBackToPrevious');
+    back.setAttribute('aria-label', i18n('contentLeaderboardBackToPrevious'));
+  }
+}
 
 function normalizeThresholds(raw) {
   const trending = Number.parseInt(raw?.trending, 10);
@@ -58,6 +53,8 @@ window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.type !== 'XVM_SETTINGS_UPDATE') return;
 
+  localizedStrings = event.data.messages || localizedStrings;
+  applyLocalizedUi();
   velocityThresholds = normalizeThresholds(event.data.thresholds);
   document.querySelectorAll('article[data-xvm-scored]').forEach((article) => {
     article.removeAttribute('data-xvm-scored');
@@ -439,14 +436,14 @@ function renderBadges() {
       String(postedDate.getMinutes()).padStart(2, '0') + ':' +
       String(postedDate.getSeconds()).padStart(2, '0');
     const tooltipContent =
-      `${i18n('views')}: ${data.views.toLocaleString()}\n` +
-      `${i18n('likes')}: ${data.likes.toLocaleString()}\n` +
-      `${i18n('retweets')}: ${data.retweets.toLocaleString()}\n` +
-      `${i18n('replies')}: ${data.replies.toLocaleString()}\n` +
-      `${i18n('bookmarks')}: ${data.bookmarks.toLocaleString()}\n` +
-      `${i18n('velocity')}: ${formatVelocity(velocity)}/h\n` +
-      `${i18n('viralScore')}: ${score}/100\n` +
-      `${i18n('posted')}: ${postedStr}`;
+      `${i18n('contentViews')}: ${data.views.toLocaleString()}\n` +
+      `${i18n('contentLikes')}: ${data.likes.toLocaleString()}\n` +
+      `${i18n('contentRetweets')}: ${data.retweets.toLocaleString()}\n` +
+      `${i18n('contentReplies')}: ${data.replies.toLocaleString()}\n` +
+      `${i18n('contentBookmarks')}: ${data.bookmarks.toLocaleString()}\n` +
+      `${i18n('contentVelocity')}: ${formatVelocity(velocity)}/h\n` +
+      `${i18n('contentViralScore')}: ${score}/100\n` +
+      `${i18n('contentPosted')}: ${postedStr}`;
 
     badge.addEventListener('mouseenter', () => {
       const tip = getTooltip();
@@ -477,16 +474,20 @@ function renderBadges() {
 // === Velocity Leaderboard ===
 let leaderboardEl = null;
 let leaderboardRaf = 0;
+const LB_DEFAULT_WIDTH = 280;
+const LB_MIN_WIDTH = 240;
+const LB_MAX_WIDTH = 640;
+let leaderboardWidth = LB_DEFAULT_WIDTH;
 
 function ensureLeaderboard() {
   if (leaderboardEl) return leaderboardEl;
   leaderboardEl = document.createElement('div');
   leaderboardEl.className = 'xvm-lb';
   leaderboardEl.innerHTML = `
-    <div class="xvm-lb-head" title="Drag to move">
+    <div class="xvm-lb-head" title="${i18n('contentLeaderboardDragToMove')}">
       <span class="xvm-lb-grip">⋮⋮</span>
-      <span class="xvm-lb-title">🔥 Hot on this page</span>
-      <button class="xvm-lb-back" type="button" title="Return to previous scroll position" aria-label="Return to previous scroll position" hidden>
+      <span class="xvm-lb-title">🔥 ${i18n('contentLeaderboardTitle')}</span>
+      <button class="xvm-lb-back" type="button" title="${i18n('contentLeaderboardBackToPrevious')}" aria-label="${i18n('contentLeaderboardBackToPrevious')}" hidden>
         <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
           <path d="M4 16 L12.5 16 Q16 16 16 12.5 L16 8.5 Q16 5 12.5 5 L5 5"></path>
           <path d="M8 2 L5 5 L8 8"></path>
@@ -494,10 +495,13 @@ function ensureLeaderboard() {
       </button>
     </div>
     <ul class="xvm-lb-list"></ul>
+    <div class="xvm-lb-resize" aria-hidden="true"></div>
   `;
   document.body.appendChild(leaderboardEl);
+  applyLeaderboardWidth();
   applyLeaderboardPosition();
   installLeaderboardDrag();
+  installLeaderboardResize();
   installLeaderboardBackButton();
   return leaderboardEl;
 }
@@ -530,12 +534,28 @@ function installLeaderboardBackButton() {
 // === Leaderboard drag + persisted position ===
 const LB_POS_KEY = 'xvmLeaderboardPos';
 let leaderboardPos = null; // {left, top} in px from top-left of viewport
+function clampLeaderboardWidth(width) {
+  const safeWidth = Number.isFinite(width) ? width : LB_DEFAULT_WIDTH;
+  const maxByViewport = Math.max(LB_MIN_WIDTH, Math.min(LB_MAX_WIDTH, window.innerWidth - 16));
+  const maxByPosition = leaderboardPos && Number.isFinite(leaderboardPos.left)
+    ? Math.max(LB_MIN_WIDTH, Math.min(maxByViewport, window.innerWidth - leaderboardPos.left - 8))
+    : maxByViewport;
+  return Math.max(LB_MIN_WIDTH, Math.min(safeWidth, maxByPosition));
+}
+function applyLeaderboardWidth() {
+  if (!leaderboardEl) return;
+  leaderboardWidth = clampLeaderboardWidth(leaderboardWidth);
+  leaderboardEl.style.width = leaderboardWidth + 'px';
+}
 function applyLeaderboardPosition() {
   if (!leaderboardEl) return;
   if (leaderboardPos && Number.isFinite(leaderboardPos.left) && Number.isFinite(leaderboardPos.top)) {
+    applyLeaderboardWidth();
     leaderboardEl.style.left = clampToViewport(leaderboardPos.left, 'x') + 'px';
     leaderboardEl.style.top = clampToViewport(leaderboardPos.top, 'y') + 'px';
     leaderboardEl.style.right = 'auto';
+  } else {
+    applyLeaderboardWidth();
   }
 }
 function clampToViewport(v, axis) {
@@ -551,9 +571,16 @@ window.addEventListener('message', (event) => {
   if (event.data?.type === 'XVM_LB_POS_LOAD' && event.data.pos) {
     leaderboardPos = event.data.pos;
     applyLeaderboardPosition();
+    return;
+  }
+  if (event.data?.type === 'XVM_LB_SIZE_LOAD' && Number.isFinite(event.data.width)) {
+    leaderboardWidth = event.data.width;
+    applyLeaderboardWidth();
+    applyLeaderboardPosition();
   }
 });
 window.postMessage({ type: 'XVM_LB_POS_REQUEST' }, '*');
+window.postMessage({ type: 'XVM_LB_SIZE_REQUEST' }, '*');
 
 function installLeaderboardDrag() {
   if (!leaderboardEl) return;
@@ -607,6 +634,58 @@ function installLeaderboardDrag() {
   });
 }
 
+function installLeaderboardResize() {
+  if (!leaderboardEl) return;
+  const handle = leaderboardEl.querySelector('.xvm-lb-resize');
+  if (!handle) return;
+  let resizeState = null;
+  let resizeRaf = 0;
+  let pendingClientX = 0;
+
+  const flushResize = () => {
+    resizeRaf = 0;
+    if (!resizeState) return;
+    leaderboardWidth = clampLeaderboardWidth(resizeState.startWidth + (pendingClientX - resizeState.startClientX));
+    applyLeaderboardWidth();
+    applyLeaderboardPosition();
+    if (linkState) updateLinkGeometry();
+  };
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    resizeState = {
+      startWidth: leaderboardEl.getBoundingClientRect().width,
+      startClientX: e.clientX,
+    };
+    leaderboardEl.classList.add('xvm-lb-resizing');
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!resizeState) return;
+    pendingClientX = e.clientX;
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(flushResize);
+  }, { passive: true });
+  window.addEventListener('mouseup', () => {
+    if (!resizeState) return;
+    resizeState = null;
+    if (resizeRaf) {
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = 0;
+    }
+    leaderboardEl.classList.remove('xvm-lb-resizing');
+    window.postMessage({ type: 'XVM_LB_SIZE_SAVE', width: leaderboardWidth }, '*');
+  });
+}
+
+window.addEventListener('resize', () => {
+  if (!leaderboardEl) return;
+  applyLeaderboardWidth();
+  applyLeaderboardPosition();
+  if (linkState) updateLinkGeometry();
+});
+
 function formatViews(n) {
   if (!Number.isFinite(n) || n <= 0) return '0';
   if (n >= 1_000_000) return (n / 1_000_000).toFixed(1) + 'M';
@@ -630,7 +709,8 @@ const LB_COLUMN_RENDERERS = {
     return `<span class="xvm-lb-icon">${icon}</span>`;
   },
   handle: (t) => {
-    const handle = (t.handle || '').trim() || '(tweet)';
+    const fallbackHandle = `(${i18n('contentFallbackTweetLabel')})`;
+    const handle = (t.handle || '').trim() || fallbackHandle;
     // Let CSS text-overflow do the truncation so the full name is shown
     // whenever there's space, and only clipped when the row is actually
     // too narrow. This plays nicer with mixed CJK/Latin names.
@@ -640,7 +720,7 @@ const LB_COLUMN_RENDERERS = {
     const text = (t.text || '').replace(/\s+/g, ' ').trim();
     return `<span class="xvm-lb-preview" title="${lbEscapeHtml(text.slice(0, 280))}">${lbEscapeHtml(text)}</span>`;
   },
-  views: (t) => `<span class="xvm-lb-views" title="Total views">\u{1F441} ${formatViews(t.views)}</span>`,
+  views: (t) => `<span class="xvm-lb-views" title="${i18n('contentLeaderboardTotalViews')}">\u{1F441} ${formatViews(t.views)}</span>`,
   velocity: (t) => `<span class="xvm-lb-vel">${formatVelocity(t.velocity)}/h</span>`,
 };
 
@@ -939,17 +1019,6 @@ new MutationObserver(() => {
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
 // === Copy-as-Markdown: inject entry into X's native share dropdown ===
-const COPY_MD_LABEL = {
-  en: 'Copy as Markdown',
-  zh: '复制为 Markdown',
-  ja: 'Markdown としてコピー',
-}[userLang] || 'Copy as Markdown';
-const COPY_MD_DONE = {
-  en: 'Copied!',
-  zh: '已复制！',
-  ja: 'コピーしました！',
-}[userLang] || 'Copied!';
-
 // Remember the tweet the user was interacting with when opening a menu.
 let lastShareContext = null; // { article, tweetId, permalink }
 
@@ -1030,7 +1099,7 @@ function buildTweetMarkdown(ctx) {
 
   const authorLabel = displayName && handle
     ? `${displayName} (${handle})`
-    : (displayName || handle || 'tweet');
+    : (displayName || handle || i18n('contentFallbackTweetLabel'));
   const authorLine = url ? `[${authorLabel}](${url})` : authorLabel;
   const metaParts = [authorLine];
   if (dateStr) metaParts.push(dateStr);
@@ -1128,15 +1197,15 @@ function injectCopyMarkdownItem(menuEl) {
   if (labelSpan) {
     labelSpan.textContent = '';
     const title = document.createElement('span');
-    title.textContent = COPY_MD_LABEL;
+    title.textContent = i18n('contentCopyMdLabel');
     const attribution = document.createElement('span');
     attribution.className = 'xvm-copy-md-source';
-    attribution.textContent = 'via X Viral Monitor';
+    attribution.textContent = i18n('contentCopyMdAttribution');
     labelSpan.appendChild(title);
     labelSpan.appendChild(document.createElement('br'));
     labelSpan.appendChild(attribution);
   } else {
-    clone.textContent = COPY_MD_LABEL;
+    clone.textContent = i18n('contentCopyMdLabel');
   }
 
   // Swap the icon with a Markdown glyph
@@ -1158,13 +1227,13 @@ function injectCopyMarkdownItem(menuEl) {
     ev.preventDefault();
     const ctx = lastShareContext;
     if (!ctx || !ctx.article || !ctx.article.isConnected) {
-      showToast('No tweet found');
+      showToast(i18n('contentCopyMdNoTweetFound'));
       closeOpenMenus();
       return;
     }
     const md = buildTweetMarkdown(ctx);
     const ok = await copyTextToClipboard(md);
-    showToast(ok ? COPY_MD_DONE : 'Copy failed');
+    showToast(ok ? i18n('contentCopyMdDone') : i18n('contentCopyMdCopyFailed'));
     closeOpenMenus();
   });
 

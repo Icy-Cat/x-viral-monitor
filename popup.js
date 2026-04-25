@@ -7,13 +7,13 @@ const DEFAULT_COLUMNS = [
   { id: 'views',    visible: true  },
   { id: 'velocity', visible: true  },
 ];
-const COLUMN_LABELS = {
-  rank: 'Rank',
-  icon: 'Tier icon',
-  handle: 'Username',
-  preview: 'Tweet preview',
-  views: 'Views',
-  velocity: 'Velocity',
+const COLUMN_LABEL_KEYS = {
+  rank: 'popupColRank',
+  icon: 'popupColIcon',
+  handle: 'popupColHandle',
+  preview: 'popupColPreview',
+  views: 'popupColViews',
+  velocity: 'popupColVelocity',
 };
 const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((c) => c.id);
 const DEFAULT_FEATURES = {
@@ -26,9 +26,9 @@ const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
 // Apply chrome.i18n translations to any element marked with data-i18n.
 // Falls back to the hardcoded English text in the HTML if a key is missing.
-function t(key) {
+function t(key, substitutions) {
   try {
-    return chrome.i18n.getMessage(key) || '';
+    return chrome.i18n.getMessage(key, substitutions) || '';
   } catch (e) {
     return '';
   }
@@ -37,6 +37,10 @@ document.querySelectorAll('[data-i18n]').forEach((el) => {
   const msg = t(el.dataset.i18n);
   if (msg) el.textContent = msg;
 });
+
+function tr(key, substitutions) {
+  return t(key, substitutions) || key;
+}
 
 function normalizeColumns(raw) {
   if (!Array.isArray(raw)) return DEFAULT_COLUMNS.map((c) => ({ ...c }));
@@ -123,7 +127,7 @@ function renderColList() {
     li.innerHTML = `
       <span class="col-grip">⋮⋮</span>
       <input type="checkbox" ${col.visible ? 'checked' : ''}>
-      <span class="col-name">${COLUMN_LABELS[col.id] || col.id}</span>
+      <span class="col-name">${COLUMN_LABEL_KEYS[col.id] ? tr(COLUMN_LABEL_KEYS[col.id]) : col.id}</span>
     `;
     const checkbox = li.querySelector('input[type="checkbox"]');
     checkbox.addEventListener('change', () => {
@@ -178,35 +182,35 @@ colListEl.addEventListener('dragend', () => {
 });
 
 function persistColumns() {
-  chrome.storage.sync.set({ leaderboardColumns: columnsState }, () => flash('Columns saved ✓'));
+  chrome.storage.sync.set({ leaderboardColumns: columnsState }, () => flash(tr('flashColumnsSaved')));
 }
 
 leaderboardToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureVelocityLeaderboard: leaderboardToggle.checked }, () => {
-    flash(leaderboardToggle.checked ? 'Leaderboard ON ✓' : 'Leaderboard OFF');
+    flash(tr(leaderboardToggle.checked ? 'flashLeaderboardOn' : 'flashLeaderboardOff'));
   });
 });
 
 copyMdToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureCopyAsMarkdown: copyMdToggle.checked }, () => {
-    flash(copyMdToggle.checked ? 'Copy-as-Markdown ON ✓' : 'Copy-as-Markdown OFF');
+    flash(tr(copyMdToggle.checked ? 'flashCopyMdOn' : 'flashCopyMdOff'));
   });
 });
 
 leaderboardCountInput.addEventListener('change', () => {
   const n = normalizeCount(leaderboardCountInput.value);
   leaderboardCountInput.value = n;
-  chrome.storage.sync.set({ leaderboardCount: n }, () => flash(`Showing top ${n} ✓`));
+  chrome.storage.sync.set({ leaderboardCount: n }, () => flash(tr('flashShowingTop', [String(n)])));
 });
 
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const v = normalize({ trending: trendingInput.value, viral: viralInput.value });
   fill(v);
-  chrome.storage.sync.set(v, () => flash(t('flashSaved') || 'Saved ✓'));
+  chrome.storage.sync.set(v, () => flash(tr('flashSaved')));
 });
 
 resetBtn.addEventListener('click', () => {
   fill(DEFAULT_THRESHOLDS);
-  chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash(t('flashReset') || 'Reset ✓'));
+  chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash(tr('flashReset')));
 });

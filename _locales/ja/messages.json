@@ -37,5 +37,121 @@
   },
   "flashReset": {
     "message": "リセットしました ✓"
+  },
+  "featureCopyMdTitle": {
+    "message": "📋 投稿を Markdown としてコピー"
+  },
+  "featureCopyMdDesc": {
+    "message": "X のネイティブ共有メニューの下部に「Markdown としてコピー」を追加し、本文・投稿者・リンク・日時を Markdown 形式でコピーします。"
+  },
+  "featureLeaderboardTitle": {
+    "message": "📊 流速リーダーボード"
+  },
+  "featureLeaderboardDesc": {
+    "message": "現在のページで最も伸びている投稿を表示するドラッグ可能なフローティングパネルです。行をクリックすると投稿までスクロールします。"
+  },
+  "featureLeaderboardShowTop": {
+    "message": "上位"
+  },
+  "featureLeaderboardTweets": {
+    "message": "件を表示"
+  },
+  "featureLeaderboardColsHint": {
+    "message": "ドラッグで並べ替え · チェックで表示"
+  },
+  "popupColRank": {
+    "message": "順位"
+  },
+  "popupColIcon": {
+    "message": "ティアアイコン"
+  },
+  "popupColHandle": {
+    "message": "ユーザー名"
+  },
+  "popupColPreview": {
+    "message": "投稿プレビュー"
+  },
+  "popupColViews": {
+    "message": "表示回数"
+  },
+  "popupColVelocity": {
+    "message": "流速"
+  },
+  "contentViews": {
+    "message": "表示回数"
+  },
+  "contentLikes": {
+    "message": "いいね"
+  },
+  "contentRetweets": {
+    "message": "リポスト"
+  },
+  "contentReplies": {
+    "message": "返信"
+  },
+  "contentBookmarks": {
+    "message": "ブックマーク"
+  },
+  "contentVelocity": {
+    "message": "流速"
+  },
+  "contentViralScore": {
+    "message": "バズ指数"
+  },
+  "contentPosted": {
+    "message": "投稿日時"
+  },
+  "contentLeaderboardTitle": {
+    "message": "このページの注目投稿"
+  },
+  "contentLeaderboardDragToMove": {
+    "message": "ドラッグして移動"
+  },
+  "contentLeaderboardBackToPrevious": {
+    "message": "前のスクロール位置に戻る"
+  },
+  "contentLeaderboardTotalViews": {
+    "message": "総表示回数"
+  },
+  "contentCopyMdLabel": {
+    "message": "Markdown としてコピー"
+  },
+  "contentCopyMdDone": {
+    "message": "コピーしました！"
+  },
+  "contentCopyMdAttribution": {
+    "message": "via X Viral Monitor"
+  },
+  "contentCopyMdNoTweetFound": {
+    "message": "投稿が見つかりません"
+  },
+  "contentCopyMdCopyFailed": {
+    "message": "コピーに失敗しました"
+  },
+  "contentFallbackTweetLabel": {
+    "message": "投稿"
+  },
+  "flashColumnsSaved": {
+    "message": "列設定を保存しました ✓"
+  },
+  "flashLeaderboardOn": {
+    "message": "リーダーボードを有効化 ✓"
+  },
+  "flashLeaderboardOff": {
+    "message": "リーダーボードを無効化"
+  },
+  "flashCopyMdOn": {
+    "message": "Markdown コピーを有効化 ✓"
+  },
+  "flashCopyMdOff": {
+    "message": "Markdown コピーを無効化"
+  },
+  "flashShowingTop": {
+    "message": "上位 $COUNT$ 件を表示 ✓",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }

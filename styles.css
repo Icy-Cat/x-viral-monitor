@@ -79,6 +79,9 @@
   box-shadow: 0 16px 36px rgba(36, 24, 15, 0.32), 0 2px 6px rgba(36, 24, 15, 0.12);
   opacity: 0.96;
 }
+.xvm-lb.xvm-lb-resizing {
+  box-shadow: 0 16px 36px rgba(36, 24, 15, 0.32), 0 2px 6px rgba(36, 24, 15, 0.12);
+}
 
 .xvm-lb-head {
   display: flex;
@@ -135,6 +138,30 @@
 .xvm-lb-list::-webkit-scrollbar-thumb {
   background: rgba(86, 60, 34, 0.2);
   border-radius: 2px;
+}
+.xvm-lb-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+}
+.xvm-lb-resize::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  width: 3px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(110, 91, 77, 0.22);
+  transform: translateY(-50%);
+  transition: background 0.12s;
+}
+.xvm-lb:hover .xvm-lb-resize::before,
+.xvm-lb.xvm-lb-resizing .xvm-lb-resize::before {
+  background: rgba(191, 90, 42, 0.35);
 }
 
 .xvm-lb-item {

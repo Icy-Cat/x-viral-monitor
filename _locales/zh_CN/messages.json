@@ -37,5 +37,121 @@
   },
   "flashReset": {
     "message": "已重置 ✓"
+  },
+  "featureCopyMdTitle": {
+    "message": "📋 复制推文为 Markdown"
+  },
+  "featureCopyMdDesc": {
+    "message": "在 X 原生分享菜单底部添加“复制为 Markdown”入口，并将推文正文、作者、链接和时间复制为 Markdown 格式。"
+  },
+  "featureLeaderboardTitle": {
+    "message": "📊 流速榜"
+  },
+  "featureLeaderboardDesc": {
+    "message": "可拖拽的浮动面板，显示当前页面里增长最快的推文。点击某一行可滚动到对应推文。"
+  },
+  "featureLeaderboardShowTop": {
+    "message": "显示前"
+  },
+  "featureLeaderboardTweets": {
+    "message": "条推文"
+  },
+  "featureLeaderboardColsHint": {
+    "message": "拖动调整顺序 · 勾选控制显示"
+  },
+  "popupColRank": {
+    "message": "排名"
+  },
+  "popupColIcon": {
+    "message": "等级图标"
+  },
+  "popupColHandle": {
+    "message": "用户名"
+  },
+  "popupColPreview": {
+    "message": "推文预览"
+  },
+  "popupColViews": {
+    "message": "浏览量"
+  },
+  "popupColVelocity": {
+    "message": "流速"
+  },
+  "contentViews": {
+    "message": "浏览量"
+  },
+  "contentLikes": {
+    "message": "点赞"
+  },
+  "contentRetweets": {
+    "message": "转发"
+  },
+  "contentReplies": {
+    "message": "回复"
+  },
+  "contentBookmarks": {
+    "message": "收藏"
+  },
+  "contentVelocity": {
+    "message": "流速"
+  },
+  "contentViralScore": {
+    "message": "爆帖指数"
+  },
+  "contentPosted": {
+    "message": "发布时间"
+  },
+  "contentLeaderboardTitle": {
+    "message": "本页热点"
+  },
+  "contentLeaderboardDragToMove": {
+    "message": "拖动以移动"
+  },
+  "contentLeaderboardBackToPrevious": {
+    "message": "返回之前的滚动位置"
+  },
+  "contentLeaderboardTotalViews": {
+    "message": "总浏览量"
+  },
+  "contentCopyMdLabel": {
+    "message": "复制为 Markdown"
+  },
+  "contentCopyMdDone": {
+    "message": "已复制！"
+  },
+  "contentCopyMdAttribution": {
+    "message": "由 X Viral Monitor 提供"
+  },
+  "contentCopyMdNoTweetFound": {
+    "message": "未找到推文"
+  },
+  "contentCopyMdCopyFailed": {
+    "message": "复制失败"
+  },
+  "contentFallbackTweetLabel": {
+    "message": "推文"
+  },
+  "flashColumnsSaved": {
+    "message": "列设置已保存 ✓"
+  },
+  "flashLeaderboardOn": {
+    "message": "流速榜已开启 ✓"
+  },
+  "flashLeaderboardOff": {
+    "message": "流速榜已关闭"
+  },
+  "flashCopyMdOn": {
+    "message": "Markdown 复制已开启 ✓"
+  },
+  "flashCopyMdOff": {
+    "message": "Markdown 复制已关闭"
+  },
+  "flashShowingTop": {
+    "message": "当前显示前 $COUNT$ 条 ✓",
+    "placeholders": {
+      "count": {
+        "content": "$1"
+      }
+    }
   }
 }
