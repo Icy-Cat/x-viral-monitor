@@ -10,16 +10,66 @@
   // and cache are missing, getTemplate returns the placeholder and the
   // caller (Task 5 onward) surfaces an error to the user telling them to
   // organically view a Retweets/Search page once.
+  // Hardcoded baseline so the feature works on first use without needing the
+  // user to organically trigger every endpoint. Captured values from
+  // chrome.storage.local override these (see getTemplate) — that's how we
+  // self-heal when X rotates a queryId or features blob.
+  // Source values cross-checked against London-Chen/Thank-you-star-chart.
+  const DEFAULT_BEARER =
+    'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+  const DEFAULT_FEATURES_OBJ = {
+    rweb_tipjar_consumption_enabled: true,
+    responsive_web_graphql_exclude_directive_enabled: true,
+    verified_phone_label_enabled: false,
+    creator_subscriptions_tweet_preview_api_enabled: true,
+    responsive_web_graphql_timeline_navigation_enabled: true,
+    responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+    communities_web_enable_tweet_community_results_fetch: true,
+    c9s_tweet_anatomy_moderator_badge_enabled: true,
+    articles_preview_enabled: true,
+    tweetypie_unmention_optimization_enabled: true,
+    responsive_web_edit_tweet_api_enabled: true,
+    graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+    view_counts_everywhere_api_enabled: true,
+    longform_notetweets_consumption_enabled: true,
+    responsive_web_twitter_article_tweet_consumption_enabled: true,
+    tweet_awards_web_tipping_enabled: false,
+    creator_subscriptions_quote_tweet_preview_enabled: false,
+    freedom_of_speech_not_reach_fetch_enabled: true,
+    standardized_nudges_misinfo: true,
+    tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+    rweb_video_timestamps_enabled: true,
+    longform_notetweets_rich_text_read_enabled: true,
+    longform_notetweets_inline_media_enabled: true,
+    responsive_web_enhance_cards_enabled: false,
+    responsive_web_twitter_article_notes_tab_enabled: true,
+    subscriptions_verification_info_verified_since_enabled: true,
+    subscriptions_feature_can_gift_premium: true,
+    responsive_web_grok_show_grok_translated_post: true,
+    responsive_web_grok_analyze_button_fetch_trends_enabled: true,
+    rweb_video_screen_enabled: true,
+  };
+  const RETWEETERS_FEATURES_OBJ = {
+    ...DEFAULT_FEATURES_OBJ,
+    rweb_video_screen_enabled: false,
+    responsive_web_profile_redirect_enabled: false,
+    premium_content_api_read_enabled: false,
+    longform_notetweets_inline_media_enabled: false,
+    responsive_web_grok_annotations_enabled: true,
+    content_disclosure_indicator_enabled: true,
+    content_disclosure_ai_generated_indicator_enabled: true,
+    post_ctas_fetch_enabled: true,
+  };
   const DEFAULT_TEMPLATES = {
     Retweeters: {
-      queryId: 'REPLACE_AT_RUNTIME',
-      features: '{}',
-      authorization: '',
+      queryId: 'nPdDY4-nwRk281j8VGR4Mg',
+      features: JSON.stringify(RETWEETERS_FEATURES_OBJ),
+      authorization: DEFAULT_BEARER,
     },
     SearchTimeline: {
-      queryId: 'REPLACE_AT_RUNTIME',
-      features: '{}',
-      authorization: '',
+      queryId: '6AAys3t42mosm_yTI_QENg',
+      features: JSON.stringify(DEFAULT_FEATURES_OBJ),
+      authorization: DEFAULT_BEARER,
     },
   };
 
