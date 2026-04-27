@@ -1141,7 +1141,7 @@
         }
         if (activeRenderer) activeRenderer.addUsers(users, type);
         progressEl.textContent =
-          tt('contentStarChartProgress').replace('$COUNT$', count.toString());
+          tt('contentStarChartProgress').replace('{{COUNT}}', count.toString());
         renderStats(statsEl, byId);
         refreshPeople();
         if (updateRiver) updateRiver();
@@ -1152,7 +1152,7 @@
 
       function onRateLimit(seconds) {
         progressEl.textContent =
-          tt('contentStarChartRateLimited').replace('$SECONDS$', seconds.toString());
+          tt('contentStarChartRateLimited').replace('{{SECONDS}}', seconds.toString());
       }
 
       try {
@@ -1169,7 +1169,7 @@
         const truncated = !!(rtResult?.truncated || qtResult?.truncated);
         const doneKey = truncated ? 'contentStarChartDoneTruncated' : 'contentStarChartDone';
         progressEl.textContent =
-          tt(doneKey).replace('$COUNT$', count.toString());
+          tt(doneKey).replace('{{COUNT}}', count.toString());
 
         // Show empty state if no supporters found
         if (count === 0) {
@@ -1184,7 +1184,7 @@
         console.error('[starchart] fetch failed', e);
         const reason = e?.message || e?.toString?.() || String(e) || 'unknown';
         progressEl.textContent =
-          tt('contentStarChartError').replace('$REASON$', reason);
+          tt('contentStarChartError').replace('{{REASON}}', reason);
       }
     } finally {
       openInFlight = false;

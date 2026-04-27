@@ -169,34 +169,19 @@
     "message": "Loading supporters..."
   },
   "contentStarChartProgress": {
-    "message": "$COUNT$ supporters loaded",
-    "placeholders": {
-      "count": { "content": "$1", "example": "1234" }
-    }
+    "message": "{{COUNT}} supporters loaded"
   },
   "contentStarChartRateLimited": {
-    "message": "Hit rate limit, waiting $SECONDS$s...",
-    "placeholders": {
-      "seconds": { "content": "$1", "example": "60" }
-    }
+    "message": "Hit rate limit, waiting {{SECONDS}}s..."
   },
   "contentStarChartDone": {
-    "message": "Done — $COUNT$ supporters",
-    "placeholders": {
-      "count": { "content": "$1", "example": "1234" }
-    }
+    "message": "Done — {{COUNT}} supporters"
   },
   "contentStarChartDoneTruncated": {
-    "message": "Done — $COUNT$ supporters (capped, more available)",
-    "placeholders": {
-      "count": { "content": "$1", "example": "50000" }
-    }
+    "message": "Done — {{COUNT}} supporters (capped, more available)"
   },
   "contentStarChartError": {
-    "message": "Could not load supporters: $REASON$",
-    "placeholders": {
-      "reason": { "content": "$1", "example": "network error" }
-    }
+    "message": "Could not load supporters: {{REASON}}"
   },
   "contentStarChartNoTweetFound": {
     "message": "Could not identify the tweet"

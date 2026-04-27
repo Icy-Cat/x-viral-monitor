@@ -159,24 +159,19 @@
   "contentStarChartTitle": { "message": "サンクス・スターチャート" },
   "contentStarChartLoading": { "message": "サポーターを読み込み中..." },
   "contentStarChartProgress": {
-    "message": "$COUNT$ 名読み込み済み",
-    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+    "message": "{{COUNT}} 名読み込み済み"
   },
   "contentStarChartRateLimited": {
-    "message": "レート制限のため $SECONDS$ 秒待機中...",
-    "placeholders": { "seconds": { "content": "$1", "example": "60" } }
+    "message": "レート制限のため {{SECONDS}} 秒待機中..."
   },
   "contentStarChartDone": {
-    "message": "完了 — $COUNT$ 名のサポーター",
-    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+    "message": "完了 — {{COUNT}} 名のサポーター"
   },
   "contentStarChartDoneTruncated": {
-    "message": "上限到達 — $COUNT$ 名読み込み済み（さらに存在）",
-    "placeholders": { "count": { "content": "$1", "example": "50000" } }
+    "message": "上限到達 — {{COUNT}} 名読み込み済み（さらに存在）"
   },
   "contentStarChartError": {
-    "message": "読み込み失敗：$REASON$",
-    "placeholders": { "reason": { "content": "$1", "example": "ネットワークエラー" } }
+    "message": "読み込み失敗：{{REASON}}"
   },
   "contentStarChartNoTweetFound": { "message": "ツイートを特定できません" },
   "contentStarChartModuleNotLoaded": { "message": "スターチャートを読み込めません — ページを再読み込みしてください" },

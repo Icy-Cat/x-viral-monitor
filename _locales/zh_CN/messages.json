@@ -159,24 +159,19 @@
   "contentStarChartTitle": { "message": "感谢星图" },
   "contentStarChartLoading": { "message": "正在加载支持者..." },
   "contentStarChartProgress": {
-    "message": "已加载 $COUNT$ 位支持者",
-    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+    "message": "已加载 {{COUNT}} 位支持者"
   },
   "contentStarChartRateLimited": {
-    "message": "触发限频，等待 $SECONDS$ 秒...",
-    "placeholders": { "seconds": { "content": "$1", "example": "60" } }
+    "message": "触发限频，等待 {{SECONDS}} 秒..."
   },
   "contentStarChartDone": {
-    "message": "完成 — 共 $COUNT$ 位支持者",
-    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+    "message": "完成 — 共 {{COUNT}} 位支持者"
   },
   "contentStarChartDoneTruncated": {
-    "message": "已达上限 — 已加载 $COUNT$ 位（仍有更多未加载）",
-    "placeholders": { "count": { "content": "$1", "example": "50000" } }
+    "message": "已达上限 — 已加载 {{COUNT}} 位（仍有更多未加载）"
   },
   "contentStarChartError": {
-    "message": "加载失败：$REASON$",
-    "placeholders": { "reason": { "content": "$1", "example": "网络错误" } }
+    "message": "加载失败：{{REASON}}"
   },
   "contentStarChartNoTweetFound": { "message": "无法识别这条推文" },
   "contentStarChartModuleNotLoaded": { "message": "星图组件未加载 — 请刷新页面后重试" },
