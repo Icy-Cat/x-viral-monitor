@@ -178,6 +178,18 @@ window.addEventListener('message', (event) => {
     });
     return;
   }
+
+  if (type === 'XVM_SC_TEMPLATE_CAPTURE' && event.data.op && event.data.template) {
+    safeChromeCall(() => {
+      chrome.storage.local.get({ xvmStarChartTemplates: {} }, (items) => {
+        const cur = items.xvmStarChartTemplates || {};
+        const op = event.data.op;
+        cur[op] = { ...(cur[op] || {}), ...event.data.template, capturedAt: Date.now() };
+        chrome.storage.local.set({ xvmStarChartTemplates: cur });
+      });
+    });
+    return;
+  }
 });
 
 safeChromeCall(() => {

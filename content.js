@@ -92,6 +92,38 @@ window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
 
+// === Star Chart: GraphQL endpoint template capture ===
+// Learns the latest queryId + features blob X is using for known operations,
+// plus the bearer token + ct0 csrf header. Persists to chrome.storage.local
+// so the star-chart fetcher can replay the same shape later.
+const STARCHART_OPS = ['Retweeters', 'SearchTimeline'];
+const STARCHART_GRAPHQL_RE = /\/i\/api\/graphql\/([^/]+)\/([^?]+)/;
+
+function recordStarChartTemplate(url, requestHeaders) {
+  const m = url.match(STARCHART_GRAPHQL_RE);
+  if (!m) return;
+  const queryId = m[1];
+  const opName = m[2];
+  if (!STARCHART_OPS.includes(opName)) return;
+
+  let featuresStr = null;
+  try {
+    const u = new URL(url, location.origin);
+    featuresStr = u.searchParams.get('features');
+  } catch (_) {}
+
+  const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
+  const update = { queryId };
+  if (featuresStr) update.features = featuresStr;
+  if (auth) update.authorization = auth;
+
+  window.postMessage({
+    type: 'XVM_SC_TEMPLATE_CAPTURE',
+    op: opName,
+    template: update,
+  }, '*');
+}
+
 // Extract and report rate limit headers
 function reportRateLimit(headers) {
   const remaining = headers.get('x-rate-limit-remaining');
@@ -108,8 +140,16 @@ function reportRateLimit(headers) {
 // Hook fetch
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
-  const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+  // Star chart: capture queryId + auth header from outgoing request
+  if (url && GRAPHQL_RE.test(url)) {
+    const init = args[1] || {};
+    const headers = init.headers instanceof Headers
+      ? Object.fromEntries(init.headers.entries())
+      : (init.headers || (args[0]?.headers ? Object.fromEntries(new Headers(args[0].headers).entries()) : {}));
+    recordStarChartTemplate(url, headers);
+  }
+  const response = await originalFetch.apply(this, args);
   if (url && GRAPHQL_RE.test(url)) {
     reportRateLimit(response.headers);
     const clone = response.clone();
@@ -134,11 +174,20 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
             reset: parseInt(reset, 10),
           }, '*');
         }
+        recordStarChartTemplate(url, { authorization: this.__xvmAuthHeader });
         scanForTweets(JSON.parse(this.responseText));
       } catch (e) {}
     });
   }
   return originalXHROpen.call(this, method, url, ...rest);
+};
+
+const originalXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+  if (name && /^authorization$/i.test(name)) {
+    this.__xvmAuthHeader = value;
+  }
+  return originalXHRSetHeader.apply(this, arguments);
 };
 
 // === Data Extraction ===
