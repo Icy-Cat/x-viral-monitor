@@ -155,7 +155,7 @@
     }
   },
   "contentStarChartMenuLabel": { "message": "サンクス・スターチャート" },
-  "contentStarChartAttribution": { "message": "Velocity Monitor 提供" },
+  "contentStarChartAttribution": { "message": "via X Viral Monitor" },
   "contentStarChartTitle": { "message": "サンクス・スターチャート" },
   "contentStarChartLoading": { "message": "サポーターを読み込み中..." },
   "contentStarChartProgress": {

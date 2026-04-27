@@ -155,7 +155,7 @@
     }
   },
   "contentStarChartMenuLabel": { "message": "感谢星图" },
-  "contentStarChartAttribution": { "message": "由 Velocity Monitor 提供" },
+  "contentStarChartAttribution": { "message": "由 X Viral Monitor 提供" },
   "contentStarChartTitle": { "message": "感谢星图" },
   "contentStarChartLoading": { "message": "正在加载支持者..." },
   "contentStarChartProgress": {
