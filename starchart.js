@@ -67,6 +67,7 @@
 
   let activeOverlay = null;
   let activeAbort = null;
+  let openInFlight = false;
 
   // MAIN-world receives localized strings via XVM_SETTINGS_UPDATE (see content.js).
   // We re-receive them here so this module doesn't need to import from content.js.
@@ -312,53 +313,62 @@
   }
 
   async function openStarChart(tweetCtx) {
-    if (activeOverlay) closeOverlay();
-    await loadTemplatesFromStorage();
-
-    activeOverlay = buildOverlay(tweetCtx);
-    document.body.appendChild(activeOverlay);
-    const progressEl = activeOverlay.querySelector('.xvm-sc-progress');
-    activeAbort = new AbortController();
-
-    // Aggregate users so we can mark dual-role (retweet + quote)
-    const byId = new Map();
-    let count = 0;
-    function addUsers(users, type) {
-      for (const u of users) {
-        const cur = byId.get(u.id);
-        if (cur) {
-          cur.type = cur.type === type ? cur.type : 'both';
-        } else {
-          byId.set(u.id, { ...u, type });
-          count++;
-        }
-      }
-      progressEl.textContent =
-        tt('contentStarChartProgress').replace('$COUNT$', count.toString());
-    }
-
-    function onRateLimit(seconds) {
-      progressEl.textContent =
-        tt('contentStarChartRateLimited').replace('$SECONDS$', seconds.toString());
-    }
-
+    if (openInFlight || activeOverlay) return;
+    openInFlight = true;
     try {
-      await Promise.all([
-        fetchAllRetweeters(tweetCtx.tweetId, addUsers, {
-          signal: activeAbort.signal,
-          onRateLimit,
-        }),
-        fetchAllQuotes(tweetCtx.tweetId, addUsers, {
-          signal: activeAbort.signal,
-          onRateLimit,
-        }),
-      ]);
-      progressEl.textContent =
-        tt('contentStarChartDone').replace('$COUNT$', count.toString());
-    } catch (e) {
-      if (e.name === 'AbortError') return;
-      progressEl.textContent =
-        tt('contentStarChartError').replace('$REASON$', e.message || 'unknown');
+      if (activeOverlay) closeOverlay();
+      await loadTemplatesFromStorage();
+
+      activeOverlay = buildOverlay(tweetCtx);
+      document.body.appendChild(activeOverlay);
+      const progressEl = activeOverlay.querySelector('.xvm-sc-progress');
+      activeAbort = new AbortController();
+
+      // Aggregate users so we can mark dual-role (retweet + quote)
+      const byId = new Map();
+      let count = 0;
+      function addUsers(users, type) {
+        for (const u of users) {
+          const cur = byId.get(u.id);
+          if (cur) {
+            cur.type = cur.type === type ? cur.type : 'both';
+          } else {
+            byId.set(u.id, { ...u, type });
+            count++;
+          }
+        }
+        progressEl.textContent =
+          tt('contentStarChartProgress').replace('$COUNT$', count.toString());
+      }
+
+      function onRateLimit(seconds) {
+        progressEl.textContent =
+          tt('contentStarChartRateLimited').replace('$SECONDS$', seconds.toString());
+      }
+
+      try {
+        await Promise.all([
+          fetchAllRetweeters(tweetCtx.tweetId, addUsers, {
+            signal: activeAbort.signal,
+            onRateLimit,
+          }),
+          fetchAllQuotes(tweetCtx.tweetId, addUsers, {
+            signal: activeAbort.signal,
+            onRateLimit,
+          }),
+        ]);
+        progressEl.textContent =
+          tt('contentStarChartDone').replace('$COUNT$', count.toString());
+      } catch (e) {
+        if (activeAbort && e.name !== 'AbortError') {
+          activeAbort.abort();
+        }
+        if (e.name === 'AbortError') return;
+        progressEl.textContent =
+          tt('contentStarChartError').replace('$REASON$', e.message || 'unknown');
+      }
+    } finally {
+      openInFlight = false;
     }
   }
 
