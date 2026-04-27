@@ -153,5 +153,34 @@
         "content": "$1"
       }
     }
-  }
+  },
+  "contentStarChartMenuLabel": { "message": "感谢星图" },
+  "contentStarChartAttribution": { "message": "由 Velocity Monitor 提供" },
+  "contentStarChartTitle": { "message": "感谢星图" },
+  "contentStarChartLoading": { "message": "正在加载支持者..." },
+  "contentStarChartProgress": {
+    "message": "已加载 $COUNT$ 位支持者",
+    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+  },
+  "contentStarChartRateLimited": {
+    "message": "触发限频，等待 $SECONDS$ 秒...",
+    "placeholders": { "seconds": { "content": "$1", "example": "60" } }
+  },
+  "contentStarChartDone": {
+    "message": "完成 — 共 $COUNT$ 位支持者",
+    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+  },
+  "contentStarChartError": {
+    "message": "加载失败：$REASON$",
+    "placeholders": { "reason": { "content": "$1", "example": "网络错误" } }
+  },
+  "contentStarChartNoTweetFound": { "message": "无法识别这条推文" },
+  "contentStarChartLegendRT": { "message": "转推" },
+  "contentStarChartLegendQuote": { "message": "引用" },
+  "contentStarChartLegendBoth": { "message": "两者皆有" },
+  "contentStarChartClose": { "message": "关闭" },
+  "popupStarChartLabel": { "message": "感谢星图" },
+  "popupStarChartHint": { "message": "在每条推文的分享菜单中添加生成星图的入口。" },
+  "flashStarChartOn": { "message": "已开启星图功能" },
+  "flashStarChartOff": { "message": "已关闭星图功能" }
 }

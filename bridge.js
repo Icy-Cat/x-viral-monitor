@@ -30,6 +30,19 @@ const CONTENT_MESSAGE_KEYS = [
   'contentCopyMdNoTweetFound',
   'contentCopyMdCopyFailed',
   'contentFallbackTweetLabel',
+  'contentStarChartMenuLabel',
+  'contentStarChartAttribution',
+  'contentStarChartTitle',
+  'contentStarChartLoading',
+  'contentStarChartProgress',
+  'contentStarChartRateLimited',
+  'contentStarChartDone',
+  'contentStarChartError',
+  'contentStarChartNoTweetFound',
+  'contentStarChartLegendRT',
+  'contentStarChartLegendQuote',
+  'contentStarChartLegendBoth',
+  'contentStarChartClose',
 ];
 
 const DEFAULT_FEATURES = {

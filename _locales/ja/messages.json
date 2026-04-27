@@ -153,5 +153,34 @@
         "content": "$1"
       }
     }
-  }
+  },
+  "contentStarChartMenuLabel": { "message": "サンクス・スターチャート" },
+  "contentStarChartAttribution": { "message": "Velocity Monitor 提供" },
+  "contentStarChartTitle": { "message": "サンクス・スターチャート" },
+  "contentStarChartLoading": { "message": "サポーターを読み込み中..." },
+  "contentStarChartProgress": {
+    "message": "$COUNT$ 名読み込み済み",
+    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+  },
+  "contentStarChartRateLimited": {
+    "message": "レート制限のため $SECONDS$ 秒待機中...",
+    "placeholders": { "seconds": { "content": "$1", "example": "60" } }
+  },
+  "contentStarChartDone": {
+    "message": "完了 — $COUNT$ 名のサポーター",
+    "placeholders": { "count": { "content": "$1", "example": "1234" } }
+  },
+  "contentStarChartError": {
+    "message": "読み込み失敗：$REASON$",
+    "placeholders": { "reason": { "content": "$1", "example": "ネットワークエラー" } }
+  },
+  "contentStarChartNoTweetFound": { "message": "ツイートを特定できません" },
+  "contentStarChartLegendRT": { "message": "リツイート" },
+  "contentStarChartLegendQuote": { "message": "引用" },
+  "contentStarChartLegendBoth": { "message": "両方" },
+  "contentStarChartClose": { "message": "閉じる" },
+  "popupStarChartLabel": { "message": "サンクス・スターチャート" },
+  "popupStarChartHint": { "message": "ツイートの共有メニューにスターチャート生成項目を追加します。" },
+  "flashStarChartOn": { "message": "スターチャートを有効化" },
+  "flashStarChartOff": { "message": "スターチャートを無効化" }
 }

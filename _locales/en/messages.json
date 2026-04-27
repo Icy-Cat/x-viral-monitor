@@ -155,5 +155,64 @@
         "content": "$1"
       }
     }
-  }
+  },
+  "contentStarChartMenuLabel": {
+    "message": "Thank-You Star Chart"
+  },
+  "contentStarChartAttribution": {
+    "message": "via Velocity Monitor"
+  },
+  "contentStarChartTitle": {
+    "message": "Thank-You Star Chart"
+  },
+  "contentStarChartLoading": {
+    "message": "Loading supporters..."
+  },
+  "contentStarChartProgress": {
+    "message": "$COUNT$ supporters loaded",
+    "placeholders": {
+      "count": { "content": "$1", "example": "1234" }
+    }
+  },
+  "contentStarChartRateLimited": {
+    "message": "Hit rate limit, waiting $SECONDS$s...",
+    "placeholders": {
+      "seconds": { "content": "$1", "example": "60" }
+    }
+  },
+  "contentStarChartDone": {
+    "message": "Done — $COUNT$ supporters",
+    "placeholders": {
+      "count": { "content": "$1", "example": "1234" }
+    }
+  },
+  "contentStarChartError": {
+    "message": "Could not load supporters: $REASON$",
+    "placeholders": {
+      "reason": { "content": "$1", "example": "network error" }
+    }
+  },
+  "contentStarChartNoTweetFound": {
+    "message": "Could not identify the tweet"
+  },
+  "contentStarChartLegendRT": {
+    "message": "Retweet"
+  },
+  "contentStarChartLegendQuote": {
+    "message": "Quote"
+  },
+  "contentStarChartLegendBoth": {
+    "message": "Both"
+  },
+  "contentStarChartClose": {
+    "message": "Close"
+  },
+  "popupStarChartLabel": {
+    "message": "Thank-You Star Chart"
+  },
+  "popupStarChartHint": {
+    "message": "Adds a star-chart option to the share menu of any tweet."
+  },
+  "flashStarChartOn": { "message": "Star chart enabled" },
+  "flashStarChartOff": { "message": "Star chart disabled" }
 }
