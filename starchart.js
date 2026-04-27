@@ -78,6 +78,20 @@
   const PAGE_LIMIT = 100;
   const MAX_USERS = 50000;
   const __XVM_DEBUG = false;
+  const RIVER_AUTO_ADVANCE_MS = 8500;
+  const SCREEN_NAME_RE = /^[A-Za-z0-9_]{1,15}$/;
+
+  // X handles are constrained to [A-Za-z0-9_]{1,15}. Anything outside that
+  // shape would be a tampered GraphQL payload — refuse to navigate.
+  function safeProfileUrl(screenName) {
+    if (!screenName || !SCREEN_NAME_RE.test(screenName)) return null;
+    return `https://x.com/${screenName}`;
+  }
+  function safeStatusUrl(screenName, statusId) {
+    if (!safeProfileUrl(screenName)) return null;
+    if (!/^\d{1,32}$/.test(String(statusId || ''))) return null;
+    return `https://x.com/${screenName}/status/${statusId}`;
+  }
 
   let cachedTemplates = null;
 
@@ -779,7 +793,8 @@
     function onClick() {
       if (hoverIdx < 0) return;
       const s = stars[hoverIdx];
-      const url = s.quoteUrl || `https://x.com/${s.screenName}`;
+      const url = s.quoteUrl || safeProfileUrl(s.screenName);
+      if (!url) return;
       window.open(url, '_blank', 'noopener');
     }
     function onWheel(e) {
@@ -831,13 +846,15 @@
 
   async function callGraphQL(op, variables, { method = 'GET' } = {}) {
     const tpl = getTemplate(op);
-    console.log('[starchart] callGraphQL', op, method, {
-      hasQueryId: !!tpl.queryId && tpl.queryId !== 'REPLACE_AT_RUNTIME',
-      queryIdPreview: tpl.queryId ? tpl.queryId.slice(0, 8) + '...' : null,
-      hasAuth: !!tpl.authorization,
-      hasFeatures: !!tpl.features,
-      variables,
-    });
+    if (__XVM_DEBUG) {
+      console.log('[starchart] callGraphQL', op, method, {
+        hasQueryId: !!tpl.queryId && tpl.queryId !== 'REPLACE_AT_RUNTIME',
+        queryIdPreview: tpl.queryId ? tpl.queryId.slice(0, 8) + '...' : null,
+        hasAuth: !!tpl.authorization,
+        hasFeatures: !!tpl.features,
+        variables,
+      });
+    }
     if (!tpl.queryId || tpl.queryId === 'REPLACE_AT_RUNTIME') {
       throw new Error(`No queryId for ${op}. View a Retweets/Search tab once on x.com to populate cache.`);
     }
@@ -886,7 +903,7 @@
 
     const res = await fetch(url.toString(), fetchOptions);
 
-    console.log('[starchart] callGraphQL response', op, res.status, res.statusText);
+    if (__XVM_DEBUG) console.log('[starchart] callGraphQL response', op, res.status, res.statusText);
     if (res.status === 429) {
       const reset = parseInt(res.headers.get('x-rate-limit-reset') || '0', 10);
       const FALLBACK_WAIT_MS = 60_000;
@@ -965,7 +982,7 @@
             const createdAt = tweet.legacy?.created_at || '';
             out.push({
               ...user,
-              quoteUrl: `https://x.com/${user.screenName}/status/${tweet.rest_id || tweet.legacy?.id_str}`,
+              quoteUrl: safeStatusUrl(user.screenName, tweet.rest_id || tweet.legacy?.id_str),
               quoteText,
               createdAt,
             });
@@ -1249,10 +1266,11 @@
       const authorEl = document.createElement('a');
       authorEl.className = 'xvm-sc-river-author';
       authorEl.textContent = `${q.name} @${q.screenName}`;
-      authorEl.href = q.quoteUrl || `https://x.com/${q.screenName}`;
+      authorEl.href = q.quoteUrl || safeProfileUrl(q.screenName) || '#';
       authorEl.addEventListener('click', (e) => {
         e.preventDefault();
-        window.open(q.quoteUrl || `https://x.com/${q.screenName}`, '_blank', 'noopener');
+        const url = q.quoteUrl || safeProfileUrl(q.screenName);
+        if (url) window.open(url, '_blank', 'noopener');
       });
 
       const tsEl = document.createElement('div');
@@ -1271,7 +1289,7 @@
           currentIdx = (currentIdx + 1) % quotes.length;
           renderQuote();
         }
-      }, 8500);
+      }, RIVER_AUTO_ADVANCE_MS);
     }
 
     function resetAuto() {
@@ -1317,16 +1335,16 @@
   }
 
   async function openStarChart(tweetCtx) {
-    console.log('[starchart] open()', tweetCtx);
+    if (__XVM_DEBUG) console.log('[starchart] open()', tweetCtx);
     if (openInFlight || activeOverlay) {
-      console.log('[starchart] open() blocked — already in flight or overlay exists');
+      if (__XVM_DEBUG) console.log('[starchart] open() blocked — already in flight or overlay exists');
       return;
     }
     openInFlight = true;
     try {
       if (activeOverlay) closeOverlay();
       await loadTemplatesFromStorage();
-      console.log('[starchart] templates loaded', cachedTemplates);
+      if (__XVM_DEBUG) console.log('[starchart] templates loaded', cachedTemplates);
 
       const overlayParts = buildOverlay(tweetCtx);
       activeOverlay = overlayParts.root;
@@ -1351,9 +1369,8 @@
       function refreshPeople() {
         renderPeople(peopleGrid, byId, searchFilter, (u) => {
           if (activeRenderer) activeRenderer.highlight(u.id);
-          if (u.screenName) {
-            window.open(`https://x.com/${u.screenName}`, '_blank', 'noopener');
-          }
+          const url = safeProfileUrl(u.screenName);
+          if (url) window.open(url, '_blank', 'noopener');
         }, getActiveTypeFilter());
       }
 
