@@ -22,7 +22,7 @@
     },
     {
       "matches": ["https://x.com/*", "https://pro.x.com/*"],
-      "js": ["content.js"],
+      "js": ["content.js", "starchart.js"],
       "css": ["styles.css"],
       "run_at": "document_start",
       "world": "MAIN"

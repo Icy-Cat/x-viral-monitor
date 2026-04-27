@@ -179,6 +179,26 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (type === 'XVM_SC_TEMPLATES_REQUEST') {
+    const ops = ['Retweeters', 'SearchTimeline'];
+    const defaults = {};
+    for (const op of ops) defaults[`xvmStarChartTemplate_${op}`] = null;
+    safeChromeCall(() => {
+      chrome.storage.local.get(defaults, (items) => {
+        const templates = {};
+        for (const op of ops) {
+          const v = items[`xvmStarChartTemplate_${op}`];
+          if (v) templates[op] = v;
+        }
+        window.postMessage({
+          type: 'XVM_SC_TEMPLATES_LOAD',
+          templates,
+        }, '*');
+      });
+    });
+    return;
+  }
+
   if (type === 'XVM_SC_TEMPLATE_CAPTURE' && event.data.op && event.data.template) {
     const storageKey = `xvmStarChartTemplate_${event.data.op}`;
     safeChromeCall(() => {
