@@ -1,5 +1,7 @@
 // Velocity Monitor — Thank-You Star Chart
 // Runs in MAIN world alongside content.js. Exposes window.__XVMStarChart.
+// Side-panel structure adapted from London-Chen/Thank-you-star-chart
+// (MIT License). https://github.com/London-Chen/Thank-you-star-chart
 (function () {
   'use strict';
 
@@ -135,41 +137,174 @@
   function buildOverlay(tweetCtx) {
     const root = document.createElement('div');
     root.className = 'xvm-starchart-overlay';
-    root.innerHTML = `
-      <div class="xvm-sc-backdrop"></div>
-      <div class="xvm-sc-frame">
-        <header class="xvm-sc-header">
-          <div class="xvm-sc-title"></div>
-          <div class="xvm-sc-subtitle"></div>
-          <div class="xvm-sc-progress"></div>
-          <button class="xvm-sc-close" aria-label=""></button>
-        </header>
-        <canvas class="xvm-sc-canvas"></canvas>
-        <footer class="xvm-sc-legend">
-          <span class="xvm-sc-dot xvm-sc-dot--rt"></span><span class="xvm-sc-legend-text"></span>
-          <span class="xvm-sc-dot xvm-sc-dot--qt"></span><span class="xvm-sc-legend-text"></span>
-          <span class="xvm-sc-dot xvm-sc-dot--both"></span><span class="xvm-sc-legend-text"></span>
-        </footer>
-      </div>
-    `;
-    // Set text via textContent (avoids XSS from tweet text)
-    root.querySelector('.xvm-sc-title').textContent = tt('contentStarChartTitle');
-    root.querySelector('.xvm-sc-subtitle').textContent =
-      `@${tweetCtx.authorScreenName || ''} · ${(tweetCtx.text || '').slice(0, 80)}`;
-    root.querySelector('.xvm-sc-progress').textContent = tt('contentStarChartLoading');
-    const closeBtn = root.querySelector('.xvm-sc-close');
+
+    const backdrop = document.createElement('div');
+    backdrop.className = 'xvm-sc-backdrop';
+
+    const frame = document.createElement('div');
+    frame.className = 'xvm-sc-frame';
+
+    // --- Header ---
+    const header = document.createElement('header');
+    header.className = 'xvm-sc-header';
+
+    const titleEl = document.createElement('div');
+    titleEl.className = 'xvm-sc-title';
+    titleEl.textContent = tt('contentStarChartTitle');
+
+    const subtitleEl = document.createElement('div');
+    subtitleEl.className = 'xvm-sc-subtitle';
+    subtitleEl.textContent = `@${tweetCtx.authorScreenName || ''} · ${(tweetCtx.text || '').slice(0, 80)}`;
+
+    const progressEl = document.createElement('div');
+    progressEl.className = 'xvm-sc-progress';
+    progressEl.textContent = tt('contentStarChartLoading');
+
+    const headerActions = document.createElement('div');
+    headerActions.className = 'xvm-sc-header-actions';
+
+    const resetBtn = document.createElement('button');
+    resetBtn.className = 'xvm-sc-reset';
+    resetBtn.textContent = tt('contentStarChartReset');
+    resetBtn.addEventListener('click', () => {
+      if (activeRenderer) activeRenderer.resetView();
+    });
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'xvm-sc-close';
     closeBtn.setAttribute('aria-label', tt('contentStarChartClose'));
     closeBtn.textContent = '×';
-
-    const legendTexts = root.querySelectorAll('.xvm-sc-legend-text');
-    legendTexts[0].textContent = tt('contentStarChartLegendRT');
-    legendTexts[1].textContent = tt('contentStarChartLegendQuote');
-    legendTexts[2].textContent = tt('contentStarChartLegendBoth');
-
     closeBtn.addEventListener('click', closeOverlay);
-    root.querySelector('.xvm-sc-backdrop').addEventListener('click', closeOverlay);
+
+    headerActions.appendChild(resetBtn);
+    headerActions.appendChild(closeBtn);
+
+    header.appendChild(titleEl);
+    header.appendChild(subtitleEl);
+    header.appendChild(progressEl);
+    header.appendChild(headerActions);
+
+    // --- Body (two-column) ---
+    const body = document.createElement('div');
+    body.className = 'xvm-sc-body';
+
+    // Left: stage (canvas + empty state)
+    const stage = document.createElement('div');
+    stage.className = 'xvm-sc-stage';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'xvm-sc-canvas';
+
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'xvm-sc-empty xvm-sc-empty--hidden';
+    emptyEl.textContent = tt('contentStarChartEmpty');
+
+    stage.appendChild(canvas);
+    stage.appendChild(emptyEl);
+
+    // Right: side panels
+    const side = document.createElement('div');
+    side.className = 'xvm-sc-side';
+
+    // Stats panel
+    const statsEl = document.createElement('div');
+    statsEl.className = 'xvm-sc-stats';
+
+    // People panel
+    const peopleEl = document.createElement('div');
+    peopleEl.className = 'xvm-sc-people';
+
+    const searchInput = document.createElement('input');
+    searchInput.className = 'xvm-sc-search';
+    searchInput.setAttribute('type', 'text');
+    searchInput.setAttribute('placeholder', tt('contentStarChartSearchPlaceholder'));
+
+    const peopleList = document.createElement('ul');
+    peopleList.className = 'xvm-sc-people-list';
+
+    peopleEl.appendChild(searchInput);
+    peopleEl.appendChild(peopleList);
+
+    // River panel
+    const riverEl = document.createElement('div');
+    riverEl.className = 'xvm-sc-river';
+
+    const riverTitleEl = document.createElement('div');
+    riverTitleEl.className = 'xvm-sc-river-title';
+    riverTitleEl.textContent = tt('contentStarChartRiverTitle');
+
+    const riverContent = document.createElement('div');
+    riverContent.className = 'xvm-sc-river-content';
+
+    const riverNav = document.createElement('div');
+    riverNav.className = 'xvm-sc-river-nav';
+
+    const riverPrev = document.createElement('button');
+    riverPrev.className = 'xvm-sc-river-btn';
+    riverPrev.textContent = '←';
+
+    const riverCounter = document.createElement('span');
+    riverCounter.className = 'xvm-sc-river-counter';
+
+    const riverNext = document.createElement('button');
+    riverNext.className = 'xvm-sc-river-btn';
+    riverNext.textContent = '→';
+
+    riverNav.appendChild(riverPrev);
+    riverNav.appendChild(riverCounter);
+    riverNav.appendChild(riverNext);
+
+    riverEl.appendChild(riverTitleEl);
+    riverEl.appendChild(riverContent);
+    riverEl.appendChild(riverNav);
+
+    side.appendChild(statsEl);
+    side.appendChild(peopleEl);
+    side.appendChild(riverEl);
+
+    body.appendChild(stage);
+    body.appendChild(side);
+
+    // --- Legend (footer) ---
+    const legend = document.createElement('footer');
+    legend.className = 'xvm-sc-legend';
+
+    const dotRT = document.createElement('span');
+    dotRT.className = 'xvm-sc-dot xvm-sc-dot--rt';
+    const textRT = document.createElement('span');
+    textRT.className = 'xvm-sc-legend-text';
+    textRT.textContent = tt('contentStarChartLegendRT');
+
+    const dotQt = document.createElement('span');
+    dotQt.className = 'xvm-sc-dot xvm-sc-dot--qt';
+    const textQt = document.createElement('span');
+    textQt.className = 'xvm-sc-legend-text';
+    textQt.textContent = tt('contentStarChartLegendQuote');
+
+    const dotBoth = document.createElement('span');
+    dotBoth.className = 'xvm-sc-dot xvm-sc-dot--both';
+    const textBoth = document.createElement('span');
+    textBoth.className = 'xvm-sc-legend-text';
+    textBoth.textContent = tt('contentStarChartLegendBoth');
+
+    legend.appendChild(dotRT);
+    legend.appendChild(textRT);
+    legend.appendChild(dotQt);
+    legend.appendChild(textQt);
+    legend.appendChild(dotBoth);
+    legend.appendChild(textBoth);
+
+    frame.appendChild(header);
+    frame.appendChild(body);
+    frame.appendChild(legend);
+
+    root.appendChild(backdrop);
+    root.appendChild(frame);
+
+    backdrop.addEventListener('click', closeOverlay);
     document.addEventListener('keydown', escClose);
-    return root;
+
+    return { root, canvas, progressEl, emptyEl, statsEl, peopleList, searchInput, riverContent, riverCounter, riverPrev, riverNext, riverEl };
   }
 
   function escClose(ev) {
@@ -200,6 +335,7 @@
     let w = 0, h = 0, cx = 0, cy = 0;
     let zoom = 1, panX = 0, panY = 0;
     let hoverIdx = -1;
+    let highlightedId = null;
     let lastCursor = '';
     let mouseX = 0, mouseY = 0;
     let dragging = false, lastX = 0, lastY = 0;
@@ -278,6 +414,17 @@
       }
     }
 
+    function highlight(id) {
+      highlightedId = id;
+    }
+
+    function resetView() {
+      zoom = 1;
+      panX = 0;
+      panY = 0;
+      highlightedId = null;
+    }
+
     function drawNebula(t) {
       ctx.save();
       ctx.globalAlpha = 0.22;
@@ -344,15 +491,15 @@
         const x = (cx + panX) + Math.cos(s.angle) * (s.radius + sway) * zoom;
         const y = (cy + panY) + Math.sin(s.angle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
 
-        const highlighted = hoverIdx === i;
+        const isHighlighted = (hoverIdx === i) || (highlightedId !== null && s.id === highlightedId);
         const pulse = 0.65 + Math.sin(t * 0.004 + s.phase) * 0.35;
-        const baseSize = s.size * (highlighted ? 2.6 : 1) * (0.84 + pulse * 0.3);
+        const baseSize = s.size * (isHighlighted ? 2.6 : 1) * (0.84 + pulse * 0.3);
         const r = baseSize;
 
         ctx.save();
-        ctx.globalAlpha = highlighted ? 0.98 : s.type === 'retweet' ? 0.58 : 0.84;
-        if (i < GLOW_LIMIT || highlighted) {
-          ctx.shadowBlur = highlighted ? 30 : s.type === 'retweet' ? 9 : 18;
+        ctx.globalAlpha = isHighlighted ? 0.98 : s.type === 'retweet' ? 0.58 : 0.84;
+        if (i < GLOW_LIMIT || isHighlighted) {
+          ctx.shadowBlur = isHighlighted ? 30 : s.type === 'retweet' ? 9 : 18;
           ctx.shadowColor = s.color;
         }
         ctx.fillStyle = s.color;
@@ -441,6 +588,8 @@
 
     return {
       addUsers,
+      highlight,
+      resetView,
       destroy() {
         if (raf) cancelAnimationFrame(raf);
         ro.disconnect();
@@ -582,9 +731,17 @@
         if (tweet?.legacy?.quoted_status_id_str === originalTweetId) {
           const user = parseUser(tweet.core?.user_results?.result);
           if (user) {
+            // Pull quote text: prefer note_tweet long-form, fallback to legacy.full_text
+            const quoteText =
+              tweet.note_tweet?.note_tweet_results?.result?.text ||
+              tweet.legacy?.full_text ||
+              '';
+            const createdAt = tweet.legacy?.created_at || '';
             out.push({
               ...user,
               quoteUrl: `https://x.com/${user.screenName}/status/${tweet.rest_id || tweet.legacy?.id_str}`,
+              quoteText,
+              createdAt,
             });
           }
         }
@@ -699,6 +856,237 @@
     return { truncated };
   }
 
+  // === Side-panel helpers ===
+
+  function formatDateShort(dateStr) {
+    if (!dateStr) return '';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+  }
+
+  function badgeLabel(type) {
+    if (type === 'retweet') return 'RT';
+    if (type === 'quote') return 'Q';
+    return 'Both';
+  }
+
+  function badgeClass(type) {
+    if (type === 'retweet') return 'xvm-sc-badge--rt';
+    if (type === 'quote') return 'xvm-sc-badge--qt';
+    return 'xvm-sc-badge--both';
+  }
+
+  function renderStats(statsEl, byId) {
+    let rtCount = 0, qCount = 0;
+    let minDate = null, maxDate = null;
+    for (const u of byId.values()) {
+      if (u.type === 'retweet' || u.type === 'both') rtCount++;
+      if (u.type === 'quote' || u.type === 'both') qCount++;
+      if (u.createdAt) {
+        const d = new Date(u.createdAt);
+        if (!isNaN(d.getTime())) {
+          if (minDate === null || d < minDate) minDate = d;
+          if (maxDate === null || d > maxDate) maxDate = d;
+        }
+      }
+    }
+    const supporters = byId.size;
+
+    let spanText = '';
+    if (minDate && maxDate) {
+      if (minDate.toDateString() === maxDate.toDateString()) {
+        spanText = formatDateShort(minDate.toISOString());
+      } else {
+        spanText = `${formatDateShort(minDate.toISOString())} – ${formatDateShort(maxDate.toISOString())}`;
+      }
+    }
+
+    statsEl.textContent = '';
+    const stats = [
+      { count: rtCount, label: tt('contentStarChartStatRetweets') },
+      { count: qCount, label: tt('contentStarChartStatQuotes') },
+      { count: supporters, label: tt('contentStarChartStatSupporters') },
+      { count: spanText || '—', label: tt('contentStarChartStatSpan') },
+    ];
+    for (const s of stats) {
+      const block = document.createElement('div');
+      block.className = 'xvm-sc-stat-block';
+      const num = document.createElement('div');
+      num.className = 'xvm-sc-stat-num';
+      num.textContent = String(s.count);
+      const lbl = document.createElement('div');
+      lbl.className = 'xvm-sc-stat-label';
+      lbl.textContent = s.label;
+      block.appendChild(num);
+      block.appendChild(lbl);
+      statsEl.appendChild(block);
+    }
+  }
+
+  function renderPeople(peopleList, byId, filterText, onClickUser) {
+    peopleList.textContent = '';
+    const q = filterText.toLowerCase();
+    const users = Array.from(byId.values()).filter((u) => {
+      if (!q) return true;
+      return (
+        u.name.toLowerCase().includes(q) ||
+        u.screenName.toLowerCase().includes(q) ||
+        (u.quoteText || '').toLowerCase().includes(q)
+      );
+    });
+
+    for (const u of users) {
+      const li = document.createElement('li');
+      li.className = 'xvm-sc-person';
+
+      // Avatar or initial circle
+      const avatarEl = document.createElement('div');
+      avatarEl.className = 'xvm-sc-avatar';
+      if (u.avatar) {
+        const img = document.createElement('img');
+        img.src = u.avatar;
+        img.alt = '';
+        img.width = 32;
+        img.height = 32;
+        img.className = 'xvm-sc-avatar-img';
+        // Fallback to initial on error
+        img.addEventListener('error', () => {
+          img.remove();
+          avatarEl.textContent = (u.name || u.screenName || '?')[0].toUpperCase();
+        });
+        avatarEl.appendChild(img);
+      } else {
+        avatarEl.textContent = (u.name || u.screenName || '?')[0].toUpperCase();
+      }
+
+      const info = document.createElement('div');
+      info.className = 'xvm-sc-person-info';
+
+      const nameEl = document.createElement('span');
+      nameEl.className = 'xvm-sc-person-name';
+      nameEl.textContent = u.name;
+
+      const handleEl = document.createElement('span');
+      handleEl.className = 'xvm-sc-person-handle';
+      handleEl.textContent = `@${u.screenName}`;
+
+      info.appendChild(nameEl);
+      info.appendChild(handleEl);
+
+      const badge = document.createElement('span');
+      badge.className = `xvm-sc-type-badge ${badgeClass(u.type)}`;
+      badge.textContent = badgeLabel(u.type);
+
+      li.appendChild(avatarEl);
+      li.appendChild(info);
+      li.appendChild(badge);
+
+      li.addEventListener('click', () => onClickUser(u));
+      peopleList.appendChild(li);
+    }
+  }
+
+  function setupRiver(riverContent, riverCounter, riverPrev, riverNext, riverEl, byId) {
+    let quotes = Array.from(byId.values())
+      .filter((u) => u.type === 'quote' || u.type === 'both')
+      .sort((a, b) => {
+        const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return db - da;
+      });
+
+    let currentIdx = 0;
+    let autoTimer = null;
+    let paused = false;
+
+    function renderQuote() {
+      riverContent.textContent = '';
+      if (quotes.length === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'xvm-sc-river-empty';
+        empty.textContent = tt('contentStarChartRiverEmpty');
+        riverContent.appendChild(empty);
+        riverCounter.textContent = '0 / 0';
+        return;
+      }
+      const q = quotes[currentIdx];
+      riverCounter.textContent = `${currentIdx + 1} / ${quotes.length}`;
+
+      const textEl = document.createElement('div');
+      textEl.className = 'xvm-sc-river-text';
+      textEl.textContent = q.quoteText || '';
+
+      const authorEl = document.createElement('a');
+      authorEl.className = 'xvm-sc-river-author';
+      authorEl.textContent = `${q.name} @${q.screenName}`;
+      authorEl.href = q.quoteUrl || `https://x.com/${q.screenName}`;
+      authorEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        window.open(q.quoteUrl || `https://x.com/${q.screenName}`, '_blank', 'noopener');
+      });
+
+      const tsEl = document.createElement('div');
+      tsEl.className = 'xvm-sc-river-ts';
+      tsEl.textContent = formatDateShort(q.createdAt);
+
+      riverContent.appendChild(textEl);
+      riverContent.appendChild(authorEl);
+      riverContent.appendChild(tsEl);
+    }
+
+    function startAuto() {
+      if (autoTimer) clearInterval(autoTimer);
+      autoTimer = setInterval(() => {
+        if (!paused && quotes.length > 0) {
+          currentIdx = (currentIdx + 1) % quotes.length;
+          renderQuote();
+        }
+      }, 8500);
+    }
+
+    function resetAuto() {
+      startAuto();
+    }
+
+    riverPrev.addEventListener('click', () => {
+      if (quotes.length === 0) return;
+      currentIdx = (currentIdx - 1 + quotes.length) % quotes.length;
+      renderQuote();
+      resetAuto();
+    });
+
+    riverNext.addEventListener('click', () => {
+      if (quotes.length === 0) return;
+      currentIdx = (currentIdx + 1) % quotes.length;
+      renderQuote();
+      resetAuto();
+    });
+
+    riverEl.addEventListener('mouseenter', () => { paused = true; });
+    riverEl.addEventListener('mouseleave', () => { paused = false; resetAuto(); });
+
+    renderQuote();
+    startAuto();
+
+    // Return an update function to refresh quotes when byId changes
+    return function updateRiver() {
+      const prevLen = quotes.length;
+      quotes = Array.from(byId.values())
+        .filter((u) => u.type === 'quote' || u.type === 'both')
+        .sort((a, b) => {
+          const da = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+          const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+          return db - da;
+        });
+      // Keep currentIdx in bounds
+      if (currentIdx >= quotes.length) currentIdx = Math.max(0, quotes.length - 1);
+      renderQuote();
+      // Start timer if we now have quotes but didn't before
+      if (prevLen === 0 && quotes.length > 0) startAuto();
+    };
+  }
+
   async function openStarChart(tweetCtx) {
     console.log('[starchart] open()', tweetCtx);
     if (openInFlight || activeOverlay) {
@@ -711,21 +1099,41 @@
       await loadTemplatesFromStorage();
       console.log('[starchart] templates loaded', cachedTemplates);
 
-      activeOverlay = buildOverlay(tweetCtx);
+      const overlayParts = buildOverlay(tweetCtx);
+      activeOverlay = overlayParts.root;
       document.body.appendChild(activeOverlay);
-      const canvas = activeOverlay.querySelector('.xvm-sc-canvas');
+
+      const { canvas, progressEl, emptyEl, statsEl, peopleList, searchInput, riverContent, riverCounter, riverPrev, riverNext, riverEl } = overlayParts;
+
       activeRenderer = createRenderer(canvas, tweetCtx);
-      const progressEl = activeOverlay.querySelector('.xvm-sc-progress');
       activeAbort = new AbortController();
 
       // Aggregate users so we can mark dual-role (retweet + quote)
       const byId = new Map();
       let count = 0;
+      let searchFilter = '';
+      let updateRiver = null;
+
+      function refreshPeople() {
+        renderPeople(peopleList, byId, searchFilter, (u) => {
+          if (activeRenderer) activeRenderer.highlight(u.id);
+        });
+      }
+
+      searchInput.addEventListener('input', () => {
+        searchFilter = searchInput.value;
+        refreshPeople();
+      });
+
       function addUsers(users, type) {
         for (const u of users) {
           const cur = byId.get(u.id);
           if (cur) {
             cur.type = cur.type === type ? cur.type : 'both';
+            // Merge quote fields if newly available
+            if (u.quoteText && !cur.quoteText) cur.quoteText = u.quoteText;
+            if (u.createdAt && !cur.createdAt) cur.createdAt = u.createdAt;
+            if (u.quoteUrl && !cur.quoteUrl) cur.quoteUrl = u.quoteUrl;
           } else {
             byId.set(u.id, { ...u, type });
             count++;
@@ -734,7 +1142,13 @@
         if (activeRenderer) activeRenderer.addUsers(users, type);
         progressEl.textContent =
           tt('contentStarChartProgress').replace('$COUNT$', count.toString());
+        renderStats(statsEl, byId);
+        refreshPeople();
+        if (updateRiver) updateRiver();
       }
+
+      // Initialize river after initial setup; it references byId live
+      updateRiver = setupRiver(riverContent, riverCounter, riverPrev, riverNext, riverEl, byId);
 
       function onRateLimit(seconds) {
         progressEl.textContent =
@@ -756,6 +1170,11 @@
         const doneKey = truncated ? 'contentStarChartDoneTruncated' : 'contentStarChartDone';
         progressEl.textContent =
           tt(doneKey).replace('$COUNT$', count.toString());
+
+        // Show empty state if no supporters found
+        if (count === 0) {
+          emptyEl.classList.remove('xvm-sc-empty--hidden');
+        }
       } catch (e) {
         if (activeAbort && e.name !== 'AbortError') {
           activeAbort.abort();

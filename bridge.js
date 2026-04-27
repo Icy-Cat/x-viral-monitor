@@ -45,6 +45,15 @@ const CONTENT_MESSAGE_KEYS = [
   'contentStarChartLegendQuote',
   'contentStarChartLegendBoth',
   'contentStarChartClose',
+  'contentStarChartStatRetweets',
+  'contentStarChartStatQuotes',
+  'contentStarChartStatSupporters',
+  'contentStarChartStatSpan',
+  'contentStarChartSearchPlaceholder',
+  'contentStarChartRiverTitle',
+  'contentStarChartRiverEmpty',
+  'contentStarChartEmpty',
+  'contentStarChartReset',
 ];
 
 const DEFAULT_FEATURES = {

@@ -332,3 +332,166 @@ article[data-testid="tweet"].xvm-article-linked {
 .xvm-starchart-overlay .xvm-sc-dot--rt   { background: #ffd56f; box-shadow: 0 0 8px #ffd56f; }
 .xvm-starchart-overlay .xvm-sc-dot--qt   { background: #64d7ff; box-shadow: 0 0 8px #64d7ff; }
 .xvm-starchart-overlay .xvm-sc-dot--both { background: #ff6f91; box-shadow: 0 0 8px #ff6f91; }
+
+/* === Star Chart — two-column layout === */
+.xvm-starchart-overlay .xvm-sc-header {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "title actions" "subtitle actions" "progress actions";
+  gap: 4px; color: #e6f0ff; padding: 14px 18px;
+}
+.xvm-starchart-overlay .xvm-sc-header-actions {
+  grid-area: actions; display: flex; align-items: center; gap: 8px;
+}
+.xvm-starchart-overlay .xvm-sc-reset {
+  height: 32px; padding: 0 12px; border-radius: 8px;
+  background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.12);
+  color: #c2cbe0; font-size: 12px; cursor: pointer; white-space: nowrap;
+  transition: background 0.15s, color 0.15s;
+}
+.xvm-starchart-overlay .xvm-sc-reset:hover {
+  background: rgba(255,213,111,0.18); color: #ffd56f;
+}
+
+.xvm-starchart-overlay .xvm-sc-body {
+  display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden;
+}
+.xvm-starchart-overlay .xvm-sc-stage {
+  flex: 1 1 auto; position: relative; display: flex; flex-direction: column;
+  min-width: 0;
+}
+.xvm-starchart-overlay .xvm-sc-canvas {
+  flex: 1 1 auto; width: 100%; display: block;
+}
+.xvm-starchart-overlay .xvm-sc-empty {
+  position: absolute; inset: 0; display: flex; align-items: center;
+  justify-content: center; color: rgba(194,203,224,0.55); font-size: 15px;
+  text-align: center; pointer-events: none;
+}
+.xvm-starchart-overlay .xvm-sc-empty--hidden { display: none; }
+
+/* Side panel column */
+.xvm-starchart-overlay .xvm-sc-side {
+  width: 340px; flex-shrink: 0; display: flex; flex-direction: column;
+  border-left: 1px solid rgba(255,255,255,0.07);
+  background: rgba(5,9,19,0.45); overflow: hidden;
+}
+
+/* Stats panel */
+.xvm-starchart-overlay .xvm-sc-stats {
+  display: flex; flex-wrap: wrap; gap: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07); padding: 10px 14px;
+  flex-shrink: 0;
+}
+.xvm-starchart-overlay .xvm-sc-stat-block {
+  flex: 1 1 45%; min-width: 0; padding: 4px 6px;
+}
+.xvm-starchart-overlay .xvm-sc-stat-num {
+  font-size: 16px; font-weight: 700; color: #ffd56f;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xvm-starchart-overlay .xvm-sc-stat-label {
+  font-size: 10px; color: rgba(194,203,224,0.6); letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* People panel */
+.xvm-starchart-overlay .xvm-sc-people {
+  display: flex; flex-direction: column; flex: 1 1 0; min-height: 0;
+  border-bottom: 1px solid rgba(255,255,255,0.07);
+}
+.xvm-starchart-overlay .xvm-sc-search {
+  margin: 8px 10px 6px; padding: 6px 10px; border-radius: 8px;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.10);
+  color: #e6f0ff; font-size: 12px; outline: none; flex-shrink: 0;
+}
+.xvm-starchart-overlay .xvm-sc-search::placeholder { color: rgba(194,203,224,0.4); }
+.xvm-starchart-overlay .xvm-sc-search:focus { border-color: rgba(100,215,255,0.4); }
+.xvm-starchart-overlay .xvm-sc-people-list {
+  list-style: none; margin: 0; padding: 2px 0; overflow-y: auto; flex: 1 1 0;
+}
+.xvm-starchart-overlay .xvm-sc-people-list::-webkit-scrollbar { width: 4px; }
+.xvm-starchart-overlay .xvm-sc-people-list::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.12); border-radius: 2px;
+}
+.xvm-starchart-overlay .xvm-sc-person {
+  display: flex; align-items: center; gap: 8px; padding: 5px 10px;
+  cursor: pointer; transition: background 0.12s; border-radius: 6px;
+  margin: 1px 6px;
+}
+.xvm-starchart-overlay .xvm-sc-person:hover { background: rgba(255,255,255,0.06); }
+.xvm-starchart-overlay .xvm-sc-person:active { background: rgba(100,215,255,0.08); }
+.xvm-starchart-overlay .xvm-sc-avatar {
+  width: 32px; height: 32px; border-radius: 50%; flex-shrink: 0;
+  background: rgba(255,213,111,0.25); display: flex; align-items: center;
+  justify-content: center; font-size: 13px; font-weight: 700; color: #ffd56f;
+  overflow: hidden;
+}
+.xvm-starchart-overlay .xvm-sc-avatar-img {
+  width: 32px; height: 32px; border-radius: 50%; display: block;
+}
+.xvm-starchart-overlay .xvm-sc-person-info {
+  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column;
+}
+.xvm-starchart-overlay .xvm-sc-person-name {
+  font-size: 12px; font-weight: 600; color: #e6f0ff;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xvm-starchart-overlay .xvm-sc-person-handle {
+  font-size: 11px; color: rgba(194,203,224,0.55);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.xvm-starchart-overlay .xvm-sc-type-badge {
+  flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 6px;
+  border-radius: 4px; letter-spacing: 0.04em;
+}
+.xvm-starchart-overlay .xvm-sc-badge--rt   { background: rgba(255,213,111,0.18); color: #ffd56f; }
+.xvm-starchart-overlay .xvm-sc-badge--qt   { background: rgba(100,215,255,0.18); color: #64d7ff; }
+.xvm-starchart-overlay .xvm-sc-badge--both { background: rgba(255,111,145,0.18); color: #ff6f91; }
+
+/* Quote River panel */
+.xvm-starchart-overlay .xvm-sc-river {
+  flex-shrink: 0; padding: 10px 12px 10px;
+  border-top: 1px solid rgba(255,255,255,0.07);
+}
+.xvm-starchart-overlay .xvm-sc-river-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: 0.06em; color: #64d7ff; margin-bottom: 6px;
+}
+.xvm-starchart-overlay .xvm-sc-river-content {
+  min-height: 72px; display: flex; flex-direction: column; gap: 4px;
+  margin-bottom: 8px;
+}
+.xvm-starchart-overlay .xvm-sc-river-text {
+  font-size: 12px; color: #c2cbe0; line-height: 1.45;
+  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.xvm-starchart-overlay .xvm-sc-river-author {
+  font-size: 11px; font-weight: 600; color: #64d7ff; text-decoration: none;
+  cursor: pointer;
+}
+.xvm-starchart-overlay .xvm-sc-river-author:hover { text-decoration: underline; }
+.xvm-starchart-overlay .xvm-sc-river-ts {
+  font-size: 10px; color: rgba(194,203,224,0.45);
+}
+.xvm-starchart-overlay .xvm-sc-river-empty {
+  font-size: 12px; color: rgba(194,203,224,0.45); font-style: italic;
+  padding: 10px 0;
+}
+.xvm-starchart-overlay .xvm-sc-river-nav {
+  display: flex; align-items: center; gap: 8px;
+}
+.xvm-starchart-overlay .xvm-sc-river-btn {
+  width: 26px; height: 26px; border-radius: 6px; border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(255,255,255,0.06); color: #c2cbe0; font-size: 13px;
+  cursor: pointer; display: flex; align-items: center; justify-content: center;
+  transition: background 0.12s, color 0.12s; padding: 0;
+}
+.xvm-starchart-overlay .xvm-sc-river-btn:hover {
+  background: rgba(100,215,255,0.15); color: #64d7ff;
+}
+.xvm-starchart-overlay .xvm-sc-river-counter {
+  flex: 1; text-align: center; font-size: 11px; color: rgba(194,203,224,0.55);
+  font-variant-numeric: tabular-nums;
+}

@@ -216,6 +216,15 @@
   "contentStarChartClose": {
     "message": "Close"
   },
+  "contentStarChartStatRetweets": { "message": "Retweets" },
+  "contentStarChartStatQuotes": { "message": "Quotes" },
+  "contentStarChartStatSupporters": { "message": "Supporters" },
+  "contentStarChartStatSpan": { "message": "Quote span" },
+  "contentStarChartSearchPlaceholder": { "message": "Search name or handle..." },
+  "contentStarChartRiverTitle": { "message": "Quote River" },
+  "contentStarChartRiverEmpty": { "message": "No quotes yet" },
+  "contentStarChartEmpty": { "message": "No supporters found for this tweet" },
+  "contentStarChartReset": { "message": "Reset view" },
   "popupStarChartLabel": {
     "message": "Thank-You Star Chart"
   },
