@@ -18,7 +18,7 @@ jobs:
         run: |
           mkdir -p dist
           zip -r dist/x-viral-monitor-${{ github.ref_name }}.zip \
-            manifest.json content.js bridge.js popup.html popup.js styles.css \
+            manifest.json content.js bridge.js starchart.js popup.html popup.js styles.css \
             _locales/ icons/
 
       - name: Create Release
