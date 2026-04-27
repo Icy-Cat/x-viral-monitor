@@ -54,6 +54,8 @@ const CONTENT_MESSAGE_KEYS = [
   'contentStarChartRiverEmpty',
   'contentStarChartEmpty',
   'contentStarChartReset',
+  'contentStarChartHeroEyebrow',
+  'contentStarChartHeroTitle',
   'contentStarChartTitleLabel',
   'contentStarChartStatsSectionTitle',
   'contentStarChartPeopleSectionTitle',

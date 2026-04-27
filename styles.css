@@ -670,6 +670,30 @@ article[data-testid="tweet"].xvm-article-linked {
   padding: 0;
 }
 
+/* ---- Hero block (top of left column) ---- */
+.xvm-starchart-overlay .xvm-sc-hero {
+  padding: 18px 16px 14px;
+  border-bottom: 1px solid var(--sc-line);
+  flex-shrink: 0;
+}
+.xvm-starchart-overlay .xvm-sc-hero-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sc-gold);
+  opacity: 0.78;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.xvm-starchart-overlay .xvm-sc-hero-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.42;
+  color: var(--sc-text);
+  letter-spacing: 0.01em;
+}
+
 /* ---- Stats card = original .stats-grid + its children ---- */
 .xvm-starchart-overlay .xvm-sc-stats-card {
   flex-shrink: 0;
