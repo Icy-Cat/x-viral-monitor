@@ -259,8 +259,10 @@ function extractTweetData(result) {
   // X Article (long-form essay) content
   const articleResult = tweet.article?.article_results?.result;
   let articleMd = '';
+  let articleTitle = '';
   if (articleResult) {
     articleMd = buildArticleMarkdown(articleResult);
+    articleTitle = articleResult.title || articleResult.preview_text || '';
   }
   for (const m of legacy.extended_entities?.media || legacy.entities?.media || []) {
     if (!m?.url) continue;
@@ -288,6 +290,7 @@ function extractTweetData(result) {
     text: noteText || legacy.full_text || '',
     urlMap,
     articleMd,
+    articleTitle,
   };
 }
 
@@ -1383,6 +1386,7 @@ function injectStarChartItem(menuEl) {
       tweetId,
       authorScreenName: data.authorScreenName || data.screenName || '',
       text: data.text || '',
+      articleTitle: data.articleTitle || '',
     });
   });
 

@@ -655,10 +655,19 @@
       ctx.fillStyle = '#fff7e8';
       ctx.font = '800 12px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      // If tweet text is a URL, show @handle instead to avoid broken URL display
+      // Center label priority: article title (X long-form) > first chars of
+      // tweet text > @handle. URL-only tweets fall back to handle.
+      const articleTitle = (tweetCtx.articleTitle || '').trim();
       const rawText = (tweetCtx.text || '').trim();
       const handle = `@${tweetCtx.authorScreenName || ''}`;
-      const coreLabel = (!rawText || isUrlLike(rawText)) ? handle : rawText;
+      let coreLabel;
+      if (articleTitle) {
+        coreLabel = articleTitle;
+      } else if (rawText && !isUrlLike(rawText)) {
+        coreLabel = rawText;
+      } else {
+        coreLabel = handle;
+      }
       drawCoreTitle(coreLabel, x, y, 68);
     }
 
