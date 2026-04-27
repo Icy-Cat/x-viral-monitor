@@ -324,6 +324,13 @@
 
   async function callGraphQL(op, variables) {
     const tpl = getTemplate(op);
+    console.log('[starchart] callGraphQL', op, {
+      hasQueryId: !!tpl.queryId && tpl.queryId !== 'REPLACE_AT_RUNTIME',
+      queryIdPreview: tpl.queryId ? tpl.queryId.slice(0, 8) + '...' : null,
+      hasAuth: !!tpl.authorization,
+      hasFeatures: !!tpl.features,
+      variables,
+    });
     if (!tpl.queryId || tpl.queryId === 'REPLACE_AT_RUNTIME') {
       throw new Error(`No queryId for ${op}. View a Retweets/Search tab once on x.com to populate cache.`);
     }
@@ -347,6 +354,7 @@
       },
     });
 
+    console.log('[starchart] callGraphQL response', op, res.status, res.statusText);
     if (res.status === 429) {
       const reset = parseInt(res.headers.get('x-rate-limit-reset') || '0', 10);
       const FALLBACK_WAIT_MS = 60_000;
@@ -358,7 +366,11 @@
       err.waitMs = waitMs;
       throw err;
     }
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    if (!res.ok) {
+      const bodyText = await res.text().catch(() => '');
+      console.error('[starchart] non-OK response body', op, res.status, bodyText.slice(0, 500));
+      throw new Error(`HTTP ${res.status} on ${op}: ${bodyText.slice(0, 200) || res.statusText}`);
+    }
     return res.json();
   }
 
@@ -502,11 +514,16 @@
   }
 
   async function openStarChart(tweetCtx) {
-    if (openInFlight || activeOverlay) return;
+    console.log('[starchart] open()', tweetCtx);
+    if (openInFlight || activeOverlay) {
+      console.log('[starchart] open() blocked — already in flight or overlay exists');
+      return;
+    }
     openInFlight = true;
     try {
       if (activeOverlay) closeOverlay();
       await loadTemplatesFromStorage();
+      console.log('[starchart] templates loaded', cachedTemplates);
 
       activeOverlay = buildOverlay(tweetCtx);
       document.body.appendChild(activeOverlay);
