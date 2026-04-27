@@ -148,6 +148,14 @@
     const header = document.createElement('header');
     header.className = 'xvm-sc-header';
 
+    // Left header info block
+    const headerInfo = document.createElement('div');
+    headerInfo.className = 'xvm-sc-header-info';
+
+    const titleLabel = document.createElement('div');
+    titleLabel.className = 'xvm-sc-title-label';
+    titleLabel.textContent = tt('contentStarChartTitleLabel');
+
     const titleEl = document.createElement('div');
     titleEl.className = 'xvm-sc-title';
     titleEl.textContent = tt('contentStarChartTitle');
@@ -156,16 +164,23 @@
     subtitleEl.className = 'xvm-sc-subtitle';
     subtitleEl.textContent = `@${tweetCtx.authorScreenName || ''} · ${(tweetCtx.text || '').slice(0, 80)}`;
 
+    headerInfo.appendChild(titleLabel);
+    headerInfo.appendChild(titleEl);
+    headerInfo.appendChild(subtitleEl);
+
+    // Right header actions block
+    const headerActions = document.createElement('div');
+    headerActions.className = 'xvm-sc-header-actions';
+
     const progressEl = document.createElement('div');
     progressEl.className = 'xvm-sc-progress';
     progressEl.textContent = tt('contentStarChartLoading');
 
-    const headerActions = document.createElement('div');
-    headerActions.className = 'xvm-sc-header-actions';
-
     const resetBtn = document.createElement('button');
     resetBtn.className = 'xvm-sc-reset';
-    resetBtn.textContent = tt('contentStarChartReset');
+    resetBtn.setAttribute('aria-label', tt('contentStarChartReset'));
+    resetBtn.setAttribute('title', tt('contentStarChartReset'));
+    resetBtn.textContent = '↺';
     resetBtn.addEventListener('click', () => {
       if (activeRenderer) activeRenderer.resetView();
     });
@@ -173,65 +188,169 @@
     const closeBtn = document.createElement('button');
     closeBtn.className = 'xvm-sc-close';
     closeBtn.setAttribute('aria-label', tt('contentStarChartClose'));
+    closeBtn.setAttribute('title', tt('contentStarChartClose'));
     closeBtn.textContent = '×';
     closeBtn.addEventListener('click', closeOverlay);
 
+    headerActions.appendChild(progressEl);
     headerActions.appendChild(resetBtn);
     headerActions.appendChild(closeBtn);
 
-    header.appendChild(titleEl);
-    header.appendChild(subtitleEl);
-    header.appendChild(progressEl);
+    header.appendChild(headerInfo);
     header.appendChild(headerActions);
 
     // --- Body (two-column) ---
     const body = document.createElement('div');
     body.className = 'xvm-sc-body';
 
-    // Left: stage (canvas + empty state)
+    // Left: stage (canvas + center control strip + empty state)
     const stage = document.createElement('div');
     stage.className = 'xvm-sc-stage';
 
     const canvas = document.createElement('canvas');
     canvas.className = 'xvm-sc-canvas';
 
+    // Center status strip inside stage (below canvas, matching original)
+    const stageStatus = document.createElement('div');
+    stageStatus.className = 'xvm-sc-stage-status';
+
     const emptyEl = document.createElement('div');
     emptyEl.className = 'xvm-sc-empty xvm-sc-empty--hidden';
-    emptyEl.textContent = tt('contentStarChartEmpty');
+    const emptyIcon = document.createElement('div');
+    emptyIcon.className = 'xvm-sc-empty-icon';
+    emptyIcon.textContent = '✦';
+    const emptyText = document.createElement('div');
+    emptyText.textContent = tt('contentStarChartEmpty');
+    emptyEl.appendChild(emptyIcon);
+    emptyEl.appendChild(emptyText);
+
+    // Legend inside stage bottom
+    const legend = document.createElement('div');
+    legend.className = 'xvm-sc-legend';
+
+    const dotRT = document.createElement('span');
+    dotRT.className = 'xvm-sc-legend-item';
+    const dotRTDot = document.createElement('span');
+    dotRTDot.className = 'xvm-sc-dot xvm-sc-dot--rt';
+    const textRT = document.createElement('span');
+    textRT.className = 'xvm-sc-legend-text';
+    textRT.textContent = tt('contentStarChartLegendRT');
+    dotRT.appendChild(dotRTDot);
+    dotRT.appendChild(textRT);
+
+    const dotQt = document.createElement('span');
+    dotQt.className = 'xvm-sc-legend-item';
+    const dotQtDot = document.createElement('span');
+    dotQtDot.className = 'xvm-sc-dot xvm-sc-dot--qt';
+    const textQt = document.createElement('span');
+    textQt.className = 'xvm-sc-legend-text';
+    textQt.textContent = tt('contentStarChartLegendQuote');
+    dotQt.appendChild(dotQtDot);
+    dotQt.appendChild(textQt);
+
+    const dotBoth = document.createElement('span');
+    dotBoth.className = 'xvm-sc-legend-item';
+    const dotBothDot = document.createElement('span');
+    dotBothDot.className = 'xvm-sc-dot xvm-sc-dot--both';
+    const textBoth = document.createElement('span');
+    textBoth.className = 'xvm-sc-legend-text';
+    textBoth.textContent = tt('contentStarChartLegendBoth');
+    dotBoth.appendChild(dotBothDot);
+    dotBoth.appendChild(textBoth);
+
+    legend.appendChild(dotRT);
+    legend.appendChild(dotQt);
+    legend.appendChild(dotBoth);
 
     stage.appendChild(canvas);
     stage.appendChild(emptyEl);
+    stage.appendChild(stageStatus);
+    stage.appendChild(legend);
 
     // Right: side panels
     const side = document.createElement('div');
     side.className = 'xvm-sc-side';
 
-    // Stats panel
-    const statsEl = document.createElement('div');
-    statsEl.className = 'xvm-sc-stats';
+    // Stats card
+    const statsCard = document.createElement('div');
+    statsCard.className = 'xvm-sc-stats-card';
 
-    // People panel
+    const statsHeader = document.createElement('div');
+    statsHeader.className = 'xvm-sc-section-header';
+    statsHeader.textContent = tt('contentStarChartStatsSectionTitle');
+
+    const statsEl = document.createElement('div');
+    statsEl.className = 'xvm-sc-stats-grid';
+
+    statsCard.appendChild(statsHeader);
+    statsCard.appendChild(statsEl);
+
+    // Filter chips + people panel
     const peopleEl = document.createElement('div');
     peopleEl.className = 'xvm-sc-people';
+
+    const peopleHeader = document.createElement('div');
+    peopleHeader.className = 'xvm-sc-section-header';
+    peopleHeader.textContent = tt('contentStarChartPeopleSectionTitle');
+
+    // Filter chips row
+    const chipsEl = document.createElement('div');
+    chipsEl.className = 'xvm-sc-chips';
+
+    const chipDefs = [
+      { key: null,        label: tt('contentStarChartFilterAll'),       cls: 'xvm-sc-chip--all' },
+      { key: 'retweet',   label: tt('contentStarChartFilterRetweet'),   cls: 'xvm-sc-chip--rt' },
+      { key: 'quote',     label: tt('contentStarChartFilterQuote'),     cls: 'xvm-sc-chip--qt' },
+      { key: 'both',      label: tt('contentStarChartFilterBoth'),      cls: 'xvm-sc-chip--both' },
+    ];
+
+    let activeTypeFilter = null;
+    const chipEls = chipDefs.map((def) => {
+      const chip = document.createElement('button');
+      chip.className = `xvm-sc-chip ${def.cls}`;
+      chip.textContent = def.label;
+      if (def.key === null) chip.classList.add('xvm-sc-chip--active');
+      chip.addEventListener('click', () => {
+        activeTypeFilter = def.key;
+        chipEls.forEach((c) => c.classList.remove('xvm-sc-chip--active'));
+        chip.classList.add('xvm-sc-chip--active');
+        if (activeRenderer) activeRenderer.setTypeFilter(def.key);
+        refreshPeople();
+      });
+      chipsEl.appendChild(chip);
+      return chip;
+    });
+
+    const searchWrap = document.createElement('div');
+    searchWrap.className = 'xvm-sc-search-wrap';
+
+    const searchIcon = document.createElement('span');
+    searchIcon.className = 'xvm-sc-search-icon';
+    searchIcon.textContent = '🔍';
 
     const searchInput = document.createElement('input');
     searchInput.className = 'xvm-sc-search';
     searchInput.setAttribute('type', 'text');
     searchInput.setAttribute('placeholder', tt('contentStarChartSearchPlaceholder'));
 
+    searchWrap.appendChild(searchIcon);
+    searchWrap.appendChild(searchInput);
+
     const peopleList = document.createElement('ul');
     peopleList.className = 'xvm-sc-people-list';
 
-    peopleEl.appendChild(searchInput);
+    peopleEl.appendChild(peopleHeader);
+    peopleEl.appendChild(chipsEl);
+    peopleEl.appendChild(searchWrap);
     peopleEl.appendChild(peopleList);
 
     // River panel
     const riverEl = document.createElement('div');
     riverEl.className = 'xvm-sc-river';
 
-    const riverTitleEl = document.createElement('div');
-    riverTitleEl.className = 'xvm-sc-river-title';
-    riverTitleEl.textContent = tt('contentStarChartRiverTitle');
+    const riverHeader = document.createElement('div');
+    riverHeader.className = 'xvm-sc-section-header xvm-sc-section-header--river';
+    riverHeader.textContent = tt('contentStarChartRiverTitle');
 
     const riverContent = document.createElement('div');
     riverContent.className = 'xvm-sc-river-content';
@@ -241,62 +360,34 @@
 
     const riverPrev = document.createElement('button');
     riverPrev.className = 'xvm-sc-river-btn';
-    riverPrev.textContent = '←';
+    riverPrev.setAttribute('aria-label', tt('contentStarChartRiverPrev'));
+    riverPrev.textContent = '‹';
 
     const riverCounter = document.createElement('span');
     riverCounter.className = 'xvm-sc-river-counter';
 
     const riverNext = document.createElement('button');
     riverNext.className = 'xvm-sc-river-btn';
-    riverNext.textContent = '→';
+    riverNext.setAttribute('aria-label', tt('contentStarChartRiverNext'));
+    riverNext.textContent = '›';
 
     riverNav.appendChild(riverPrev);
     riverNav.appendChild(riverCounter);
     riverNav.appendChild(riverNext);
 
-    riverEl.appendChild(riverTitleEl);
+    riverEl.appendChild(riverHeader);
     riverEl.appendChild(riverContent);
     riverEl.appendChild(riverNav);
 
-    side.appendChild(statsEl);
+    side.appendChild(statsCard);
     side.appendChild(peopleEl);
     side.appendChild(riverEl);
 
     body.appendChild(stage);
     body.appendChild(side);
 
-    // --- Legend (footer) ---
-    const legend = document.createElement('footer');
-    legend.className = 'xvm-sc-legend';
-
-    const dotRT = document.createElement('span');
-    dotRT.className = 'xvm-sc-dot xvm-sc-dot--rt';
-    const textRT = document.createElement('span');
-    textRT.className = 'xvm-sc-legend-text';
-    textRT.textContent = tt('contentStarChartLegendRT');
-
-    const dotQt = document.createElement('span');
-    dotQt.className = 'xvm-sc-dot xvm-sc-dot--qt';
-    const textQt = document.createElement('span');
-    textQt.className = 'xvm-sc-legend-text';
-    textQt.textContent = tt('contentStarChartLegendQuote');
-
-    const dotBoth = document.createElement('span');
-    dotBoth.className = 'xvm-sc-dot xvm-sc-dot--both';
-    const textBoth = document.createElement('span');
-    textBoth.className = 'xvm-sc-legend-text';
-    textBoth.textContent = tt('contentStarChartLegendBoth');
-
-    legend.appendChild(dotRT);
-    legend.appendChild(textRT);
-    legend.appendChild(dotQt);
-    legend.appendChild(textQt);
-    legend.appendChild(dotBoth);
-    legend.appendChild(textBoth);
-
     frame.appendChild(header);
     frame.appendChild(body);
-    frame.appendChild(legend);
 
     root.appendChild(backdrop);
     root.appendChild(frame);
@@ -304,7 +395,17 @@
     backdrop.addEventListener('click', closeOverlay);
     document.addEventListener('keydown', escClose);
 
-    return { root, canvas, progressEl, emptyEl, statsEl, peopleList, searchInput, riverContent, riverCounter, riverPrev, riverNext, riverEl };
+    // refreshPeople needs to be callable by chips; define it here and also expose
+    // it via the returned object so the caller can wire it up after byId is known.
+    let _refreshPeople = () => {};
+    function refreshPeople() { _refreshPeople(); }
+
+    return {
+      root, canvas, progressEl, emptyEl, statsEl, peopleList, searchInput,
+      riverContent, riverCounter, riverPrev, riverNext, riverEl,
+      getActiveTypeFilter: () => activeTypeFilter,
+      setRefreshPeople: (fn) => { _refreshPeople = fn; },
+    };
   }
 
   function escClose(ev) {
@@ -340,6 +441,7 @@
     let mouseX = 0, mouseY = 0;
     let dragging = false, lastX = 0, lastY = 0;
     let nextIndex = 0;
+    let typeFilter = null; // null = all; 'retweet'/'quote'/'both' = show fully
 
     const GLOW_LIMIT = 1500;
 
@@ -416,6 +518,10 @@
 
     function highlight(id) {
       highlightedId = id;
+    }
+
+    function setTypeFilter(type) {
+      typeFilter = type;
     }
 
     function resetView() {
@@ -496,8 +602,17 @@
         const baseSize = s.size * (isHighlighted ? 2.6 : 1) * (0.84 + pulse * 0.3);
         const r = baseSize;
 
+        // Dim stars that don't match the active type filter
+        const filterMatch = typeFilter === null ||
+          s.type === typeFilter ||
+          (typeFilter === 'both' && s.type === 'both') ||
+          (typeFilter === 'retweet' && (s.type === 'retweet' || s.type === 'both')) ||
+          (typeFilter === 'quote' && (s.type === 'quote' || s.type === 'both'));
+        const baseAlpha = isHighlighted ? 0.98 : s.type === 'retweet' ? 0.58 : 0.84;
+        const alpha = filterMatch ? baseAlpha : 0.08;
+
         ctx.save();
-        ctx.globalAlpha = isHighlighted ? 0.98 : s.type === 'retweet' ? 0.58 : 0.84;
+        ctx.globalAlpha = alpha;
         if (i < GLOW_LIMIT || isHighlighted) {
           ctx.shadowBlur = isHighlighted ? 30 : s.type === 'retweet' ? 9 : 18;
           ctx.shadowColor = s.color;
@@ -589,6 +704,7 @@
     return {
       addUsers,
       highlight,
+      setTypeFilter,
       resetView,
       destroy() {
         if (raf) cancelAnimationFrame(raf);
@@ -904,14 +1020,14 @@
 
     statsEl.textContent = '';
     const stats = [
-      { count: rtCount, label: tt('contentStarChartStatRetweets') },
-      { count: qCount, label: tt('contentStarChartStatQuotes') },
-      { count: supporters, label: tt('contentStarChartStatSupporters') },
-      { count: spanText || '—', label: tt('contentStarChartStatSpan') },
+      { count: rtCount, label: tt('contentStarChartStatRetweets'), color: 'gold' },
+      { count: qCount, label: tt('contentStarChartStatQuotes'), color: 'cyan' },
+      { count: supporters, label: tt('contentStarChartStatSupporters'), color: 'rose' },
+      { count: spanText || '—', label: tt('contentStarChartStatSpan'), color: 'muted' },
     ];
     for (const s of stats) {
       const block = document.createElement('div');
-      block.className = 'xvm-sc-stat-block';
+      block.className = `xvm-sc-stat-block xvm-sc-stat-block--${s.color}`;
       const num = document.createElement('div');
       num.className = 'xvm-sc-stat-num';
       num.textContent = String(s.count);
@@ -924,10 +1040,18 @@
     }
   }
 
-  function renderPeople(peopleList, byId, filterText, onClickUser) {
+  function renderPeople(peopleList, byId, filterText, onClickUser, typeFilter) {
     peopleList.textContent = '';
     const q = filterText.toLowerCase();
     const users = Array.from(byId.values()).filter((u) => {
+      // Type filter
+      if (typeFilter !== null) {
+        const matchType =
+          typeFilter === 'retweet' ? (u.type === 'retweet' || u.type === 'both') :
+          typeFilter === 'quote'   ? (u.type === 'quote'   || u.type === 'both') :
+          typeFilter === 'both'    ? u.type === 'both' : true;
+        if (!matchType) return false;
+      }
       if (!q) return true;
       return (
         u.name.toLowerCase().includes(q) ||
@@ -1103,7 +1227,11 @@
       activeOverlay = overlayParts.root;
       document.body.appendChild(activeOverlay);
 
-      const { canvas, progressEl, emptyEl, statsEl, peopleList, searchInput, riverContent, riverCounter, riverPrev, riverNext, riverEl } = overlayParts;
+      const {
+        canvas, progressEl, emptyEl, statsEl, peopleList, searchInput,
+        riverContent, riverCounter, riverPrev, riverNext, riverEl,
+        getActiveTypeFilter, setRefreshPeople,
+      } = overlayParts;
 
       activeRenderer = createRenderer(canvas, tweetCtx);
       activeAbort = new AbortController();
@@ -1117,8 +1245,11 @@
       function refreshPeople() {
         renderPeople(peopleList, byId, searchFilter, (u) => {
           if (activeRenderer) activeRenderer.highlight(u.id);
-        });
+        }, getActiveTypeFilter());
       }
+
+      // Allow chips in buildOverlay to trigger refreshPeople
+      setRefreshPeople(refreshPeople);
 
       searchInput.addEventListener('input', () => {
         searchFilter = searchInput.value;

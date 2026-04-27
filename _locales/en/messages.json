@@ -217,5 +217,14 @@
     "message": "Adds a star-chart option to the share menu of any tweet."
   },
   "flashStarChartOn": { "message": "Star chart enabled" },
-  "flashStarChartOff": { "message": "Star chart disabled" }
+  "flashStarChartOff": { "message": "Star chart disabled" },
+  "contentStarChartTitleLabel": { "message": "VELOCITY MONITOR" },
+  "contentStarChartStatsSectionTitle": { "message": "Overview" },
+  "contentStarChartPeopleSectionTitle": { "message": "Supporters" },
+  "contentStarChartFilterAll": { "message": "All" },
+  "contentStarChartFilterRetweet": { "message": "Retweet" },
+  "contentStarChartFilterQuote": { "message": "Quote" },
+  "contentStarChartFilterBoth": { "message": "Both" },
+  "contentStarChartRiverPrev": { "message": "Previous quote" },
+  "contentStarChartRiverNext": { "message": "Next quote" }
 }

@@ -54,6 +54,15 @@ const CONTENT_MESSAGE_KEYS = [
   'contentStarChartRiverEmpty',
   'contentStarChartEmpty',
   'contentStarChartReset',
+  'contentStarChartTitleLabel',
+  'contentStarChartStatsSectionTitle',
+  'contentStarChartPeopleSectionTitle',
+  'contentStarChartFilterAll',
+  'contentStarChartFilterRetweet',
+  'contentStarChartFilterQuote',
+  'contentStarChartFilterBoth',
+  'contentStarChartRiverPrev',
+  'contentStarChartRiverNext',
 ];
 
 const DEFAULT_FEATURES = {

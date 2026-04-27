@@ -191,5 +191,14 @@
   "popupStarChartLabel": { "message": "サンクス・スターチャート" },
   "popupStarChartHint": { "message": "ツイートの共有メニューにスターチャート生成項目を追加します。" },
   "flashStarChartOn": { "message": "スターチャートを有効化" },
-  "flashStarChartOff": { "message": "スターチャートを無効化" }
+  "flashStarChartOff": { "message": "スターチャートを無効化" },
+  "contentStarChartTitleLabel": { "message": "ベロシティモニター" },
+  "contentStarChartStatsSectionTitle": { "message": "概要" },
+  "contentStarChartPeopleSectionTitle": { "message": "サポーター" },
+  "contentStarChartFilterAll": { "message": "全て" },
+  "contentStarChartFilterRetweet": { "message": "リツイート" },
+  "contentStarChartFilterQuote": { "message": "引用" },
+  "contentStarChartFilterBoth": { "message": "両方" },
+  "contentStarChartRiverPrev": { "message": "前の引用" },
+  "contentStarChartRiverNext": { "message": "次の引用" }
 }
