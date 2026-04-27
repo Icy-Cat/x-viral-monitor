@@ -106,6 +106,20 @@ function recordStarChartTemplate(url, requestHeaders) {
   if (!m) return;
   const queryId = m[1];
   const opName = m[2];
+
+  // The Bearer token is identical across all X GraphQL operations, so
+  // capture it from ANY call (TweetDetail, HomeTimeline, etc.) into a
+  // shared `_global` slot. queryId is per-op and only stored for our
+  // target ops (Retweeters / SearchTimeline).
+  const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
+  if (auth) {
+    window.postMessage({
+      type: 'XVM_SC_TEMPLATE_CAPTURE',
+      op: '_global',
+      template: { authorization: auth },
+    }, '*');
+  }
+
   if (!STARCHART_OPS.includes(opName)) return;
 
   let featuresStr = null;
@@ -114,7 +128,6 @@ function recordStarChartTemplate(url, requestHeaders) {
     featuresStr = u.searchParams.get('features');
   } catch (_) {}
 
-  const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
   const update = { queryId };
   if (featuresStr) update.features = featuresStr;
   if (auth) update.authorization = auth;

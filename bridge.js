@@ -182,7 +182,7 @@ window.addEventListener('message', (event) => {
   }
 
   if (type === 'XVM_SC_TEMPLATES_REQUEST') {
-    const ops = ['Retweeters', 'SearchTimeline'];
+    const ops = ['Retweeters', 'SearchTimeline', '_global'];
     const defaults = {};
     for (const op of ops) defaults[`xvmStarChartTemplate_${op}`] = null;
     safeChromeCall(() => {

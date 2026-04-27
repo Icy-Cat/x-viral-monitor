@@ -52,11 +52,12 @@
 
   function getTemplate(op) {
     const cached = cachedTemplates?.[op];
+    const globalAuth = cachedTemplates?._global?.authorization;
     const def = DEFAULT_TEMPLATES[op] || {};
     return {
       queryId: cached?.queryId || def.queryId,
       features: cached?.features || def.features,
-      authorization: cached?.authorization || def.authorization,
+      authorization: cached?.authorization || globalAuth || def.authorization,
     };
   }
 
