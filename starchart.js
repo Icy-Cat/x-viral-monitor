@@ -65,6 +65,73 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
 
+  let activeOverlay = null;
+  let activeAbort = null;
+
+  // MAIN-world receives localized strings via XVM_SETTINGS_UPDATE (see content.js).
+  // We re-receive them here so this module doesn't need to import from content.js.
+  let i18nMessages = {};
+  window.addEventListener('message', (ev) => {
+    if (ev.source !== window || ev.data?.type !== 'XVM_SETTINGS_UPDATE') return;
+    if (ev.data.messages) i18nMessages = ev.data.messages;
+  });
+  function tt(key) {
+    return i18nMessages[key] || key;
+  }
+
+  function buildOverlay(tweetCtx) {
+    const root = document.createElement('div');
+    root.className = 'xvm-starchart-overlay';
+    root.innerHTML = `
+      <div class="xvm-sc-backdrop"></div>
+      <div class="xvm-sc-frame">
+        <header class="xvm-sc-header">
+          <div class="xvm-sc-title"></div>
+          <div class="xvm-sc-subtitle"></div>
+          <div class="xvm-sc-progress"></div>
+          <button class="xvm-sc-close" aria-label=""></button>
+        </header>
+        <canvas class="xvm-sc-canvas"></canvas>
+        <footer class="xvm-sc-legend">
+          <span class="xvm-sc-dot xvm-sc-dot--rt"></span><span class="xvm-sc-legend-text"></span>
+          <span class="xvm-sc-dot xvm-sc-dot--qt"></span><span class="xvm-sc-legend-text"></span>
+          <span class="xvm-sc-dot xvm-sc-dot--both"></span><span class="xvm-sc-legend-text"></span>
+        </footer>
+      </div>
+    `;
+    // Set text via textContent (avoids XSS from tweet text)
+    root.querySelector('.xvm-sc-title').textContent = tt('contentStarChartTitle');
+    root.querySelector('.xvm-sc-subtitle').textContent =
+      `@${tweetCtx.authorScreenName || ''} · ${(tweetCtx.text || '').slice(0, 80)}`;
+    root.querySelector('.xvm-sc-progress').textContent = tt('contentStarChartLoading');
+    const closeBtn = root.querySelector('.xvm-sc-close');
+    closeBtn.setAttribute('aria-label', tt('contentStarChartClose'));
+    closeBtn.textContent = '×';
+
+    const legendTexts = root.querySelectorAll('.xvm-sc-legend-text');
+    legendTexts[0].textContent = tt('contentStarChartLegendRT');
+    legendTexts[1].textContent = tt('contentStarChartLegendQuote');
+    legendTexts[2].textContent = tt('contentStarChartLegendBoth');
+
+    closeBtn.addEventListener('click', closeOverlay);
+    root.querySelector('.xvm-sc-backdrop').addEventListener('click', closeOverlay);
+    document.addEventListener('keydown', escClose);
+    return root;
+  }
+
+  function escClose(ev) {
+    if (ev.key === 'Escape') closeOverlay();
+  }
+
+  function closeOverlay() {
+    if (activeAbort) { activeAbort.abort(); activeAbort = null; }
+    if (activeOverlay) {
+      activeOverlay.remove();
+      activeOverlay = null;
+    }
+    document.removeEventListener('keydown', escClose);
+  }
+
   async function callGraphQL(op, variables) {
     const tpl = getTemplate(op);
     if (!tpl.queryId || tpl.queryId === 'REPLACE_AT_RUNTIME') {
@@ -244,10 +311,55 @@
     }
   }
 
-  // Stub — implemented in Task 6
   async function openStarChart(tweetCtx) {
+    if (activeOverlay) closeOverlay();
     await loadTemplatesFromStorage();
-    console.log('[starchart] open() called', tweetCtx, getTemplate('Retweeters'));
+
+    activeOverlay = buildOverlay(tweetCtx);
+    document.body.appendChild(activeOverlay);
+    const progressEl = activeOverlay.querySelector('.xvm-sc-progress');
+    activeAbort = new AbortController();
+
+    // Aggregate users so we can mark dual-role (retweet + quote)
+    const byId = new Map();
+    let count = 0;
+    function addUsers(users, type) {
+      for (const u of users) {
+        const cur = byId.get(u.id);
+        if (cur) {
+          cur.type = cur.type === type ? cur.type : 'both';
+        } else {
+          byId.set(u.id, { ...u, type });
+          count++;
+        }
+      }
+      progressEl.textContent =
+        tt('contentStarChartProgress').replace('$COUNT$', count.toString());
+    }
+
+    function onRateLimit(seconds) {
+      progressEl.textContent =
+        tt('contentStarChartRateLimited').replace('$SECONDS$', seconds.toString());
+    }
+
+    try {
+      await Promise.all([
+        fetchAllRetweeters(tweetCtx.tweetId, addUsers, {
+          signal: activeAbort.signal,
+          onRateLimit,
+        }),
+        fetchAllQuotes(tweetCtx.tweetId, addUsers, {
+          signal: activeAbort.signal,
+          onRateLimit,
+        }),
+      ]);
+      progressEl.textContent =
+        tt('contentStarChartDone').replace('$COUNT$', count.toString());
+    } catch (e) {
+      if (e.name === 'AbortError') return;
+      progressEl.textContent =
+        tt('contentStarChartError').replace('$REASON$', e.message || 'unknown');
+    }
   }
 
   window.__XVMStarChart = {
