@@ -180,12 +180,12 @@ window.addEventListener('message', (event) => {
   }
 
   if (type === 'XVM_SC_TEMPLATE_CAPTURE' && event.data.op && event.data.template) {
+    const storageKey = `xvmStarChartTemplate_${event.data.op}`;
     safeChromeCall(() => {
-      chrome.storage.local.get({ xvmStarChartTemplates: {} }, (items) => {
-        const cur = items.xvmStarChartTemplates || {};
-        const op = event.data.op;
-        cur[op] = { ...(cur[op] || {}), ...event.data.template, capturedAt: Date.now() };
-        chrome.storage.local.set({ xvmStarChartTemplates: cur });
+      chrome.storage.local.get({ [storageKey]: {} }, (items) => {
+        const cur = items[storageKey] || {};
+        const next = { ...cur, ...event.data.template, capturedAt: Date.now() };
+        chrome.storage.local.set({ [storageKey]: next });
       });
     });
     return;
