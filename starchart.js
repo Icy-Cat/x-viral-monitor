@@ -422,6 +422,25 @@
     if (ev.key === 'Escape') closeOverlay();
   }
 
+  // Background scroll lock: when the overlay is open, the underlying
+  // x.com page should not scroll under wheel/touch. We snapshot the
+  // current overflow on <html> and <body> before locking, then restore.
+  let scrollLockSnapshot = null;
+  function lockBackgroundScroll() {
+    scrollLockSnapshot = {
+      htmlOverflow: document.documentElement.style.overflow,
+      bodyOverflow: document.body.style.overflow,
+    };
+    document.documentElement.style.overflow = 'hidden';
+    document.body.style.overflow = 'hidden';
+  }
+  function unlockBackgroundScroll() {
+    if (!scrollLockSnapshot) return;
+    document.documentElement.style.overflow = scrollLockSnapshot.htmlOverflow;
+    document.body.style.overflow = scrollLockSnapshot.bodyOverflow;
+    scrollLockSnapshot = null;
+  }
+
   function closeOverlay() {
     if (activeAbort) { activeAbort.abort(); activeAbort = null; }
     if (activeRenderer) {
@@ -433,6 +452,7 @@
       activeOverlay = null;
     }
     document.removeEventListener('keydown', escClose);
+    unlockBackgroundScroll();
   }
 
   // Orbital field rendering adapted from London-Chen/Thank-you-star-chart
@@ -1311,6 +1331,7 @@
       const overlayParts = buildOverlay(tweetCtx);
       activeOverlay = overlayParts.root;
       document.body.appendChild(activeOverlay);
+      lockBackgroundScroll();
 
       const {
         canvas, progressEl, emptyEl, statsEl, peopleGrid, searchInput,
@@ -1330,6 +1351,9 @@
       function refreshPeople() {
         renderPeople(peopleGrid, byId, searchFilter, (u) => {
           if (activeRenderer) activeRenderer.highlight(u.id);
+          if (u.screenName) {
+            window.open(`https://x.com/${u.screenName}`, '_blank', 'noopener');
+          }
         }, getActiveTypeFilter());
       }
 

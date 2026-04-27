@@ -834,17 +834,30 @@ article[data-testid="tweet"].xvm-article-linked {
   min-height: 0;
 }
 
-.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar {
-  width: 5px;
+/* Unified scrollbar styling across all scrollable areas in the overlay */
+.xvm-starchart-overlay *::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
 }
-
-.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-track {
+.xvm-starchart-overlay *::-webkit-scrollbar-track {
+  background: rgba(255, 247, 232, 0.04);
+  border-radius: 3px;
+}
+.xvm-starchart-overlay *::-webkit-scrollbar-thumb {
+  background: rgba(255, 247, 232, 0.18);
+  border-radius: 3px;
+  transition: background 0.15s;
+}
+.xvm-starchart-overlay *::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 213, 111, 0.45);
+}
+.xvm-starchart-overlay *::-webkit-scrollbar-corner {
   background: transparent;
 }
-
-.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-thumb {
-  background: rgba(255, 247, 232, 0.2);
-  border-radius: 2px;
+/* Firefox */
+.xvm-starchart-overlay * {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 247, 232, 0.18) transparent;
 }
 
 /* People card = original .person */
