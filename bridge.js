@@ -30,11 +30,45 @@ const CONTENT_MESSAGE_KEYS = [
   'contentCopyMdNoTweetFound',
   'contentCopyMdCopyFailed',
   'contentFallbackTweetLabel',
+  'contentStarChartMenuLabel',
+  'contentStarChartAttribution',
+  'contentStarChartTitle',
+  'contentStarChartLoading',
+  'contentStarChartProgress',
+  'contentStarChartRateLimited',
+  'contentStarChartDone',
+  'contentStarChartDoneTruncated',
+  'contentStarChartError',
+  'contentStarChartNoTweetFound',
+  'contentStarChartModuleNotLoaded',
+  'contentStarChartLegendRT',
+  'contentStarChartLegendQuote',
+  'contentStarChartLegendBoth',
+  'contentStarChartClose',
+  'contentStarChartStatRetweets',
+  'contentStarChartStatQuotes',
+  'contentStarChartStatSupporters',
+  'contentStarChartStatSpan',
+  'contentStarChartSearchPlaceholder',
+  'contentStarChartRiverTitle',
+  'contentStarChartRiverEmpty',
+  'contentStarChartEmpty',
+  'contentStarChartReset',
+  'contentStarChartTitleLabel',
+  'contentStarChartStatsSectionTitle',
+  'contentStarChartPeopleSectionTitle',
+  'contentStarChartFilterAll',
+  'contentStarChartFilterRetweet',
+  'contentStarChartFilterQuote',
+  'contentStarChartFilterBoth',
+  'contentStarChartRiverPrev',
+  'contentStarChartRiverNext',
 ];
 
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   featureCopyAsMarkdown: true,
+  featureStarChart: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
 };
@@ -95,6 +129,7 @@ function pushSettings(raw) {
     thresholds: normalizeThresholds(raw),
     featureVelocityLeaderboard: !!raw?.featureVelocityLeaderboard,
     featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
+    featureStarChart: raw?.featureStarChart !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
     leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
     messages: getLocalizedMessages(),
@@ -163,12 +198,44 @@ window.addEventListener('message', (event) => {
     });
     return;
   }
+
+  if (type === 'XVM_SC_TEMPLATES_REQUEST') {
+    const ops = ['Retweeters', 'SearchTimeline', '_global'];
+    const defaults = {};
+    for (const op of ops) defaults[`xvmStarChartTemplate_${op}`] = null;
+    safeChromeCall(() => {
+      chrome.storage.local.get(defaults, (items) => {
+        const templates = {};
+        for (const op of ops) {
+          const v = items[`xvmStarChartTemplate_${op}`];
+          if (v) templates[op] = v;
+        }
+        window.postMessage({
+          type: 'XVM_SC_TEMPLATES_LOAD',
+          templates,
+        }, '*');
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_SC_TEMPLATE_CAPTURE' && event.data.op && event.data.template) {
+    const storageKey = `xvmStarChartTemplate_${event.data.op}`;
+    safeChromeCall(() => {
+      chrome.storage.local.get({ [storageKey]: {} }, (items) => {
+        const cur = items[storageKey] || {};
+        const next = { ...cur, ...event.data.template, capturedAt: Date.now() };
+        chrome.storage.local.set({ [storageKey]: next });
+      });
+    });
+    return;
+  }
 });
 
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.leaderboardCount && !changes.leaderboardColumns) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.leaderboardCount && !changes.leaderboardColumns) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {

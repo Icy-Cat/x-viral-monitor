@@ -153,5 +153,52 @@
         "content": "$1"
       }
     }
-  }
+  },
+  "contentStarChartMenuLabel": { "message": "サンクス・スターチャート" },
+  "contentStarChartAttribution": { "message": "via X Viral Monitor" },
+  "contentStarChartTitle": { "message": "サンクス・スターチャート" },
+  "contentStarChartLoading": { "message": "サポーターを読み込み中..." },
+  "contentStarChartProgress": {
+    "message": "{{COUNT}} 名読み込み済み"
+  },
+  "contentStarChartRateLimited": {
+    "message": "レート制限のため {{SECONDS}} 秒待機中..."
+  },
+  "contentStarChartDone": {
+    "message": "完了 — {{COUNT}} 名のサポーター"
+  },
+  "contentStarChartDoneTruncated": {
+    "message": "上限到達 — {{COUNT}} 名読み込み済み（さらに存在）"
+  },
+  "contentStarChartError": {
+    "message": "読み込み失敗：{{REASON}}"
+  },
+  "contentStarChartNoTweetFound": { "message": "ツイートを特定できません" },
+  "contentStarChartModuleNotLoaded": { "message": "スターチャートを読み込めません — ページを再読み込みしてください" },
+  "contentStarChartLegendRT": { "message": "リツイート" },
+  "contentStarChartLegendQuote": { "message": "引用" },
+  "contentStarChartLegendBoth": { "message": "両方" },
+  "contentStarChartClose": { "message": "閉じる" },
+  "contentStarChartStatRetweets": { "message": "リツイート" },
+  "contentStarChartStatQuotes": { "message": "引用" },
+  "contentStarChartStatSupporters": { "message": "サポーター" },
+  "contentStarChartStatSpan": { "message": "引用期間" },
+  "contentStarChartSearchPlaceholder": { "message": "名前 / ハンドルで検索..." },
+  "contentStarChartRiverTitle": { "message": "引用ストリーム" },
+  "contentStarChartRiverEmpty": { "message": "引用ツイートはまだありません" },
+  "contentStarChartEmpty": { "message": "このツイートにはまだサポーターがいません" },
+  "contentStarChartReset": { "message": "ビューをリセット" },
+  "popupStarChartLabel": { "message": "サンクス・スターチャート" },
+  "popupStarChartHint": { "message": "ツイートの共有メニューにスターチャート生成項目を追加します。" },
+  "flashStarChartOn": { "message": "スターチャートを有効化" },
+  "flashStarChartOff": { "message": "スターチャートを無効化" },
+  "contentStarChartTitleLabel": { "message": "ベロシティモニター" },
+  "contentStarChartStatsSectionTitle": { "message": "概要" },
+  "contentStarChartPeopleSectionTitle": { "message": "サポーター" },
+  "contentStarChartFilterAll": { "message": "全て" },
+  "contentStarChartFilterRetweet": { "message": "リツイート" },
+  "contentStarChartFilterQuote": { "message": "引用" },
+  "contentStarChartFilterBoth": { "message": "両方" },
+  "contentStarChartRiverPrev": { "message": "前の引用" },
+  "contentStarChartRiverNext": { "message": "次の引用" }
 }

@@ -13,6 +13,8 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 - Color-coded badges indicate traffic levels at a glance
 - Hover tooltip with detailed metrics (views, likes, retweets, replies, bookmarks, viral score)
 - Works across all timeline tabs (For You, Following, Lists, etc.)
+- Copy any tweet as Markdown from the share menu
+- Generate a Thank-You Star Chart for any tweet — animated visualization of every retweeter and quoter
 - Supports English, Chinese, and Japanese
 
 ### Velocity Tiers
@@ -48,6 +50,12 @@ A composite 0-100 score based on four weighted dimensions:
 | Engagement rate | 25% | 10% |
 | Retweet ratio | 20% | RT/Like = 50% |
 | Bookmark ratio | 15% | Bookmark/Like = 30% |
+
+## Acknowledgements
+
+The Thank-You Star Chart visualization is adapted from
+[London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart) (MIT License) —
+orbital field math, side-panel layout, and color palette ported from that project.
 
 ## License
 

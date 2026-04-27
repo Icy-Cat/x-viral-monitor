@@ -153,5 +153,52 @@
         "content": "$1"
       }
     }
-  }
+  },
+  "contentStarChartMenuLabel": { "message": "感谢星图" },
+  "contentStarChartAttribution": { "message": "由 X Viral Monitor 提供" },
+  "contentStarChartTitle": { "message": "感谢星图" },
+  "contentStarChartLoading": { "message": "正在加载支持者..." },
+  "contentStarChartProgress": {
+    "message": "已加载 {{COUNT}} 位支持者"
+  },
+  "contentStarChartRateLimited": {
+    "message": "触发限频，等待 {{SECONDS}} 秒..."
+  },
+  "contentStarChartDone": {
+    "message": "完成 — 共 {{COUNT}} 位支持者"
+  },
+  "contentStarChartDoneTruncated": {
+    "message": "已达上限 — 已加载 {{COUNT}} 位（仍有更多未加载）"
+  },
+  "contentStarChartError": {
+    "message": "加载失败：{{REASON}}"
+  },
+  "contentStarChartNoTweetFound": { "message": "无法识别这条推文" },
+  "contentStarChartModuleNotLoaded": { "message": "星图组件未加载 — 请刷新页面后重试" },
+  "contentStarChartLegendRT": { "message": "转推" },
+  "contentStarChartLegendQuote": { "message": "引用" },
+  "contentStarChartLegendBoth": { "message": "两者皆有" },
+  "contentStarChartClose": { "message": "关闭" },
+  "contentStarChartStatRetweets": { "message": "转推" },
+  "contentStarChartStatQuotes": { "message": "引用" },
+  "contentStarChartStatSupporters": { "message": "支持者" },
+  "contentStarChartStatSpan": { "message": "引用时间跨度" },
+  "contentStarChartSearchPlaceholder": { "message": "搜索昵称或用户名..." },
+  "contentStarChartRiverTitle": { "message": "引用之河" },
+  "contentStarChartRiverEmpty": { "message": "暂无引用推文" },
+  "contentStarChartEmpty": { "message": "这条推文暂时没有转推或引用" },
+  "contentStarChartReset": { "message": "重置视角" },
+  "popupStarChartLabel": { "message": "感谢星图" },
+  "popupStarChartHint": { "message": "在每条推文的分享菜单中添加生成星图的入口。" },
+  "flashStarChartOn": { "message": "已开启星图功能" },
+  "flashStarChartOff": { "message": "已关闭星图功能" },
+  "contentStarChartTitleLabel": { "message": "速度监测" },
+  "contentStarChartStatsSectionTitle": { "message": "概览" },
+  "contentStarChartPeopleSectionTitle": { "message": "支持者" },
+  "contentStarChartFilterAll": { "message": "全部" },
+  "contentStarChartFilterRetweet": { "message": "转推" },
+  "contentStarChartFilterQuote": { "message": "引用" },
+  "contentStarChartFilterBoth": { "message": "两者" },
+  "contentStarChartRiverPrev": { "message": "上一条引用" },
+  "contentStarChartRiverNext": { "message": "下一条引用" }
 }

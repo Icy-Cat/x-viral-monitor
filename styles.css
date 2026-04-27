@@ -286,3 +286,749 @@ article[data-testid="tweet"].xvm-article-linked {
   opacity: 0.85;
   letter-spacing: 0.01em;
 }
+
+/* === Star Chart overlay — verbatim port of London-Chen/Thank-you-star-chart (MIT) ===
+ *
+ * Class-name mapping (original selector → our .xvm-sc-* class):
+ *   :root vars              → .xvm-starchart-overlay vars (--sc-*)
+ *   body / .shell           → .xvm-starchart-overlay / .xvm-sc-frame
+ *   .topbar                 → .xvm-sc-header
+ *   .brand                  → .xvm-sc-header-info
+ *   .kicker / .eyebrow      → .xvm-sc-title-label
+ *   h1                      → .xvm-sc-title
+ *   .controls               → .xvm-sc-header-actions
+ *   button (generic)        → .xvm-sc-reset / .xvm-sc-close
+ *   .left-panel             → .xvm-sc-side-left
+ *   .stats-grid             → .xvm-sc-stats-grid
+ *   .stats-grid div         → .xvm-sc-stat-block
+ *   .stats-grid span        → .xvm-sc-stat-num
+ *   .stats-grid p           → .xvm-sc-stat-label
+ *   .legend                 → .xvm-sc-legend
+ *   .dot / .dot.retweet / .dot.quote / .dot.both
+ *                           → .xvm-sc-dot / .xvm-sc-dot--rt / --qt / --both
+ *   .quote-panel            → .xvm-sc-side-right (container)
+ *   .quote-heading          → .xvm-sc-river-header-row
+ *   .quote-heading button   → .xvm-sc-river-btn
+ *   blockquote              → .xvm-sc-river-text
+ *   #quoteAuthor            → .xvm-sc-river-author
+ *   #quoteTime              → .xvm-sc-river-ts
+ *   .bottom-panel           → .xvm-sc-bottom
+ *   .search-row             → .xvm-sc-bottom-search-row
+ *   #searchInput            → .xvm-sc-search
+ *   .segments               → .xvm-sc-chips
+ *   .segments button        → .xvm-sc-chip
+ *   .segments button.active → .xvm-sc-chip--active
+ *   .people-list            → .xvm-sc-people-grid
+ *   .person                 → .xvm-sc-people-card
+ *   .person img / .avatar-fallback → .xvm-sc-avatar / .xvm-sc-avatar-img
+ *   .person strong          → .xvm-sc-person-name
+ *   .people-meta            → .xvm-sc-person-handle
+ *
+ * Skipped (features not in our extension):
+ *   .library-control, .file-control, .extract-form, #extractStatus
+ *   .toast (we use .xvm-toast instead)
+ *   media queries (overlay always fills window)
+ *   #starfield canvas (our canvas is .xvm-sc-canvas)
+ */
+
+/* ---- Color tokens (original :root block, scoped to overlay root) ---- */
+.xvm-starchart-overlay {
+  color-scheme: dark;
+  --sc-text:       #fff7e8;
+  --sc-muted:      rgba(255, 247, 232, 0.68);
+  --sc-panel:      rgba(13, 16, 24, 0.62);
+  --sc-panel-strong: rgba(13, 16, 24, 0.78);
+  --sc-line:       rgba(255, 247, 232, 0.16);
+  --sc-gold:       #ffd56f;
+  --sc-rose:       #ff6f91;
+  --sc-cyan:       #64d7ff;
+  --sc-green:      #70e3a2;
+  /* derived aliases used in our DOM-specific rules below */
+  --sc-bg:         #03050b;
+  --sc-border:     rgba(255, 247, 232, 0.16);
+  --sc-border-s:   rgba(255, 247, 232, 0.10);
+  --sc-text-muted: rgba(255, 247, 232, 0.68);
+  --sc-text-dim:   rgba(255, 247, 232, 0.45);
+  --sc-bg-panel:   rgba(13, 16, 24, 0.62);
+  --sc-bg-card:    rgba(13, 16, 24, 0.78);
+
+  position: fixed;
+  inset: 0;
+  z-index: 2147483600;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  color: var(--sc-text);
+}
+
+/* box-sizing reset inside overlay only */
+.xvm-starchart-overlay *,
+.xvm-starchart-overlay *::before,
+.xvm-starchart-overlay *::after {
+  box-sizing: border-box;
+}
+
+/* button + input font inherit (original: button, input { font: inherit }) */
+.xvm-starchart-overlay button,
+.xvm-starchart-overlay input {
+  font: inherit;
+}
+
+/* ---- Backdrop (our custom; not in original which uses a fixed <canvas>) ---- */
+.xvm-starchart-overlay .xvm-sc-backdrop {
+  position: absolute;
+  inset: 0;
+  background: #03050b;
+}
+
+/* ---- Frame = original .shell + panel chrome ---- */
+/* Original panels share: border, background, backdrop-filter, box-shadow */
+.xvm-starchart-overlay .xvm-sc-frame {
+  position: absolute;
+  inset: 20px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--sc-line);
+  background: var(--sc-panel);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.32);
+}
+
+/* ---- Header = original .topbar ---- */
+.xvm-starchart-overlay .xvm-sc-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  min-height: 76px;
+  padding: 14px 18px;
+  border-radius: 8px 8px 0 0;
+  border-bottom: 1px solid var(--sc-line);
+  flex-shrink: 0;
+}
+
+/* brand = original .brand */
+.xvm-starchart-overlay .xvm-sc-header-info {
+  display: flex;
+  align-items: baseline;
+  gap: 14px;
+  min-width: 0;
+}
+
+/* eyebrow / kicker label */
+.xvm-starchart-overlay .xvm-sc-title-label {
+  color: var(--sc-gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* h1 = article title */
+.xvm-starchart-overlay .xvm-sc-title {
+  font-size: clamp(18px, 2.5vw, 32px);
+  font-weight: 700;
+  line-height: 1;
+  margin: 0;
+  color: var(--sc-text);
+}
+
+/* subtitle */
+.xvm-starchart-overlay .xvm-sc-subtitle {
+  font-size: 13px;
+  color: var(--sc-muted);
+  line-height: 1.35;
+  max-width: 520px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin: 0;
+}
+
+/* controls = original .controls */
+.xvm-starchart-overlay .xvm-sc-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+/* progress label */
+.xvm-starchart-overlay .xvm-sc-progress {
+  font-size: 13px;
+  color: var(--sc-muted);
+  white-space: nowrap;
+}
+
+/* shared button chrome (original: .controls button, .segments button, .quote-heading button) */
+.xvm-starchart-overlay .xvm-sc-reset,
+.xvm-starchart-overlay .xvm-sc-close,
+.xvm-starchart-overlay .xvm-sc-river-btn,
+.xvm-starchart-overlay .xvm-sc-chip {
+  min-height: 38px;
+  border: 1px solid rgba(255, 247, 232, 0.18);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--sc-text);
+  cursor: pointer;
+}
+
+/* Reset button overrides */
+.xvm-starchart-overlay .xvm-sc-reset {
+  padding: 0 14px;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.xvm-starchart-overlay .xvm-sc-reset:hover {
+  background: rgba(255, 213, 111, 0.18);
+  border-color: rgba(255, 213, 111, 0.4);
+  color: var(--sc-gold);
+}
+
+/* Close button overrides */
+.xvm-starchart-overlay .xvm-sc-close {
+  padding: 0 14px;
+  font-size: 22px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.xvm-starchart-overlay .xvm-sc-close:hover {
+  background: rgba(255, 111, 145, 0.18);
+  border-color: rgba(255, 111, 145, 0.4);
+  color: var(--sc-rose);
+}
+
+/* ---- Body: 3-region grid + bottom strip (our overlay layout — kept as-is) ---- */
+.xvm-starchart-overlay .xvm-sc-body {
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  grid-template-rows: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "left stage right"
+    "bottom bottom bottom";
+  gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  overflow: hidden;
+}
+
+/* ---- LEFT panel = original .left-panel ---- */
+.xvm-starchart-overlay .xvm-sc-side-left {
+  grid-area: left;
+  display: flex;
+  flex-direction: column;
+  border-right: 1px solid var(--sc-line);
+  background: var(--sc-panel);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.32);
+  padding: 22px;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+/* ---- CENTER stage (canvas) ---- */
+.xvm-starchart-overlay .xvm-sc-stage {
+  grid-area: stage;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: var(--sc-bg);
+}
+
+.xvm-starchart-overlay .xvm-sc-canvas {
+  flex: 1 1 auto;
+  width: 100%;
+  display: block;
+  min-height: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-stage-status {
+  flex-shrink: 0;
+  height: 0;
+}
+
+/* Empty state */
+.xvm-starchart-overlay .xvm-sc-empty {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: var(--sc-muted);
+  font-size: 14px;
+  text-align: center;
+  pointer-events: none;
+  padding: 24px;
+}
+
+.xvm-starchart-overlay .xvm-sc-empty--hidden {
+  display: none;
+}
+
+.xvm-starchart-overlay .xvm-sc-empty-icon {
+  font-size: 40px;
+  opacity: 0.35;
+  line-height: 1;
+  color: var(--sc-gold);
+}
+
+/* ---- RIGHT panel = original .quote-panel ---- */
+.xvm-starchart-overlay .xvm-sc-side-right {
+  grid-area: right;
+  display: flex;
+  flex-direction: column;
+  border-left: 1px solid var(--sc-line);
+  background: linear-gradient(135deg, rgba(18, 22, 33, 0.82), rgba(47, 26, 42, 0.72));
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.32);
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* ---- BOTTOM panel = original .bottom-panel ---- */
+.xvm-starchart-overlay .xvm-sc-bottom {
+  grid-area: bottom;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  height: 220px;
+  padding: 14px;
+  border-top: 1px solid var(--sc-line);
+  border-radius: 0 0 8px 8px;
+  background: var(--sc-panel-strong);
+  backdrop-filter: blur(18px);
+  box-shadow: 0 20px 70px rgba(0, 0, 0, 0.32);
+  flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* search row = original .search-row */
+.xvm-starchart-overlay .xvm-sc-bottom-search-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  flex-shrink: 0;
+}
+
+/* Shared section header (our addition for panel labels) */
+.xvm-starchart-overlay .xvm-sc-section-header {
+  padding: 9px 14px 7px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.10em;
+  text-transform: uppercase;
+  color: var(--sc-muted);
+  border-bottom: 1px solid var(--sc-line);
+  flex-shrink: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-section-header--river {
+  color: var(--sc-cyan);
+  border-bottom: none;
+  padding: 0;
+}
+
+/* ---- Stats card = original .stats-grid + its children ---- */
+.xvm-starchart-overlay .xvm-sc-stats-card {
+  flex-shrink: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 24px;
+}
+
+/* .stats-grid div */
+.xvm-starchart-overlay .xvm-sc-stat-block {
+  min-height: 84px;
+  padding: 12px;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.07);
+}
+
+/* .stats-grid span */
+.xvm-starchart-overlay .xvm-sc-stat-num {
+  display: block;
+  font-size: 30px;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--sc-text);
+}
+
+/* color variants for stat numbers */
+.xvm-starchart-overlay .xvm-sc-stat-block--gold .xvm-sc-stat-num { color: var(--sc-gold); }
+.xvm-starchart-overlay .xvm-sc-stat-block--cyan .xvm-sc-stat-num { color: var(--sc-cyan); }
+.xvm-starchart-overlay .xvm-sc-stat-block--rose .xvm-sc-stat-num { color: var(--sc-rose); }
+.xvm-starchart-overlay .xvm-sc-stat-block--muted .xvm-sc-stat-num {
+  font-size: 20px;
+  color: var(--sc-muted);
+  font-weight: 600;
+}
+
+/* .stats-grid p */
+.xvm-starchart-overlay .xvm-sc-stat-label {
+  color: var(--sc-muted);
+  font-size: 13px;
+  margin: 0;
+}
+
+/* ---- Legend = original .legend + .dot ---- */
+.xvm-starchart-overlay .xvm-sc-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 18px;
+  color: var(--sc-muted);
+  font-size: 13px;
+}
+
+.xvm-starchart-overlay .xvm-sc-legend-item {
+  display: flex;
+  align-items: center;
+}
+
+/* .dot */
+.xvm-starchart-overlay .xvm-sc-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 6px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+/* .dot.retweet */
+.xvm-starchart-overlay .xvm-sc-dot--rt {
+  background: var(--sc-gold);
+}
+
+/* .dot.quote */
+.xvm-starchart-overlay .xvm-sc-dot--qt {
+  background: var(--sc-cyan);
+}
+
+/* .dot.both */
+.xvm-starchart-overlay .xvm-sc-dot--both {
+  background: var(--sc-rose);
+}
+
+.xvm-starchart-overlay .xvm-sc-legend-text {
+  /* text is a bare text node in legend-item, no extra class needed */
+}
+
+/* ---- Filter chips = original .segments + button ---- */
+.xvm-starchart-overlay .xvm-sc-chips {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+/* .segments button — base chrome already set above in shared button rule */
+.xvm-starchart-overlay .xvm-sc-chip {
+  padding: 0 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 400;
+  letter-spacing: 0;
+  line-height: 1;
+  color: var(--sc-text);
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.xvm-starchart-overlay .xvm-sc-chip:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* .segments button.active */
+.xvm-starchart-overlay .xvm-sc-chip--active,
+.xvm-starchart-overlay .xvm-sc-chip--all.xvm-sc-chip--active {
+  border-color: rgba(255, 213, 111, 0.7);
+  background: rgba(255, 213, 111, 0.18);
+  color: var(--sc-gold);
+}
+
+.xvm-starchart-overlay .xvm-sc-chip--rt.xvm-sc-chip--active {
+  border-color: rgba(255, 213, 111, 0.7);
+  background: rgba(255, 213, 111, 0.18);
+  color: var(--sc-gold);
+}
+
+.xvm-starchart-overlay .xvm-sc-chip--qt.xvm-sc-chip--active {
+  border-color: rgba(100, 215, 255, 0.5);
+  background: rgba(100, 215, 255, 0.18);
+  color: var(--sc-cyan);
+}
+
+.xvm-starchart-overlay .xvm-sc-chip--both.xvm-sc-chip--active {
+  border-color: rgba(255, 111, 145, 0.5);
+  background: rgba(255, 111, 145, 0.18);
+  color: var(--sc-rose);
+}
+
+/* ---- Search input = original #searchInput ---- */
+.xvm-starchart-overlay .xvm-sc-search-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-search-icon {
+  position: absolute;
+  left: 9px;
+  font-size: 11px;
+  pointer-events: none;
+  opacity: 0.45;
+  color: var(--sc-text);
+}
+
+/* #searchInput */
+.xvm-starchart-overlay .xvm-sc-search {
+  min-height: 42px;
+  width: 100%;
+  border: 1px solid var(--sc-line);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.09);
+  color: var(--sc-text);
+  padding: 0 14px 0 32px;
+  outline: none;
+  font-size: 13px;
+}
+
+.xvm-starchart-overlay .xvm-sc-search::placeholder {
+  color: var(--sc-muted);
+}
+
+.xvm-starchart-overlay .xvm-sc-search:focus {
+  border-color: rgba(100, 215, 255, 0.38);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* ---- People grid = original .people-list ---- */
+.xvm-starchart-overlay .xvm-sc-people-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: min-content;
+  gap: 10px;
+  margin-top: 12px;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar {
+  width: 5px;
+}
+
+.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-thumb {
+  background: rgba(255, 247, 232, 0.2);
+  border-radius: 2px;
+}
+
+/* People card = original .person */
+.xvm-starchart-overlay .xvm-sc-people-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px;
+  border: 1px solid rgba(255, 247, 232, 0.12);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.06);
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s;
+}
+
+.xvm-starchart-overlay .xvm-sc-people-card:hover {
+  background: rgba(255, 255, 255, 0.10);
+  border-color: rgba(255, 247, 232, 0.22);
+}
+
+/* Avatar = original .person img + .avatar-fallback */
+.xvm-starchart-overlay .xvm-sc-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: linear-gradient(135deg, var(--sc-gold), var(--sc-cyan), var(--sc-rose));
+  display: grid;
+  place-items: center;
+  color: #111;
+  font-weight: 900;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.xvm-starchart-overlay .xvm-sc-avatar-img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: block;
+  object-fit: cover;
+}
+
+/* person info = original .person strong + .people-meta */
+.xvm-starchart-overlay .xvm-sc-person-info {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+/* .person strong */
+.xvm-starchart-overlay .xvm-sc-person-name {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--sc-text);
+}
+
+/* .people-meta */
+.xvm-starchart-overlay .xvm-sc-person-handle {
+  display: block;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sc-muted);
+  font-size: 13px;
+}
+
+/* ---- Quote River = original .quote-panel + blockquote ---- */
+.xvm-starchart-overlay .xvm-sc-river {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  padding: 20px;
+}
+
+/* .quote-heading */
+.xvm-starchart-overlay .xvm-sc-river-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  flex-shrink: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-river-title {
+  color: var(--sc-gold);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+/* river nav buttons container = .quote-heading div */
+.xvm-starchart-overlay .xvm-sc-river-nav {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+/* .quote-heading button — base chrome set in shared button rule above */
+.xvm-starchart-overlay .xvm-sc-river-btn {
+  width: 36px;
+  padding: 0;
+  font-size: 24px;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  transition: background 0.12s, color 0.12s, border-color 0.12s;
+}
+
+.xvm-starchart-overlay .xvm-sc-river-btn:hover {
+  background: rgba(100, 215, 255, 0.15);
+  border-color: rgba(100, 215, 255, 0.4);
+  color: var(--sc-cyan);
+}
+
+.xvm-starchart-overlay .xvm-sc-river-counter {
+  font-size: 10px;
+  color: var(--sc-muted);
+  font-variant-numeric: tabular-nums;
+  padding: 0 2px;
+}
+
+/* river content area */
+.xvm-starchart-overlay .xvm-sc-river-content {
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  overflow: hidden;
+  min-height: 0;
+}
+
+/* blockquote */
+.xvm-starchart-overlay .xvm-sc-river-text {
+  margin: 18px 0 14px;
+  max-height: 230px;
+  overflow: auto;
+  color: #fffdf6;
+  font-size: 20px;
+  line-height: 1.5;
+  flex: 1 1 auto;
+}
+
+/* #quoteAuthor */
+.xvm-starchart-overlay .xvm-sc-river-author {
+  color: var(--sc-gold);
+  font-weight: 800;
+  text-decoration: none;
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-river-author:hover {
+  text-decoration: underline;
+}
+
+/* #quoteTime */
+.xvm-starchart-overlay .xvm-sc-river-ts {
+  margin-top: 8px;
+  color: var(--sc-muted);
+  font-size: 13px;
+  flex-shrink: 0;
+}
+
+.xvm-starchart-overlay .xvm-sc-river-empty {
+  font-size: 13px;
+  color: var(--sc-muted);
+  font-style: italic;
+  text-align: center;
+  padding: 20px 0;
+}

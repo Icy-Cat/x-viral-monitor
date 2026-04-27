@@ -48,6 +48,7 @@ const DEFAULT_LB_COLUMNS = [
 ];
 let leaderboardColumns = DEFAULT_LB_COLUMNS.map((c) => ({ ...c }));
 let copyAsMarkdownEnabled = true;
+let starChartEnabled = true;
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
@@ -85,12 +86,58 @@ window.addEventListener('message', (event) => {
   }
 
   copyAsMarkdownEnabled = event.data.featureCopyAsMarkdown !== false;
+  starChartEnabled = event.data.featureStarChart !== false;
 });
 
 window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
+
+// === Star Chart: GraphQL endpoint template capture ===
+// Learns the latest queryId + features blob X is using for known operations,
+// plus the bearer token + ct0 csrf header. Persists to chrome.storage.local
+// so the star-chart fetcher can replay the same shape later.
+const STARCHART_OPS = ['Retweeters', 'SearchTimeline'];
+const STARCHART_GRAPHQL_RE = /\/i\/api\/graphql\/([^/]+)\/([^?]+)/;
+
+function recordStarChartTemplate(url, requestHeaders) {
+  const m = url.match(STARCHART_GRAPHQL_RE);
+  if (!m) return;
+  const queryId = m[1];
+  const opName = m[2];
+
+  // The Bearer token is identical across all X GraphQL operations, so
+  // capture it from ANY call (TweetDetail, HomeTimeline, etc.) into a
+  // shared `_global` slot. queryId is per-op and only stored for our
+  // target ops (Retweeters / SearchTimeline).
+  const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
+  if (auth) {
+    window.postMessage({
+      type: 'XVM_SC_TEMPLATE_CAPTURE',
+      op: '_global',
+      template: { authorization: auth },
+    }, '*');
+  }
+
+  if (!STARCHART_OPS.includes(opName)) return;
+
+  let featuresStr = null;
+  try {
+    const u = new URL(url, location.origin);
+    featuresStr = u.searchParams.get('features');
+  } catch (_) {}
+
+  const update = { queryId };
+  if (featuresStr) update.features = featuresStr;
+  if (auth) update.authorization = auth;
+
+  window.postMessage({
+    type: 'XVM_SC_TEMPLATE_CAPTURE',
+    op: opName,
+    template: update,
+  }, '*');
+}
 
 // Extract and report rate limit headers
 function reportRateLimit(headers) {
@@ -108,8 +155,16 @@ function reportRateLimit(headers) {
 // Hook fetch
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
-  const response = await originalFetch.apply(this, args);
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+  // Star chart: capture queryId + auth header from outgoing request
+  if (url && GRAPHQL_RE.test(url)) {
+    const init = args[1] || {};
+    const headers = init.headers instanceof Headers
+      ? Object.fromEntries(init.headers.entries())
+      : (init.headers || (args[0]?.headers ? Object.fromEntries(new Headers(args[0].headers).entries()) : {}));
+    recordStarChartTemplate(url, headers);
+  }
+  const response = await originalFetch.apply(this, args);
   if (url && GRAPHQL_RE.test(url)) {
     reportRateLimit(response.headers);
     const clone = response.clone();
@@ -134,11 +189,20 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
             reset: parseInt(reset, 10),
           }, '*');
         }
+        recordStarChartTemplate(url, { authorization: this.__xvmAuthHeader });
         scanForTweets(JSON.parse(this.responseText));
       } catch (e) {}
     });
   }
   return originalXHROpen.call(this, method, url, ...rest);
+};
+
+const originalXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
+XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+  if (name && /^authorization$/i.test(name)) {
+    this.__xvmAuthHeader = value;
+  }
+  return originalXHRSetHeader.apply(this, arguments);
 };
 
 // === Data Extraction ===
@@ -195,8 +259,10 @@ function extractTweetData(result) {
   // X Article (long-form essay) content
   const articleResult = tweet.article?.article_results?.result;
   let articleMd = '';
+  let articleTitle = '';
   if (articleResult) {
     articleMd = buildArticleMarkdown(articleResult);
+    articleTitle = articleResult.title || articleResult.preview_text || '';
   }
   for (const m of legacy.extended_entities?.media || legacy.entities?.media || []) {
     if (!m?.url) continue;
@@ -224,6 +290,7 @@ function extractTweetData(result) {
     text: noteText || legacy.full_text || '',
     urlMap,
     articleMd,
+    articleTitle,
   };
 }
 
@@ -1242,6 +1309,91 @@ function injectCopyMarkdownItem(menuEl) {
   lastItem.parentNode.appendChild(clone);
 }
 
+function injectStarChartItem(menuEl) {
+  if (!starChartEnabled) return;
+  if (menuEl.querySelector('.xvm-starchart-item')) return;
+  const allItems = menuEl.querySelectorAll('[role="menuitem"]');
+  if (!allItems.length) return;
+  // Only clone a pristine X-native menuitem — never one we previously injected,
+  // otherwise we inherit its title+br+attribution children and end up with
+  // duplicate text rows.
+  const nativeItems = Array.from(allItems).filter(
+    (el) => !el.classList.contains('xvm-copy-md-item') && !el.classList.contains('xvm-starchart-item'),
+  );
+  if (!nativeItems.length) return;
+  const items = allItems;
+
+  const template = nativeItems[nativeItems.length - 1];
+  const clone = template.cloneNode(true);
+  clone.classList.add('xvm-starchart-item');
+  clone.removeAttribute('data-testid');
+  clone.querySelectorAll('[data-testid]').forEach((el) => el.removeAttribute('data-testid'));
+
+  const textSpans = clone.querySelectorAll('span');
+  let labelSpan = null;
+  for (const s of textSpans) {
+    if (s.children.length === 0 && (s.textContent || '').trim()) {
+      labelSpan = s; break;
+    }
+  }
+  if (labelSpan) {
+    labelSpan.textContent = '';
+    const title = document.createElement('span');
+    title.textContent = i18n('contentStarChartMenuLabel');
+    const attribution = document.createElement('span');
+    attribution.className = 'xvm-copy-md-source';
+    attribution.textContent = i18n('contentStarChartAttribution');
+    labelSpan.appendChild(title);
+    labelSpan.appendChild(document.createElement('br'));
+    labelSpan.appendChild(attribution);
+  } else {
+    clone.textContent = i18n('contentStarChartMenuLabel');
+  }
+
+  const svg = clone.querySelector('svg');
+  if (svg) {
+    const starIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    starIcon.setAttribute('viewBox', '0 0 24 24');
+    starIcon.setAttribute('width', svg.getAttribute('width') || '18');
+    starIcon.setAttribute('height', svg.getAttribute('height') || '18');
+    starIcon.setAttribute('aria-hidden', 'true');
+    starIcon.style.fill = 'currentColor';
+    starIcon.innerHTML = '<path d="M12 2l2.39 6.36L21 9l-5 4.74L17.18 21 12 17.27 6.82 21 8 13.74 3 9l6.61-.64L12 2z"/>';
+    svg.replaceWith(starIcon);
+  }
+
+  clone.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const ctx = lastShareContext;
+    if (!ctx || !ctx.article || !ctx.article.isConnected) {
+      showToast(i18n('contentStarChartNoTweetFound'));
+      closeOpenMenus();
+      return;
+    }
+    const tweetId = getTweetIdFromArticle(ctx.article);
+    if (!tweetId) {
+      showToast(i18n('contentStarChartNoTweetFound'));
+      closeOpenMenus();
+      return;
+    }
+    const data = tweetDataStore.get(tweetId) || {};
+    closeOpenMenus();
+    if (!window.__XVMStarChart?.open) {
+      showToast(i18n('contentStarChartModuleNotLoaded'));
+      return;
+    }
+    window.__XVMStarChart.open({
+      tweetId,
+      authorScreenName: data.authorScreenName || data.screenName || '',
+      text: data.text || '',
+      articleTitle: data.articleTitle || '',
+    });
+  });
+
+  const lastItem = items[items.length - 1];
+  lastItem.parentNode.appendChild(clone);
+}
+
 const menuObserver = new MutationObserver((mutations) => {
   for (const m of mutations) {
     for (const node of m.addedNodes) {
@@ -1252,6 +1404,7 @@ const menuObserver = new MutationObserver((mutations) => {
       for (const menu of menus) {
         if (!isShareMenu(menu)) continue;
         injectCopyMarkdownItem(menu);
+        injectStarChartItem(menu);
       }
     }
   }

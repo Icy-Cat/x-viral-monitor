@@ -155,5 +155,76 @@
         "content": "$1"
       }
     }
-  }
+  },
+  "contentStarChartMenuLabel": {
+    "message": "Thank-You Star Chart"
+  },
+  "contentStarChartAttribution": {
+    "message": "via X Viral Monitor"
+  },
+  "contentStarChartTitle": {
+    "message": "Thank-You Star Chart"
+  },
+  "contentStarChartLoading": {
+    "message": "Loading supporters..."
+  },
+  "contentStarChartProgress": {
+    "message": "{{COUNT}} supporters loaded"
+  },
+  "contentStarChartRateLimited": {
+    "message": "Hit rate limit, waiting {{SECONDS}}s..."
+  },
+  "contentStarChartDone": {
+    "message": "Done — {{COUNT}} supporters"
+  },
+  "contentStarChartDoneTruncated": {
+    "message": "Done — {{COUNT}} supporters (capped, more available)"
+  },
+  "contentStarChartError": {
+    "message": "Could not load supporters: {{REASON}}"
+  },
+  "contentStarChartNoTweetFound": {
+    "message": "Could not identify the tweet"
+  },
+  "contentStarChartModuleNotLoaded": {
+    "message": "Star chart not available — please reload the page"
+  },
+  "contentStarChartLegendRT": {
+    "message": "Retweet"
+  },
+  "contentStarChartLegendQuote": {
+    "message": "Quote"
+  },
+  "contentStarChartLegendBoth": {
+    "message": "Both"
+  },
+  "contentStarChartClose": {
+    "message": "Close"
+  },
+  "contentStarChartStatRetweets": { "message": "Retweets" },
+  "contentStarChartStatQuotes": { "message": "Quotes" },
+  "contentStarChartStatSupporters": { "message": "Supporters" },
+  "contentStarChartStatSpan": { "message": "Quote span" },
+  "contentStarChartSearchPlaceholder": { "message": "Search name or handle..." },
+  "contentStarChartRiverTitle": { "message": "Quote River" },
+  "contentStarChartRiverEmpty": { "message": "No quotes yet" },
+  "contentStarChartEmpty": { "message": "No supporters found for this tweet" },
+  "contentStarChartReset": { "message": "Reset view" },
+  "popupStarChartLabel": {
+    "message": "Thank-You Star Chart"
+  },
+  "popupStarChartHint": {
+    "message": "Adds a star-chart option to the share menu of any tweet."
+  },
+  "flashStarChartOn": { "message": "Star chart enabled" },
+  "flashStarChartOff": { "message": "Star chart disabled" },
+  "contentStarChartTitleLabel": { "message": "VELOCITY MONITOR" },
+  "contentStarChartStatsSectionTitle": { "message": "Overview" },
+  "contentStarChartPeopleSectionTitle": { "message": "Supporters" },
+  "contentStarChartFilterAll": { "message": "All" },
+  "contentStarChartFilterRetweet": { "message": "Retweet" },
+  "contentStarChartFilterQuote": { "message": "Quote" },
+  "contentStarChartFilterBoth": { "message": "Both" },
+  "contentStarChartRiverPrev": { "message": "Previous quote" },
+  "contentStarChartRiverNext": { "message": "Next quote" }
 }
