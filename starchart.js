@@ -573,23 +573,65 @@
       ctx.restore();
     }
 
+    function isUrlLike(text) {
+      // Returns true if the text is dominated by a URL and should not be word-wrapped
+      const t = text.trim();
+      if (/^https?:\/\//i.test(t)) return true;
+      if (/[^\s]{1,6}:\/\//.test(t.slice(0, 20))) return true;
+      if (/^[^\s]*(?:t\.co|x\.com|twitter\.com)\/\S/i.test(t)) return true;
+      return false;
+    }
+
     function drawCoreTitle(text, x, y, maxWidth) {
       const value = (text || '').trim();
       if (!value) return;
-      const chars = [...value];
-      let line = '';
+
+      // Build wrapped lines using word-aware algorithm
+      // CJK characters can break at any boundary; Latin words must not be split
       const lines = [];
-      for (const char of chars) {
-        const next = line + char;
-        if (ctx.measureText(next).width > maxWidth && line) {
-          lines.push(line);
-          line = char;
+      const isCJK = (ch) => /[一-鿿぀-ヿ가-힯]/.test(ch);
+      const words = value.split(/(\s+)/); // split preserving whitespace tokens
+      let line = '';
+      for (const token of words) {
+        if (!token) continue;
+        const candidate = line ? line + token : token;
+        if (ctx.measureText(candidate).width <= maxWidth) {
+          line = candidate;
         } else {
-          line = next;
+          // Token too wide to fit after current line
+          if (line) { lines.push(line); line = ''; }
+          if (lines.length >= 2) break;
+          // If the token itself is a single "word" wider than maxWidth, break by char
+          // (only for CJK or very long tokens)
+          let sub = '';
+          for (const ch of [...token.trim()]) {
+            const next = sub + ch;
+            if (ctx.measureText(next).width > maxWidth && sub) {
+              lines.push(sub);
+              sub = ch;
+              if (lines.length >= 2) break;
+            } else {
+              sub = next;
+            }
+          }
+          if (lines.length < 2) line = sub;
+          if (lines.length >= 2) { line = ''; break; }
         }
       }
-      if (line) lines.push(line);
+      if (line && lines.length < 2) lines.push(line);
+
+      // Truncate to max 2 lines; append ellipsis if we cut anything
+      const allText = lines.join('');
+      const truncated = allText.length < value.replace(/\s+/g, '').length + value.split(/\s+/).length - 1;
       const visible = lines.slice(0, 2);
+      if (visible.length === 2 && truncated) {
+        let last = visible[1];
+        while (last.length > 0 && ctx.measureText(last + '…').width > maxWidth) {
+          last = [...last].slice(0, -1).join('');
+        }
+        visible[1] = last + '…';
+      }
+
       const startY = y - (visible.length - 1) * 7;
       for (let i = 0; i < visible.length; i++) {
         ctx.fillText(visible[i], x, startY + i * 14);
@@ -613,8 +655,10 @@
       ctx.fillStyle = '#fff7e8';
       ctx.font = '800 12px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      // Show tweet text (wrapped to 2 lines), fall back to @handle
-      const coreLabel = (tweetCtx.text || '').trim() || `@${tweetCtx.authorScreenName || ''}`;
+      // If tweet text is a URL, show @handle instead to avoid broken URL display
+      const rawText = (tweetCtx.text || '').trim();
+      const handle = `@${tweetCtx.authorScreenName || ''}`;
+      const coreLabel = (!rawText || isUrlLike(rawText)) ? handle : rawText;
       drawCoreTitle(coreLabel, x, y, 68);
     }
 

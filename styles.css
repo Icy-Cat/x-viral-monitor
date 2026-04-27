@@ -451,7 +451,8 @@ article[data-testid="tweet"].xvm-article-linked {
   padding: 10px 14px 12px;
   border-top: 1px solid var(--sc-border);
   background: var(--sc-bg-card);
-  min-height: 0;
+  flex-shrink: 0;
+  min-height: 196px;
 }
 .xvm-starchart-overlay .xvm-sc-bottom-search-row {
   display: flex; align-items: center; gap: 10px; flex-shrink: 0;
@@ -573,8 +574,9 @@ article[data-testid="tweet"].xvm-article-linked {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  max-height: 144px;
+  height: 144px;
   overflow-y: auto;
+  flex-shrink: 0;
 }
 .xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar { width: 3px; }
 .xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-track { background: transparent; }
