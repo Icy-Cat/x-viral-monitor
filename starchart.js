@@ -373,9 +373,9 @@
     };
   }
 
-  async function callGraphQL(op, variables) {
+  async function callGraphQL(op, variables, { method = 'GET' } = {}) {
     const tpl = getTemplate(op);
-    console.log('[starchart] callGraphQL', op, {
+    console.log('[starchart] callGraphQL', op, method, {
       hasQueryId: !!tpl.queryId && tpl.queryId !== 'REPLACE_AT_RUNTIME',
       queryIdPreview: tpl.queryId ? tpl.queryId.slice(0, 8) + '...' : null,
       hasAuth: !!tpl.authorization,
@@ -389,21 +389,46 @@
       throw new Error(`No bearer token captured for ${op}.`);
     }
     const url = new URL(`/i/api/graphql/${tpl.queryId}/${op}`, location.origin);
-    url.searchParams.set('variables', JSON.stringify(variables));
-    if (tpl.features) url.searchParams.set('features', tpl.features);
 
-    const res = await fetch(url.toString(), {
-      method: 'GET',
-      credentials: 'include',
-      headers: {
-        'authorization': tpl.authorization,
-        'x-csrf-token': getCsrfToken(),
-        'content-type': 'application/json',
-        'x-twitter-active-user': 'yes',
-        'x-twitter-auth-type': 'OAuth2Session',
-        'x-twitter-client-language': navigator.language?.split('-')[0] || 'en',
-      },
-    });
+    let fetchOptions;
+    if (method === 'POST') {
+      // SearchTimeline only accepts POST. Variables stay in the URL; body
+      // carries features + queryId.
+      url.searchParams.set('variables', JSON.stringify(variables));
+      fetchOptions = {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'authorization': tpl.authorization,
+          'x-csrf-token': getCsrfToken(),
+          'content-type': 'application/json',
+          'x-twitter-active-user': 'yes',
+          'x-twitter-auth-type': 'OAuth2Session',
+          'x-twitter-client-language': navigator.language?.split('-')[0] || 'en',
+        },
+        body: JSON.stringify({
+          features: tpl.features ? JSON.parse(tpl.features) : {},
+          queryId: tpl.queryId,
+        }),
+      };
+    } else {
+      url.searchParams.set('variables', JSON.stringify(variables));
+      if (tpl.features) url.searchParams.set('features', tpl.features);
+      fetchOptions = {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'authorization': tpl.authorization,
+          'x-csrf-token': getCsrfToken(),
+          'content-type': 'application/json',
+          'x-twitter-active-user': 'yes',
+          'x-twitter-auth-type': 'OAuth2Session',
+          'x-twitter-client-language': navigator.language?.split('-')[0] || 'en',
+        },
+      };
+    }
+
+    const res = await fetch(url.toString(), fetchOptions);
 
     console.log('[starchart] callGraphQL response', op, res.status, res.statusText);
     if (res.status === 429) {
@@ -425,38 +450,71 @@
     return res.json();
   }
 
-  function extractCursor(instructions) {
-    for (const inst of instructions || []) {
-      const entries = inst.entries || (inst.entry ? [inst.entry] : []);
-      for (const e of entries) {
-        const c = e?.content;
-        if (c?.cursorType === 'Bottom' || c?.itemContent?.cursorType === 'Bottom') {
-          return c.value || c.itemContent.value;
-        }
-        if (c?.entryType === 'TimelineTimelineCursor' && /Bottom/i.test(c.cursorType || '')) {
-          return c.value;
-        }
-      }
+  function timelineEntries(json, pathParts) {
+    let node = json;
+    for (const part of pathParts) node = node?.[part];
+    const instructions = node?.instructions || [];
+    return instructions.flatMap((inst) => inst.entries || []);
+  }
+
+  function bottomCursor(entries) {
+    for (const e of entries) {
+      if (e?.content?.cursorType === 'Bottom') return e.content.value;
+      if (e?.entryId?.includes('cursor-bottom')) return e?.content?.value;
     }
     return null;
   }
 
-  function extractUsersFromTimeline(instructions) {
+  function parseUser(result) {
+    if (!result) return null;
+    // X migrated user fields from legacy.* to core.* on some endpoints; read both.
+    const screenName = result.core?.screen_name || result.legacy?.screen_name;
+    const name = result.core?.name || result.legacy?.name;
+    if (!screenName) return null;
+    return {
+      id: result.rest_id,
+      screenName,
+      name: name || screenName,
+      avatar: result.avatar?.image_url || result.legacy?.profile_image_url_https || '',
+    };
+  }
+
+  function extractRetweetersFromEntries(entries) {
     const out = [];
-    for (const inst of instructions || []) {
-      const entries = inst.entries || (inst.entry ? [inst.entry] : []);
-      for (const e of entries) {
-        const u = e?.content?.itemContent?.user_results?.result;
-        if (u && u.legacy) {
-          out.push({
-            id: u.rest_id,
-            screenName: u.legacy.screen_name,
-            name: u.legacy.name,
-            avatar: u.legacy.profile_image_url_https,
-          });
+    for (const e of entries) {
+      const user = parseUser(e?.content?.itemContent?.user_results?.result);
+      if (user) out.push(user);
+    }
+    return out;
+  }
+
+  // Recursive scan for quote tweets — checks every tweet_results.result
+  // anywhere in the response, then filters to those whose
+  // legacy.quoted_status_id_str matches the original tweet.
+  function extractQuotersFromJson(json, originalTweetId) {
+    const out = [];
+    const visit = (value) => {
+      if (!value || typeof value !== 'object') return;
+      const tweetResult = value.tweet_results?.result;
+      if (tweetResult) {
+        const tweet = tweetResult.tweet || tweetResult;
+        if (tweet?.legacy?.quoted_status_id_str === originalTweetId) {
+          const user = parseUser(tweet.core?.user_results?.result);
+          if (user) {
+            out.push({
+              ...user,
+              quoteUrl: `https://x.com/${user.screenName}/status/${tweet.rest_id || tweet.legacy?.id_str}`,
+            });
+          }
         }
       }
-    }
+      if (Array.isArray(value)) {
+        for (const v of value) visit(v);
+        return;
+      }
+      for (const v of Object.values(value)) visit(v);
+    };
+    visit(json);
     return out;
   }
 
@@ -468,7 +526,12 @@
     while (true) {
       if (signal?.aborted) return { truncated: false };
       if (total >= MAX_USERS) return { truncated: true };
-      const variables = { tweetId, count: PAGE_LIMIT };
+      const variables = {
+        tweetId,
+        count: PAGE_LIMIT,
+        enableRanking: true,
+        includePromotedContent: true,
+      };
       if (cursor) variables.cursor = cursor;
 
       let resp;
@@ -484,10 +547,9 @@
         throw e;
       }
 
-      const instructions = resp?.data?.retweeters_timeline?.timeline?.instructions
-        || resp?.data?.timeline?.timeline?.instructions
-        || [];
-      const users = extractUsersFromTimeline(instructions).filter((u) => {
+      const entries = timelineEntries(resp, ['data', 'retweeters_timeline', 'timeline'])
+        .concat(timelineEntries(resp, ['data', 'timeline', 'timeline']));
+      const users = extractRetweetersFromEntries(entries).filter((u) => {
         if (seen.has(u.id)) return false;
         seen.add(u.id);
         return true;
@@ -497,7 +559,7 @@
         onPage(users, 'retweet');
       }
 
-      const nextCursor = extractCursor(instructions);
+      const nextCursor = bottomCursor(entries);
       if (!nextCursor || nextCursor === cursor || users.length === 0) return { truncated: false };
       cursor = nextCursor;
     }
@@ -505,63 +567,55 @@
 
   async function fetchAllQuotes(tweetId, onPage, opts = {}) {
     const { signal } = opts;
-    let cursor = null;
     const seen = new Set();
     let total = 0;
-    while (true) {
-      if (signal?.aborted) return { truncated: false };
-      if (total >= MAX_USERS) return { truncated: true };
-      const variables = {
-        rawQuery: `quoted_tweet_id:${tweetId}`,
-        count: 20,
-        product: 'Latest',
-        querySource: 'recent_search_click',
-      };
-      if (cursor) variables.cursor = cursor;
+    let truncated = false;
+    // Search both Latest and Top to maximize coverage; X returns
+    // different result sets per product.
+    for (const product of ['Latest', 'Top']) {
+      let cursor = null;
+      while (true) {
+        if (signal?.aborted) return { truncated };
+        if (total >= MAX_USERS) { truncated = true; return { truncated }; }
+        const variables = {
+          rawQuery: tweetId,
+          count: 100,
+          querySource: 'typed_query',
+          product,
+        };
+        if (cursor) variables.cursor = cursor;
 
-      let resp;
-      try {
-        resp = await callGraphQL('SearchTimeline', variables);
-      } catch (e) {
-        if (e.code === 429 && opts.onRateLimit) {
-          const seconds = Math.ceil(e.waitMs / 1000);
-          opts.onRateLimit(seconds);
-          await new Promise((r) => setTimeout(r, e.waitMs));
-          continue;
-        }
-        throw e;
-      }
-
-      const instructions = resp?.data?.search_by_raw_query?.search_timeline?.timeline?.instructions || [];
-      const users = [];
-      for (const inst of instructions) {
-        const entries = inst.entries || (inst.entry ? [inst.entry] : []);
-        for (const e of entries) {
-          const tw = e?.content?.itemContent?.tweet_results?.result;
-          const user = tw?.core?.user_results?.result;
-          if (user?.legacy && !seen.has(user.rest_id)) {
-            seen.add(user.rest_id);
-            users.push({
-              id: user.rest_id,
-              screenName: user.legacy.screen_name,
-              name: user.legacy.name,
-              avatar: user.legacy.profile_image_url_https,
-              quoteUrl: tw?.legacy?.id_str
-                ? `https://x.com/${user.legacy.screen_name}/status/${tw.legacy.id_str}`
-                : null,
-            });
+        let resp;
+        try {
+          resp = await callGraphQL('SearchTimeline', variables, { method: 'POST' });
+        } catch (e) {
+          if (e.code === 429 && opts.onRateLimit) {
+            const seconds = Math.ceil(e.waitMs / 1000);
+            opts.onRateLimit(seconds);
+            await new Promise((r) => setTimeout(r, e.waitMs));
+            continue;
           }
+          throw e;
         }
-      }
-      if (users.length) {
-        total += users.length;
-        onPage(users, 'quote');
-      }
 
-      const nextCursor = extractCursor(instructions);
-      if (!nextCursor || nextCursor === cursor || users.length === 0) return { truncated: false };
-      cursor = nextCursor;
+        const all = extractQuotersFromJson(resp, tweetId);
+        const users = all.filter((u) => {
+          if (seen.has(u.id)) return false;
+          seen.add(u.id);
+          return true;
+        });
+        if (users.length) {
+          total += users.length;
+          onPage(users, 'quote');
+        }
+
+        const entries = timelineEntries(resp, ['data', 'search_by_raw_query', 'search_timeline', 'timeline']);
+        const nextCursor = bottomCursor(entries);
+        if (!nextCursor || nextCursor === cursor) break;
+        cursor = nextCursor;
+      }
     }
+    return { truncated };
   }
 
   async function openStarChart(tweetCtx) {
