@@ -68,6 +68,7 @@
   let activeOverlay = null;
   let activeAbort = null;
   let openInFlight = false;
+  let activeRenderer = null;
 
   // MAIN-world receives localized strings via XVM_SETTINGS_UPDATE (see content.js).
   // We re-receive them here so this module doesn't need to import from content.js.
@@ -126,11 +127,192 @@
 
   function closeOverlay() {
     if (activeAbort) { activeAbort.abort(); activeAbort = null; }
+    if (activeRenderer) {
+      activeRenderer.destroy();
+      activeRenderer = null;
+    }
     if (activeOverlay) {
       activeOverlay.remove();
       activeOverlay = null;
     }
     document.removeEventListener('keydown', escClose);
+  }
+
+  function createRenderer(canvas, tweetCtx) {
+    const ctx = canvas.getContext('2d');
+    const stars = [];
+    const lookup = new Map();
+    let raf = null;
+    const dpr = window.devicePixelRatio || 1;
+    let w = 0, h = 0, cx = 0, cy = 0;
+    let zoom = 1, panX = 0, panY = 0;
+    let hoverIdx = -1;
+    let mouseX = 0, mouseY = 0;
+    let dragging = false, lastX = 0, lastY = 0;
+
+    function resize() {
+      const r = canvas.getBoundingClientRect();
+      w = r.width; h = r.height;
+      canvas.width = w * dpr; canvas.height = h * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      cx = w / 2; cy = h / 2;
+    }
+
+    function colorFor(type) {
+      if (type === 'quote') return '#4ed6f5';
+      if (type === 'both')  return '#ff5fa3';
+      return '#f5c451';
+    }
+
+    function addUsers(users, type) {
+      for (const u of users) {
+        if (lookup.has(u.id)) {
+          const s = lookup.get(u.id);
+          if (s.type !== type) {
+            s.type = 'both';
+            s.color = colorFor('both');
+          }
+          continue;
+        }
+        const star = {
+          id: u.id,
+          screenName: u.screenName,
+          name: u.name,
+          quoteUrl: u.quoteUrl,
+          type,
+          color: colorFor(type),
+          angle: Math.random() * Math.PI * 2,
+          radius: 80 + Math.random() * Math.min(w, h) * 0.4,
+          speed: 0.0002 + Math.random() * 0.0008,
+          phase: Math.random() * Math.PI * 2,
+          size: 1.5 + Math.random() * 1.8,
+        };
+        stars.push(star);
+        lookup.set(u.id, star);
+      }
+    }
+
+    function frame(t) {
+      ctx.clearRect(0, 0, w, h);
+
+      ctx.save();
+      ctx.translate(cx + panX, cy + panY);
+      ctx.scale(zoom, zoom);
+
+      // Glowing core
+      const coreGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, 60);
+      coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
+      coreGrad.addColorStop(1, 'rgba(180,210,255,0)');
+      ctx.fillStyle = coreGrad;
+      ctx.beginPath(); ctx.arc(0, 0, 60, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '600 14px -apple-system, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const label = `@${tweetCtx.authorScreenName || ''}`;
+      ctx.fillText(label, 0, 0);
+
+      let nextHover = -1;
+      for (let i = 0; i < stars.length; i++) {
+        const s = stars[i];
+        s.angle += s.speed;
+        const x = Math.cos(s.angle) * s.radius;
+        const y = Math.sin(s.angle) * s.radius * 0.55;
+        const pulse = 0.7 + 0.3 * Math.sin(t * 0.003 + s.phase);
+        const r = s.size * pulse;
+        ctx.beginPath();
+        ctx.fillStyle = s.color;
+        ctx.shadowBlur = 8; ctx.shadowColor = s.color;
+        ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        ctx.shadowBlur = 0;
+
+        const sx = (x * zoom) + cx + panX;
+        const sy = (y * zoom) + cy + panY;
+        const dx = mouseX - sx, dy = mouseY - sy;
+        const hitR = 8 + r * zoom;
+        if (dx * dx + dy * dy < hitR * hitR) {
+          nextHover = i;
+        }
+      }
+      ctx.restore();
+
+      if (nextHover >= 0) {
+        hoverIdx = nextHover;
+        const s = stars[hoverIdx];
+        const x = Math.cos(s.angle) * s.radius;
+        const y = Math.sin(s.angle) * s.radius * 0.55;
+        const sx = (x * zoom) + cx + panX;
+        const sy = (y * zoom) + cy + panY;
+        const text = `${s.name} (@${s.screenName})`;
+        ctx.font = '12px -apple-system, sans-serif';
+        const tw = ctx.measureText(text).width + 12;
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(sx + 10, sy - 12, tw, 22);
+        ctx.fillStyle = '#fff';
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(text, sx + 16, sy);
+        canvas.style.cursor = 'pointer';
+      } else {
+        hoverIdx = -1;
+        canvas.style.cursor = 'default';
+      }
+
+      raf = requestAnimationFrame(frame);
+    }
+
+    function onMouseMove(e) {
+      const r = canvas.getBoundingClientRect();
+      mouseX = e.clientX - r.left;
+      mouseY = e.clientY - r.top;
+    }
+    function onClick() {
+      if (hoverIdx < 0) return;
+      const s = stars[hoverIdx];
+      const url = s.quoteUrl || `https://x.com/${s.screenName}`;
+      window.open(url, '_blank', 'noopener');
+    }
+    function onWheel(e) {
+      e.preventDefault();
+      const factor = e.deltaY < 0 ? 1.1 : 0.9;
+      zoom = Math.max(0.3, Math.min(3, zoom * factor));
+    }
+    function onMouseDown(e) {
+      if (hoverIdx >= 0) return;
+      dragging = true; lastX = e.clientX; lastY = e.clientY;
+    }
+    function onWindowMouseMove(e) {
+      if (!dragging) return;
+      panX += e.clientX - lastX;
+      panY += e.clientY - lastY;
+      lastX = e.clientX; lastY = e.clientY;
+    }
+    function onWindowMouseUp() { dragging = false; }
+
+    canvas.addEventListener('mousemove', onMouseMove);
+    canvas.addEventListener('click', onClick);
+    canvas.addEventListener('wheel', onWheel, { passive: false });
+    canvas.addEventListener('mousedown', onMouseDown);
+    window.addEventListener('mousemove', onWindowMouseMove);
+    window.addEventListener('mouseup', onWindowMouseUp);
+
+    const ro = new ResizeObserver(resize);
+    ro.observe(canvas);
+    resize();
+    raf = requestAnimationFrame(frame);
+
+    return {
+      addUsers,
+      destroy() {
+        if (raf) cancelAnimationFrame(raf);
+        ro.disconnect();
+        canvas.removeEventListener('mousemove', onMouseMove);
+        canvas.removeEventListener('click', onClick);
+        canvas.removeEventListener('wheel', onWheel);
+        canvas.removeEventListener('mousedown', onMouseDown);
+        window.removeEventListener('mousemove', onWindowMouseMove);
+        window.removeEventListener('mouseup', onWindowMouseUp);
+      },
+    };
   }
 
   async function callGraphQL(op, variables) {
@@ -321,6 +503,8 @@
 
       activeOverlay = buildOverlay(tweetCtx);
       document.body.appendChild(activeOverlay);
+      const canvas = activeOverlay.querySelector('.xvm-sc-canvas');
+      activeRenderer = createRenderer(canvas, tweetCtx);
       const progressEl = activeOverlay.querySelector('.xvm-sc-progress');
       activeAbort = new AbortController();
 
@@ -337,6 +521,7 @@
             count++;
           }
         }
+        if (activeRenderer) activeRenderer.addUsers(users, type);
         progressEl.textContent =
           tt('contentStarChartProgress').replace('$COUNT$', count.toString());
       }
