@@ -49,6 +49,11 @@
 | 转发比 | 20% | 转发/点赞 = 50% |
 | 收藏比 | 15% | 收藏/点赞 = 30% |
 
+## 致谢
+
+「感谢星图」功能改编自 [London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart)（MIT 协议）——
+轨道动画的数学公式、侧边面板的布局、配色方案均移植自该项目。
+
 ## 许可证
 
 MIT

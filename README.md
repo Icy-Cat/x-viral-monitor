@@ -51,6 +51,12 @@ A composite 0-100 score based on four weighted dimensions:
 | Retweet ratio | 20% | RT/Like = 50% |
 | Bookmark ratio | 15% | Bookmark/Like = 30% |
 
+## Acknowledgements
+
+The Thank-You Star Chart visualization is adapted from
+[London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart) (MIT License) —
+orbital field math, side-panel layout, and color palette ported from that project.
+
 ## License
 
 MIT
