@@ -1296,10 +1296,18 @@ function injectCopyMarkdownItem(menuEl) {
 function injectStarChartItem(menuEl) {
   if (!starChartEnabled) return;
   if (menuEl.querySelector('.xvm-starchart-item')) return;
-  const items = menuEl.querySelectorAll('[role="menuitem"]');
-  if (!items.length) return;
+  const allItems = menuEl.querySelectorAll('[role="menuitem"]');
+  if (!allItems.length) return;
+  // Only clone a pristine X-native menuitem — never one we previously injected,
+  // otherwise we inherit its title+br+attribution children and end up with
+  // duplicate text rows.
+  const nativeItems = Array.from(allItems).filter(
+    (el) => !el.classList.contains('xvm-copy-md-item') && !el.classList.contains('xvm-starchart-item'),
+  );
+  if (!nativeItems.length) return;
+  const items = allItems;
 
-  const template = items[items.length - 1];
+  const template = nativeItems[nativeItems.length - 1];
   const clone = template.cloneNode(true);
   clone.classList.add('xvm-starchart-item');
   clone.removeAttribute('data-testid');

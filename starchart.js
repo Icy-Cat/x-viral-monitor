@@ -558,8 +558,11 @@
           activeAbort.abort();
         }
         if (e.name === 'AbortError') return;
+        // Log to console so users can inspect stack + cause in DevTools.
+        console.error('[starchart] fetch failed', e);
+        const reason = e?.message || e?.toString?.() || String(e) || 'unknown';
         progressEl.textContent =
-          tt('contentStarChartError').replace('$REASON$', e.message || 'unknown');
+          tt('contentStarChartError').replace('$REASON$', reason);
       }
     } finally {
       openInFlight = false;
