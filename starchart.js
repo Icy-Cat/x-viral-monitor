@@ -189,6 +189,8 @@
     document.removeEventListener('keydown', escClose);
   }
 
+  // Orbital field rendering adapted from London-Chen/Thank-you-star-chart
+  // (MIT License). https://github.com/London-Chen/Thank-you-star-chart
   function createRenderer(canvas, tweetCtx) {
     const ctx = canvas.getContext('2d');
     const stars = [];
@@ -201,8 +203,19 @@
     let lastCursor = '';
     let mouseX = 0, mouseY = 0;
     let dragging = false, lastX = 0, lastY = 0;
+    let nextIndex = 0;
 
     const GLOW_LIMIT = 1500;
+
+    // Nebula blobs — initialized once, drift slowly
+    const nebulaBlobs = Array.from({ length: 7 }, (_, i) => ({
+      xFrac: 0.12 + i * 0.14,
+      yFrac: 0.3 + (i % 3) * 0.16,
+      r: 140 + (i % 4) * 38,
+      phase: i,
+      colorIdx: i % 4,
+    }));
+    const NEBULA_COLORS = ['#ff6f91', '#64d7ff', '#70e3a2', '#ffd56f'];
 
     function resize() {
       const r = canvas.getBoundingClientRect();
@@ -213,12 +226,24 @@
     }
 
     function colorFor(type) {
-      if (type === 'quote') return '#4ed6f5';
-      if (type === 'both')  return '#ff5fa3';
-      return '#f5c451';
+      if (type === 'quote') return '#64d7ff';
+      if (type === 'both')  return '#ff6f91';
+      return '#ffd56f';
+    }
+
+    function roundRect(c, x, y, rw, rh, rad) {
+      c.beginPath();
+      c.moveTo(x + rad, y);
+      c.arcTo(x + rw, y, x + rw, y + rh, rad);
+      c.arcTo(x + rw, y + rh, x, y + rh, rad);
+      c.arcTo(x, y + rh, x, y, rad);
+      c.arcTo(x, y, x + rw, y, rad);
+      c.closePath();
     }
 
     function addUsers(users, type) {
+      // Estimate total count for layer calculation — use current total + incoming
+      const count = Math.max(stars.length + users.length, 1);
       for (const u of users) {
         if (lookup.has(u.id)) {
           const s = lookup.get(u.id);
@@ -228,6 +253,12 @@
           }
           continue;
         }
+        const i = nextIndex++;
+        const golden = i * 2.399963229728653;
+        const layer = Math.sqrt((i + 1) / count);
+        const isQuote = type === 'quote';
+        const quoteBoost = isQuote ? 0.72 : 1;
+        const radius = (120 + layer * 500) * quoteBoost;
         const star = {
           id: u.id,
           screenName: u.screenName,
@@ -235,80 +266,130 @@
           quoteUrl: u.quoteUrl,
           type,
           color: colorFor(type),
-          angle: Math.random() * Math.PI * 2,
-          radius: 80 + Math.random() * Math.min(w, h) * 0.4,
-          speed: 0.0002 + Math.random() * 0.0008,
-          phase: Math.random() * Math.PI * 2,
-          size: 1.5 + Math.random() * 1.8,
+          angle: golden,
+          radius,
+          speed: 0.00009 + ((i % 17) + 3) * 0.000012,
+          phase: (i * 0.37) % (Math.PI * 2),
+          size: isQuote ? 3.3 + (i % 4) : 1.8 + (i % 3) * 0.45,
+          gardenOffset: ((i % 9) - 4) * 9,
         };
         stars.push(star);
         lookup.set(u.id, star);
       }
     }
 
+    function drawNebula(t) {
+      ctx.save();
+      ctx.globalAlpha = 0.22;
+      for (let i = 0; i < nebulaBlobs.length; i++) {
+        const b = nebulaBlobs[i];
+        const x = w * b.xFrac + Math.sin(t * 0.0002 + b.phase) * 28;
+        const y = h * b.yFrac;
+        const g = ctx.createRadialGradient(x, y, 0, x, y, b.r);
+        g.addColorStop(0, NEBULA_COLORS[b.colorIdx]);
+        g.addColorStop(1, 'transparent');
+        ctx.fillStyle = g;
+        ctx.beginPath();
+        ctx.arc(x, y, b.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawOrbitalRings(t) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(255,213,111,0.12)';
+      ctx.lineWidth = 1;
+      for (let i = 1; i <= 5; i++) {
+        const rx = (120 + ((i - 1) / 4) * 500) * zoom;
+        const ry = rx * 0.58;
+        ctx.beginPath();
+        ctx.ellipse(cx + panX, cy + panY, rx, ry, 0, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      ctx.restore();
+    }
+
+    function drawCore(t) {
+      const pulse = 1 + Math.sin(t * 0.002) * 0.06;
+      const x = cx + panX, y = cy + panY;
+      const g = ctx.createRadialGradient(x, y, 0, x, y, 86 * pulse);
+      g.addColorStop(0, 'rgba(255,249,216,1)');
+      g.addColorStop(0.22, 'rgba(255,213,111,0.95)');
+      g.addColorStop(0.6, 'rgba(255,111,145,0.22)');
+      g.addColorStop(1, 'transparent');
+      ctx.fillStyle = g;
+      ctx.beginPath(); ctx.arc(x, y, 86 * pulse, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#17110b';
+      ctx.beginPath(); ctx.arc(x, y, 39 * pulse, 0, Math.PI * 2); ctx.fill();
+
+      ctx.fillStyle = '#fff7e8';
+      ctx.font = '800 12px system-ui, sans-serif';
+      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(`@${tweetCtx.authorScreenName || ''}`, x, y);
+    }
+
     function frame(t) {
       ctx.clearRect(0, 0, w, h);
 
-      ctx.save();
-      ctx.translate(cx + panX, cy + panY);
-      ctx.scale(zoom, zoom);
-
-      // Glowing core
-      const coreGrad = ctx.createRadialGradient(0, 0, 4, 0, 0, 60);
-      coreGrad.addColorStop(0, 'rgba(255,255,255,0.95)');
-      coreGrad.addColorStop(1, 'rgba(180,210,255,0)');
-      ctx.fillStyle = coreGrad;
-      ctx.beginPath(); ctx.arc(0, 0, 60, 0, Math.PI * 2); ctx.fill();
-
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '600 14px -apple-system, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      const label = `@${tweetCtx.authorScreenName || ''}`;
-      ctx.fillText(label, 0, 0);
+      drawNebula(t);
+      drawOrbitalRings(t);
 
       let nextHover = -1;
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
         s.angle += s.speed;
-        const x = Math.cos(s.angle) * s.radius;
-        const y = Math.sin(s.angle) * s.radius * 0.55;
-        const pulse = 0.7 + 0.3 * Math.sin(t * 0.003 + s.phase);
-        const r = s.size * pulse;
-        ctx.beginPath();
-        ctx.fillStyle = s.color;
-        if (i < GLOW_LIMIT) {
-          ctx.shadowBlur = 8; ctx.shadowColor = s.color;
-          ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-          ctx.shadowBlur = 0;
-        } else {
-          ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-        }
+        const sway = Math.sin(t * 0.0005 + s.phase) * 18;
+        const x = (cx + panX) + Math.cos(s.angle) * (s.radius + sway) * zoom;
+        const y = (cy + panY) + Math.sin(s.angle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
 
-        const sx = (x * zoom) + cx + panX;
-        const sy = (y * zoom) + cy + panY;
-        const dx = mouseX - sx, dy = mouseY - sy;
+        const highlighted = hoverIdx === i;
+        const pulse = 0.65 + Math.sin(t * 0.004 + s.phase) * 0.35;
+        const baseSize = s.size * (highlighted ? 2.6 : 1) * (0.84 + pulse * 0.3);
+        const r = baseSize;
+
+        ctx.save();
+        ctx.globalAlpha = highlighted ? 0.98 : s.type === 'retweet' ? 0.58 : 0.84;
+        if (i < GLOW_LIMIT || highlighted) {
+          ctx.shadowBlur = highlighted ? 30 : s.type === 'retweet' ? 9 : 18;
+          ctx.shadowColor = s.color;
+        }
+        ctx.fillStyle = s.color;
+        ctx.beginPath();
+        ctx.arc(x, y, r, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.restore();
+
+        const dx = mouseX - x, dy = mouseY - y;
         const hitR = 8 + r * zoom;
         if (dx * dx + dy * dy < hitR * hitR) {
           nextHover = i;
         }
       }
-      ctx.restore();
+
+      drawCore(t);
 
       if (nextHover >= 0) {
         hoverIdx = nextHover;
         const s = stars[hoverIdx];
-        const x = Math.cos(s.angle) * s.radius;
-        const y = Math.sin(s.angle) * s.radius * 0.55;
-        const sx = (x * zoom) + cx + panX;
-        const sy = (y * zoom) + cy + panY;
+        const sway = Math.sin(t * 0.0005 + s.phase) * 18;
+        const sx = (cx + panX) + Math.cos(s.angle) * (s.radius + sway) * zoom;
+        const sy = (cy + panY) + Math.sin(s.angle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
         const text = `${s.name} (@${s.screenName})`;
-        ctx.font = '12px -apple-system, sans-serif';
-        const tw = ctx.measureText(text).width + 12;
+        ctx.font = '700 12px system-ui, sans-serif';
+        const tw = Math.min(ctx.measureText(text).width + 18, 220);
+        ctx.save();
         ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.fillRect(sx + 10, sy - 12, tw, 22);
-        ctx.fillStyle = '#fff';
+        ctx.strokeStyle = 'rgba(255,213,111,0.6)';
+        ctx.lineWidth = 1;
+        roundRect(ctx, sx + 10, sy - 20, tw, 28, 7);
+        ctx.fill();
+        ctx.stroke();
+        ctx.restore();
+        ctx.fillStyle = '#fff7e8';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(text, sx + 16, sy);
+        ctx.fillText(text.slice(0, 28), sx + 19, sy - 2);
         if (lastCursor !== 'pointer') { canvas.style.cursor = 'pointer'; lastCursor = 'pointer'; }
       } else {
         hoverIdx = -1;

@@ -329,6 +329,6 @@ article[data-testid="tweet"].xvm-article-linked {
   display: inline-block; width: 10px; height: 10px; border-radius: 50%;
   margin-right: 4px;
 }
-.xvm-starchart-overlay .xvm-sc-dot--rt   { background: #f5c451; box-shadow: 0 0 8px #f5c451; }
-.xvm-starchart-overlay .xvm-sc-dot--qt   { background: #4ed6f5; box-shadow: 0 0 8px #4ed6f5; }
-.xvm-starchart-overlay .xvm-sc-dot--both { background: #ff5fa3; box-shadow: 0 0 8px #ff5fa3; }
+.xvm-starchart-overlay .xvm-sc-dot--rt   { background: #ffd56f; box-shadow: 0 0 8px #ffd56f; }
+.xvm-starchart-overlay .xvm-sc-dot--qt   { background: #64d7ff; box-shadow: 0 0 8px #64d7ff; }
+.xvm-starchart-overlay .xvm-sc-dot--both { background: #ff6f91; box-shadow: 0 0 8px #ff6f91; }
