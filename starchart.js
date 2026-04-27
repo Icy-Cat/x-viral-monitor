@@ -1292,26 +1292,22 @@
       }, RIVER_AUTO_ADVANCE_MS);
     }
 
-    function resetAuto() {
-      startAuto();
-    }
-
     riverPrev.addEventListener('click', () => {
       if (quotes.length === 0) return;
       currentIdx = (currentIdx - 1 + quotes.length) % quotes.length;
       renderQuote();
-      resetAuto();
+      startAuto();
     });
 
     riverNext.addEventListener('click', () => {
       if (quotes.length === 0) return;
       currentIdx = (currentIdx + 1) % quotes.length;
       renderQuote();
-      resetAuto();
+      startAuto();
     });
 
     riverEl.addEventListener('mouseenter', () => { paused = true; });
-    riverEl.addEventListener('mouseleave', () => { paused = false; resetAuto(); });
+    riverEl.addEventListener('mouseleave', () => { paused = false; startAuto(); });
 
     renderQuote();
     startAuto();
@@ -1383,6 +1379,10 @@
       });
 
       function addUsers(users, type) {
+        // Guard against late-arriving fetch results after the user closed
+        // the overlay — DOM refs (progressEl, peopleGrid, etc.) point to
+        // a detached subtree at that point.
+        if (!activeOverlay) return;
         for (const u of users) {
           const cur = byId.get(u.id);
           if (cur) {
