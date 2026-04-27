@@ -880,10 +880,10 @@ function collectRanked() {
     seen.add(id);
     const { velocity } = computeScore(data);
     // Use the canonical User-Name container (works on x.com AND pro.x.com).
-    // The previous `a[href^="/"][role="link"] span` selector returned an
-    // empty/wrong span on pro.x.com because pro wraps tweets differently.
-    const { handle: authorHandle } = getAuthorInfo(article);
-    let handle = authorHandle || '';
+    // Prefer the display name ("张三") over the @handle ("zhangsan") — more
+    // recognizable to humans skimming the leaderboard.
+    const { displayName, handle: authorHandle } = getAuthorInfo(article);
+    let handle = displayName || authorHandle || '';
     if (!handle) {
       handle = (data.text || '').slice(0, 60);
     }
