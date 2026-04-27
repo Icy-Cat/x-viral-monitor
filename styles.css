@@ -510,13 +510,14 @@ article[data-testid="tweet"].xvm-article-linked {
 .xvm-starchart-overlay .xvm-sc-body {
   display: grid;
   grid-template-columns: 280px 1fr 340px;
-  grid-template-rows: 1fr auto;
+  grid-template-rows: minmax(0, 1fr) auto;
   grid-template-areas:
     "left stage right"
     "bottom bottom bottom";
   gap: 0;
   flex: 1 1 auto;
   min-height: 0;
+  overflow: hidden;
   overflow: hidden;
 }
 
@@ -602,7 +603,7 @@ article[data-testid="tweet"].xvm-article-linked {
   display: flex;
   flex-direction: column;
   gap: 8px;
-  max-height: 220px;
+  height: 220px;
   padding: 14px;
   border-top: 1px solid var(--sc-line);
   border-radius: 0 0 8px 8px;
@@ -610,6 +611,8 @@ article[data-testid="tweet"].xvm-article-linked {
   backdrop-filter: blur(18px);
   box-shadow: 0 20px 70px rgba(0, 0, 0, 0.32);
   flex-shrink: 0;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
 /* search row = original .search-row */
@@ -823,11 +826,12 @@ article[data-testid="tweet"].xvm-article-linked {
 .xvm-starchart-overlay .xvm-sc-people-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-auto-rows: min-content;
   gap: 10px;
   margin-top: 12px;
-  overflow: auto;
-  max-height: 144px;
-  flex-shrink: 0;
+  overflow-y: auto;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 .xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar {
