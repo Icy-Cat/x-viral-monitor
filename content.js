@@ -48,6 +48,7 @@ const DEFAULT_LB_COLUMNS = [
 ];
 let leaderboardColumns = DEFAULT_LB_COLUMNS.map((c) => ({ ...c }));
 let copyAsMarkdownEnabled = true;
+let starChartEnabled = true;
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
@@ -85,6 +86,7 @@ window.addEventListener('message', (event) => {
   }
 
   copyAsMarkdownEnabled = event.data.featureCopyAsMarkdown !== false;
+  starChartEnabled = event.data.featureStarChart !== false;
 });
 
 window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
@@ -1291,6 +1293,82 @@ function injectCopyMarkdownItem(menuEl) {
   lastItem.parentNode.appendChild(clone);
 }
 
+function injectStarChartItem(menuEl) {
+  if (!starChartEnabled) return;
+  if (menuEl.querySelector('.xvm-starchart-item')) return;
+  const items = menuEl.querySelectorAll('[role="menuitem"]');
+  if (!items.length) return;
+
+  const template = items[items.length - 1];
+  const clone = template.cloneNode(true);
+  clone.classList.add('xvm-starchart-item');
+  clone.removeAttribute('data-testid');
+  clone.querySelectorAll('[data-testid]').forEach((el) => el.removeAttribute('data-testid'));
+
+  const textSpans = clone.querySelectorAll('span');
+  let labelSpan = null;
+  for (const s of textSpans) {
+    if (s.children.length === 0 && (s.textContent || '').trim()) {
+      labelSpan = s; break;
+    }
+  }
+  if (labelSpan) {
+    labelSpan.textContent = '';
+    const title = document.createElement('span');
+    title.textContent = i18n('contentStarChartMenuLabel');
+    const attribution = document.createElement('span');
+    attribution.className = 'xvm-copy-md-source';
+    attribution.textContent = i18n('contentStarChartAttribution');
+    labelSpan.appendChild(title);
+    labelSpan.appendChild(document.createElement('br'));
+    labelSpan.appendChild(attribution);
+  } else {
+    clone.textContent = i18n('contentStarChartMenuLabel');
+  }
+
+  const svg = clone.querySelector('svg');
+  if (svg) {
+    const starIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    starIcon.setAttribute('viewBox', '0 0 24 24');
+    starIcon.setAttribute('width', svg.getAttribute('width') || '18');
+    starIcon.setAttribute('height', svg.getAttribute('height') || '18');
+    starIcon.setAttribute('aria-hidden', 'true');
+    starIcon.style.fill = 'currentColor';
+    starIcon.innerHTML = '<path d="M12 2l2.39 6.36L21 9l-5 4.74L17.18 21 12 17.27 6.82 21 8 13.74 3 9l6.61-.64L12 2z"/>';
+    svg.replaceWith(starIcon);
+  }
+
+  clone.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    const ctx = lastShareContext;
+    if (!ctx || !ctx.article || !ctx.article.isConnected) {
+      showToast(i18n('contentStarChartNoTweetFound'));
+      closeOpenMenus();
+      return;
+    }
+    const tweetId = getTweetIdFromArticle(ctx.article);
+    if (!tweetId) {
+      showToast(i18n('contentStarChartNoTweetFound'));
+      closeOpenMenus();
+      return;
+    }
+    const data = tweetDataStore.get(tweetId) || {};
+    closeOpenMenus();
+    if (!window.__XVMStarChart?.open) {
+      showToast('Star chart module not loaded');
+      return;
+    }
+    window.__XVMStarChart.open({
+      tweetId,
+      authorScreenName: data.authorScreenName || data.screenName || '',
+      text: data.text || '',
+    });
+  });
+
+  const lastItem = items[items.length - 1];
+  lastItem.parentNode.appendChild(clone);
+}
+
 const menuObserver = new MutationObserver((mutations) => {
   for (const m of mutations) {
     for (const node of m.addedNodes) {
@@ -1301,6 +1379,7 @@ const menuObserver = new MutationObserver((mutations) => {
       for (const menu of menus) {
         if (!isShareMenu(menu)) continue;
         injectCopyMarkdownItem(menu);
+        injectStarChartItem(menu);
       }
     }
   }
