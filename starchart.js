@@ -147,8 +147,11 @@
     let w = 0, h = 0, cx = 0, cy = 0;
     let zoom = 1, panX = 0, panY = 0;
     let hoverIdx = -1;
+    let lastCursor = '';
     let mouseX = 0, mouseY = 0;
     let dragging = false, lastX = 0, lastY = 0;
+
+    const GLOW_LIMIT = 1500;
 
     function resize() {
       const r = canvas.getBoundingClientRect();
@@ -222,9 +225,13 @@
         const r = s.size * pulse;
         ctx.beginPath();
         ctx.fillStyle = s.color;
-        ctx.shadowBlur = 8; ctx.shadowColor = s.color;
-        ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
-        ctx.shadowBlur = 0;
+        if (i < GLOW_LIMIT) {
+          ctx.shadowBlur = 8; ctx.shadowColor = s.color;
+          ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+          ctx.shadowBlur = 0;
+        } else {
+          ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+        }
 
         const sx = (x * zoom) + cx + panX;
         const sy = (y * zoom) + cy + panY;
@@ -251,10 +258,10 @@
         ctx.fillStyle = '#fff';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
         ctx.fillText(text, sx + 16, sy);
-        canvas.style.cursor = 'pointer';
+        if (lastCursor !== 'pointer') { canvas.style.cursor = 'pointer'; lastCursor = 'pointer'; }
       } else {
         hoverIdx = -1;
-        canvas.style.cursor = 'default';
+        if (lastCursor !== 'default') { canvas.style.cursor = 'default'; lastCursor = 'default'; }
       }
 
       raf = requestAnimationFrame(frame);
