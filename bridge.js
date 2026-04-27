@@ -199,6 +199,24 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  if (type === 'XVM_LB_HEIGHT_REQUEST') {
+    safeChromeCall(() => {
+      chrome.storage.local.get({ xvmLeaderboardHeight: null }, (items) => {
+        if (Number.isFinite(items.xvmLeaderboardHeight)) {
+          window.postMessage({ type: 'XVM_LB_HEIGHT_LOAD', height: items.xvmLeaderboardHeight }, '*');
+        }
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_LB_HEIGHT_SAVE' && Number.isFinite(event.data.height)) {
+    safeChromeCall(() => {
+      chrome.storage.local.set({ xvmLeaderboardHeight: event.data.height });
+    });
+    return;
+  }
+
   if (type === 'XVM_SC_TEMPLATES_REQUEST') {
     const ops = ['Retweeters', 'SearchTimeline', '_global'];
     const defaults = {};
