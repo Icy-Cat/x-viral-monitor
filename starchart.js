@@ -777,7 +777,7 @@
         const sy = (cy + panY) + Math.sin(hAngle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
         const text = `${s.name} (@${s.screenName})`;
         ctx.font = '700 12px system-ui, sans-serif';
-        const truncated = text.slice(0, 18);
+        const truncated = text.length > 18 ? text.slice(0, 18) + '…' : text;
         const tw = Math.min(ctx.measureText(truncated).width + 18, 180);
         // Two visual modes:
         //  - hover only            → light dim panel, soft white border
@@ -1241,9 +1241,20 @@
       nameEl.className = 'xvm-sc-person-name';
       nameEl.textContent = u.name;
 
-      const handleEl = document.createElement('span');
+      // Make @handle an actual link so users still have a path to the
+      // profile. Stop propagation so the card-level click (highlight +
+      // river sync) does NOT fire when the user is intentionally
+      // navigating away.
+      const profileUrl = safeProfileUrl(u.screenName);
+      const handleEl = document.createElement(profileUrl ? 'a' : 'span');
       handleEl.className = 'xvm-sc-person-handle';
       handleEl.textContent = `@${u.screenName}`;
+      if (profileUrl) {
+        handleEl.href = profileUrl;
+        handleEl.target = '_blank';
+        handleEl.rel = 'noopener';
+        handleEl.addEventListener('click', (ev) => ev.stopPropagation());
+      }
 
       info.appendChild(nameEl);
       info.appendChild(handleEl);
