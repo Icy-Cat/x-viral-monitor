@@ -170,6 +170,10 @@
     "message": "完成 — 共 $COUNT$ 位支持者",
     "placeholders": { "count": { "content": "$1", "example": "1234" } }
   },
+  "contentStarChartDoneTruncated": {
+    "message": "已达上限 — 已加载 $COUNT$ 位（仍有更多未加载）",
+    "placeholders": { "count": { "content": "$1", "example": "50000" } }
+  },
   "contentStarChartError": {
     "message": "加载失败：$REASON$",
     "placeholders": { "reason": { "content": "$1", "example": "网络错误" } }

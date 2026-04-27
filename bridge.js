@@ -37,6 +37,7 @@ const CONTENT_MESSAGE_KEYS = [
   'contentStarChartProgress',
   'contentStarChartRateLimited',
   'contentStarChartDone',
+  'contentStarChartDoneTruncated',
   'contentStarChartError',
   'contentStarChartNoTweetFound',
   'contentStarChartModuleNotLoaded',

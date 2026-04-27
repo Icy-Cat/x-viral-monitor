@@ -186,6 +186,12 @@
       "count": { "content": "$1", "example": "1234" }
     }
   },
+  "contentStarChartDoneTruncated": {
+    "message": "Done — $COUNT$ supporters (capped, more available)",
+    "placeholders": {
+      "count": { "content": "$1", "example": "50000" }
+    }
+  },
   "contentStarChartError": {
     "message": "Could not load supporters: $REASON$",
     "placeholders": {

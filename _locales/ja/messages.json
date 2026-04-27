@@ -170,6 +170,10 @@
     "message": "完了 — $COUNT$ 名のサポーター",
     "placeholders": { "count": { "content": "$1", "example": "1234" } }
   },
+  "contentStarChartDoneTruncated": {
+    "message": "上限到達 — $COUNT$ 名読み込み済み（さらに存在）",
+    "placeholders": { "count": { "content": "$1", "example": "50000" } }
+  },
   "contentStarChartError": {
     "message": "読み込み失敗：$REASON$",
     "placeholders": { "reason": { "content": "$1", "example": "ネットワークエラー" } }

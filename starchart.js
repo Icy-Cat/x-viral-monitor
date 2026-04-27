@@ -403,8 +403,8 @@
     let total = 0;
     const seen = new Set();
     while (true) {
-      if (signal?.aborted) return;
-      if (total >= MAX_USERS) return;
+      if (signal?.aborted) return { truncated: false };
+      if (total >= MAX_USERS) return { truncated: true };
       const variables = { tweetId, count: PAGE_LIMIT };
       if (cursor) variables.cursor = cursor;
 
@@ -435,7 +435,7 @@
       }
 
       const nextCursor = extractCursor(instructions);
-      if (!nextCursor || nextCursor === cursor || users.length === 0) return;
+      if (!nextCursor || nextCursor === cursor || users.length === 0) return { truncated: false };
       cursor = nextCursor;
     }
   }
@@ -446,8 +446,8 @@
     const seen = new Set();
     let total = 0;
     while (true) {
-      if (signal?.aborted) return;
-      if (total >= MAX_USERS) return;
+      if (signal?.aborted) return { truncated: false };
+      if (total >= MAX_USERS) return { truncated: true };
       const variables = {
         rawQuery: `quoted_tweet_id:${tweetId}`,
         count: 20,
@@ -496,7 +496,7 @@
       }
 
       const nextCursor = extractCursor(instructions);
-      if (!nextCursor || nextCursor === cursor || users.length === 0) return;
+      if (!nextCursor || nextCursor === cursor || users.length === 0) return { truncated: false };
       cursor = nextCursor;
     }
   }
@@ -539,7 +539,7 @@
       }
 
       try {
-        await Promise.all([
+        const [rtResult, qtResult] = await Promise.all([
           fetchAllRetweeters(tweetCtx.tweetId, addUsers, {
             signal: activeAbort.signal,
             onRateLimit,
@@ -549,8 +549,10 @@
             onRateLimit,
           }),
         ]);
+        const truncated = !!(rtResult?.truncated || qtResult?.truncated);
+        const doneKey = truncated ? 'contentStarChartDoneTruncated' : 'contentStarChartDone';
         progressEl.textContent =
-          tt('contentStarChartDone').replace('$COUNT$', count.toString());
+          tt(doneKey).replace('$COUNT$', count.toString());
       } catch (e) {
         if (activeAbort && e.name !== 'AbortError') {
           activeAbort.abort();
