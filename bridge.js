@@ -35,6 +35,7 @@ const CONTENT_MESSAGE_KEYS = [
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   featureCopyAsMarkdown: true,
+  featureStarChart: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
 };
@@ -95,6 +96,7 @@ function pushSettings(raw) {
     thresholds: normalizeThresholds(raw),
     featureVelocityLeaderboard: !!raw?.featureVelocityLeaderboard,
     featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
+    featureStarChart: raw?.featureStarChart !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
     leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
     messages: getLocalizedMessages(),
@@ -168,7 +170,7 @@ window.addEventListener('message', (event) => {
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.leaderboardCount && !changes.leaderboardColumns) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.leaderboardCount && !changes.leaderboardColumns) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {

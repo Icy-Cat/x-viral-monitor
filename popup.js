@@ -19,6 +19,7 @@ const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((c) => c.id);
 const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   featureCopyAsMarkdown: true,
+  featureStarChart: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
 };
