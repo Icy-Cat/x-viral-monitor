@@ -199,32 +199,30 @@
     header.appendChild(headerInfo);
     header.appendChild(headerActions);
 
-    // --- Body (two-column) ---
+    // --- Body (3-region grid + bottom strip) ---
     const body = document.createElement('div');
     body.className = 'xvm-sc-body';
 
-    // Left: stage (canvas + center control strip + empty state)
-    const stage = document.createElement('div');
-    stage.className = 'xvm-sc-stage';
+    // LEFT column: stats + legend
+    const sideLeft = document.createElement('div');
+    sideLeft.className = 'xvm-sc-side-left';
 
-    const canvas = document.createElement('canvas');
-    canvas.className = 'xvm-sc-canvas';
+    // Stats card (goes in left column)
+    const statsCard = document.createElement('div');
+    statsCard.className = 'xvm-sc-stats-card';
 
-    // Center status strip inside stage (below canvas, matching original)
-    const stageStatus = document.createElement('div');
-    stageStatus.className = 'xvm-sc-stage-status';
+    const statsHeader = document.createElement('div');
+    statsHeader.className = 'xvm-sc-section-header';
+    statsHeader.textContent = tt('contentStarChartStatsSectionTitle');
 
-    const emptyEl = document.createElement('div');
-    emptyEl.className = 'xvm-sc-empty xvm-sc-empty--hidden';
-    const emptyIcon = document.createElement('div');
-    emptyIcon.className = 'xvm-sc-empty-icon';
-    emptyIcon.textContent = '✦';
-    const emptyText = document.createElement('div');
-    emptyText.textContent = tt('contentStarChartEmpty');
-    emptyEl.appendChild(emptyIcon);
-    emptyEl.appendChild(emptyText);
+    const statsEl = document.createElement('div');
+    statsEl.className = 'xvm-sc-stats-grid';
 
-    // Legend inside stage bottom
+    statsCard.appendChild(statsHeader);
+    statsCard.appendChild(statsEl);
+    sideLeft.appendChild(statsCard);
+
+    // Legend (at bottom of left column)
     const legend = document.createElement('div');
     legend.className = 'xvm-sc-legend';
 
@@ -261,39 +259,42 @@
     legend.appendChild(dotRT);
     legend.appendChild(dotQt);
     legend.appendChild(dotBoth);
+    sideLeft.appendChild(legend);
+
+    // CENTER: stage (canvas + empty state)
+    const stage = document.createElement('div');
+    stage.className = 'xvm-sc-stage';
+
+    const canvas = document.createElement('canvas');
+    canvas.className = 'xvm-sc-canvas';
+
+    // Center status strip inside stage (below canvas, matching original)
+    const stageStatus = document.createElement('div');
+    stageStatus.className = 'xvm-sc-stage-status';
+
+    const emptyEl = document.createElement('div');
+    emptyEl.className = 'xvm-sc-empty xvm-sc-empty--hidden';
+    const emptyIcon = document.createElement('div');
+    emptyIcon.className = 'xvm-sc-empty-icon';
+    emptyIcon.textContent = '✦';
+    const emptyText = document.createElement('div');
+    emptyText.textContent = tt('contentStarChartEmpty');
+    emptyEl.appendChild(emptyIcon);
+    emptyEl.appendChild(emptyText);
 
     stage.appendChild(canvas);
     stage.appendChild(emptyEl);
     stage.appendChild(stageStatus);
-    stage.appendChild(legend);
 
-    // Right: side panels
-    const side = document.createElement('div');
-    side.className = 'xvm-sc-side';
+    // RIGHT column: Quote River only
+    const sideRight = document.createElement('div');
+    sideRight.className = 'xvm-sc-side-right';
 
-    // Stats card
-    const statsCard = document.createElement('div');
-    statsCard.className = 'xvm-sc-stats-card';
+    // BOTTOM strip: search + chips + people grid
+    const bottomStrip = document.createElement('div');
+    bottomStrip.className = 'xvm-sc-bottom';
 
-    const statsHeader = document.createElement('div');
-    statsHeader.className = 'xvm-sc-section-header';
-    statsHeader.textContent = tt('contentStarChartStatsSectionTitle');
-
-    const statsEl = document.createElement('div');
-    statsEl.className = 'xvm-sc-stats-grid';
-
-    statsCard.appendChild(statsHeader);
-    statsCard.appendChild(statsEl);
-
-    // Filter chips + people panel
-    const peopleEl = document.createElement('div');
-    peopleEl.className = 'xvm-sc-people';
-
-    const peopleHeader = document.createElement('div');
-    peopleHeader.className = 'xvm-sc-section-header';
-    peopleHeader.textContent = tt('contentStarChartPeopleSectionTitle');
-
-    // Filter chips row
+    // Filter chips row (in bottom strip)
     const chipsEl = document.createElement('div');
     chipsEl.className = 'xvm-sc-chips';
 
@@ -336,24 +337,28 @@
     searchWrap.appendChild(searchIcon);
     searchWrap.appendChild(searchInput);
 
-    const peopleList = document.createElement('ul');
-    peopleList.className = 'xvm-sc-people-list';
+    const peopleGrid = document.createElement('div');
+    peopleGrid.className = 'xvm-sc-people-grid';
 
-    peopleEl.appendChild(peopleHeader);
-    peopleEl.appendChild(chipsEl);
-    peopleEl.appendChild(searchWrap);
-    peopleEl.appendChild(peopleList);
+    // Assemble bottom strip: search-row (search + chips) then people grid
+    const searchRow = document.createElement('div');
+    searchRow.className = 'xvm-sc-bottom-search-row';
+    searchRow.appendChild(searchWrap);
+    searchRow.appendChild(chipsEl);
 
-    // River panel
+    bottomStrip.appendChild(searchRow);
+    bottomStrip.appendChild(peopleGrid);
+
+    // River panel (compact card, goes in right column)
     const riverEl = document.createElement('div');
     riverEl.className = 'xvm-sc-river';
 
-    const riverHeader = document.createElement('div');
-    riverHeader.className = 'xvm-sc-section-header xvm-sc-section-header--river';
-    riverHeader.textContent = tt('contentStarChartRiverTitle');
+    const riverHeaderRow = document.createElement('div');
+    riverHeaderRow.className = 'xvm-sc-river-header-row';
 
-    const riverContent = document.createElement('div');
-    riverContent.className = 'xvm-sc-river-content';
+    const riverTitle = document.createElement('span');
+    riverTitle.className = 'xvm-sc-section-header xvm-sc-section-header--river xvm-sc-river-title';
+    riverTitle.textContent = tt('contentStarChartRiverTitle');
 
     const riverNav = document.createElement('div');
     riverNav.className = 'xvm-sc-river-nav';
@@ -375,16 +380,21 @@
     riverNav.appendChild(riverCounter);
     riverNav.appendChild(riverNext);
 
-    riverEl.appendChild(riverHeader);
+    riverHeaderRow.appendChild(riverTitle);
+    riverHeaderRow.appendChild(riverNav);
+
+    const riverContent = document.createElement('div');
+    riverContent.className = 'xvm-sc-river-content';
+
+    riverEl.appendChild(riverHeaderRow);
     riverEl.appendChild(riverContent);
-    riverEl.appendChild(riverNav);
 
-    side.appendChild(statsCard);
-    side.appendChild(peopleEl);
-    side.appendChild(riverEl);
+    sideRight.appendChild(riverEl);
 
+    body.appendChild(sideLeft);
     body.appendChild(stage);
-    body.appendChild(side);
+    body.appendChild(sideRight);
+    body.appendChild(bottomStrip);
 
     frame.appendChild(header);
     frame.appendChild(body);
@@ -401,7 +411,7 @@
     function refreshPeople() { _refreshPeople(); }
 
     return {
-      root, canvas, progressEl, emptyEl, statsEl, peopleList, searchInput,
+      root, canvas, progressEl, emptyEl, statsEl, peopleGrid, searchInput,
       riverContent, riverCounter, riverPrev, riverNext, riverEl,
       getActiveTypeFilter: () => activeTypeFilter,
       setRefreshPeople: (fn) => { _refreshPeople = fn; },
@@ -563,6 +573,29 @@
       ctx.restore();
     }
 
+    function drawCoreTitle(text, x, y, maxWidth) {
+      const value = (text || '').trim();
+      if (!value) return;
+      const chars = [...value];
+      let line = '';
+      const lines = [];
+      for (const char of chars) {
+        const next = line + char;
+        if (ctx.measureText(next).width > maxWidth && line) {
+          lines.push(line);
+          line = char;
+        } else {
+          line = next;
+        }
+      }
+      if (line) lines.push(line);
+      const visible = lines.slice(0, 2);
+      const startY = y - (visible.length - 1) * 7;
+      for (let i = 0; i < visible.length; i++) {
+        ctx.fillText(visible[i], x, startY + i * 14);
+      }
+    }
+
     function drawCore(t) {
       const pulse = 1 + Math.sin(t * 0.002) * 0.06;
       const x = cx + panX, y = cy + panY;
@@ -580,7 +613,9 @@
       ctx.fillStyle = '#fff7e8';
       ctx.font = '800 12px system-ui, sans-serif';
       ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText(`@${tweetCtx.authorScreenName || ''}`, x, y);
+      // Show tweet text (wrapped to 2 lines), fall back to @handle
+      const coreLabel = (tweetCtx.text || '').trim() || `@${tweetCtx.authorScreenName || ''}`;
+      drawCoreTitle(coreLabel, x, y, 68);
     }
 
     function frame(t) {
@@ -592,10 +627,11 @@
       let nextHover = -1;
       for (let i = 0; i < stars.length; i++) {
         const s = stars[i];
-        s.angle += s.speed;
+        // Use time-based angle (matches original) — no per-frame accumulation
+        const angle = s.angle + t * s.speed;
         const sway = Math.sin(t * 0.0005 + s.phase) * 18;
-        const x = (cx + panX) + Math.cos(s.angle) * (s.radius + sway) * zoom;
-        const y = (cy + panY) + Math.sin(s.angle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
+        const x = (cx + panX) + Math.cos(angle) * (s.radius + sway) * zoom;
+        const y = (cy + panY) + Math.sin(angle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
 
         const isHighlighted = (hoverIdx === i) || (highlightedId !== null && s.id === highlightedId);
         const pulse = 0.65 + Math.sin(t * 0.004 + s.phase) * 0.35;
@@ -636,8 +672,9 @@
         hoverIdx = nextHover;
         const s = stars[hoverIdx];
         const sway = Math.sin(t * 0.0005 + s.phase) * 18;
-        const sx = (cx + panX) + Math.cos(s.angle) * (s.radius + sway) * zoom;
-        const sy = (cy + panY) + Math.sin(s.angle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
+        const hAngle = s.angle + t * s.speed;
+        const sx = (cx + panX) + Math.cos(hAngle) * (s.radius + sway) * zoom;
+        const sy = (cy + panY) + Math.sin(hAngle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
         const text = `${s.name} (@${s.screenName})`;
         ctx.font = '700 12px system-ui, sans-serif';
         const tw = Math.min(ctx.measureText(text).width + 18, 220);
@@ -1040,8 +1077,8 @@
     }
   }
 
-  function renderPeople(peopleList, byId, filterText, onClickUser, typeFilter) {
-    peopleList.textContent = '';
+  function renderPeople(peopleGrid, byId, filterText, onClickUser, typeFilter) {
+    peopleGrid.textContent = '';
     const q = filterText.toLowerCase();
     const users = Array.from(byId.values()).filter((u) => {
       // Type filter
@@ -1061,8 +1098,8 @@
     });
 
     for (const u of users) {
-      const li = document.createElement('li');
-      li.className = 'xvm-sc-person';
+      const card = document.createElement('div');
+      card.className = 'xvm-sc-people-card';
 
       // Avatar or initial circle
       const avatarEl = document.createElement('div');
@@ -1071,8 +1108,8 @@
         const img = document.createElement('img');
         img.src = u.avatar;
         img.alt = '';
-        img.width = 32;
-        img.height = 32;
+        img.width = 38;
+        img.height = 38;
         img.className = 'xvm-sc-avatar-img';
         // Fallback to initial on error
         img.addEventListener('error', () => {
@@ -1098,16 +1135,11 @@
       info.appendChild(nameEl);
       info.appendChild(handleEl);
 
-      const badge = document.createElement('span');
-      badge.className = `xvm-sc-type-badge ${badgeClass(u.type)}`;
-      badge.textContent = badgeLabel(u.type);
+      card.appendChild(avatarEl);
+      card.appendChild(info);
 
-      li.appendChild(avatarEl);
-      li.appendChild(info);
-      li.appendChild(badge);
-
-      li.addEventListener('click', () => onClickUser(u));
-      peopleList.appendChild(li);
+      card.addEventListener('click', () => onClickUser(u));
+      peopleGrid.appendChild(card);
     }
   }
 
@@ -1228,7 +1260,7 @@
       document.body.appendChild(activeOverlay);
 
       const {
-        canvas, progressEl, emptyEl, statsEl, peopleList, searchInput,
+        canvas, progressEl, emptyEl, statsEl, peopleGrid, searchInput,
         riverContent, riverCounter, riverPrev, riverNext, riverEl,
         getActiveTypeFilter, setRefreshPeople,
       } = overlayParts;
@@ -1243,7 +1275,7 @@
       let updateRiver = null;
 
       function refreshPeople() {
-        renderPeople(peopleList, byId, searchFilter, (u) => {
+        renderPeople(peopleGrid, byId, searchFilter, (u) => {
           if (activeRenderer) activeRenderer.highlight(u.id);
         }, getActiveTypeFilter());
       }

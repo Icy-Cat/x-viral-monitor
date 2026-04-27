@@ -387,21 +387,40 @@ article[data-testid="tweet"].xvm-article-linked {
   color: var(--sc-rose);
 }
 
-/* ---- Body: two-column ---- */
+/* ---- Body: 3-region grid + bottom strip ---- */
 .xvm-starchart-overlay .xvm-sc-body {
-  display: flex; flex: 1 1 auto; min-height: 0; overflow: hidden;
+  display: grid;
+  grid-template-columns: 280px 1fr 340px;
+  grid-template-rows: 1fr auto;
+  grid-template-areas:
+    "left stage right"
+    "bottom bottom bottom";
+  gap: 0;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
 }
 
-/* Left column: stage (canvas) */
+/* ---- LEFT column ---- */
+.xvm-starchart-overlay .xvm-sc-side-left {
+  grid-area: left;
+  display: flex; flex-direction: column;
+  border-right: 1px solid var(--sc-border);
+  background: var(--sc-bg-card);
+  overflow: hidden; min-height: 0;
+}
+
+/* ---- CENTER: stage (canvas) ---- */
 .xvm-starchart-overlay .xvm-sc-stage {
-  flex: 1 1 auto; position: relative; display: flex; flex-direction: column;
+  grid-area: stage;
+  position: relative; display: flex; flex-direction: column;
   min-width: 0; background: var(--sc-bg);
 }
 .xvm-starchart-overlay .xvm-sc-canvas {
   flex: 1 1 auto; width: 100%; display: block; min-height: 0;
 }
 .xvm-starchart-overlay .xvm-sc-stage-status {
-  flex-shrink: 0; height: 0; /* placeholder strip — currently invisible */
+  flex-shrink: 0; height: 0;
 }
 /* Empty state */
 .xvm-starchart-overlay .xvm-sc-empty {
@@ -415,31 +434,27 @@ article[data-testid="tweet"].xvm-article-linked {
   font-size: 40px; opacity: 0.35; line-height: 1;
   color: var(--sc-gold);
 }
-/* Legend strip at bottom of stage */
-.xvm-starchart-overlay .xvm-sc-legend {
-  flex-shrink: 0; display: flex; align-items: center; gap: 16px;
-  padding: 8px 16px;
-  background: rgba(5,9,19,0.7);
-  border-top: 1px solid var(--sc-border-s);
-}
-.xvm-starchart-overlay .xvm-sc-legend-item {
-  display: flex; align-items: center; gap: 5px;
-}
-.xvm-starchart-overlay .xvm-sc-dot {
-  display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
-}
-.xvm-starchart-overlay .xvm-sc-dot--rt   { background: var(--sc-gold); box-shadow: 0 0 6px var(--sc-gold); }
-.xvm-starchart-overlay .xvm-sc-dot--qt   { background: var(--sc-cyan); box-shadow: 0 0 6px var(--sc-cyan); }
-.xvm-starchart-overlay .xvm-sc-dot--both { background: var(--sc-rose); box-shadow: 0 0 6px var(--sc-rose); }
-.xvm-starchart-overlay .xvm-sc-legend-text {
-  font-size: 11px; color: var(--sc-text-muted); letter-spacing: 0.02em;
+
+/* ---- RIGHT column ---- */
+.xvm-starchart-overlay .xvm-sc-side-right {
+  grid-area: right;
+  display: flex; flex-direction: column;
+  border-left: 1px solid var(--sc-border);
+  background: var(--sc-bg-card);
+  overflow: hidden; min-height: 0;
 }
 
-/* ---- Right column: side panel ---- */
-.xvm-starchart-overlay .xvm-sc-side {
-  width: 360px; flex-shrink: 0; display: flex; flex-direction: column;
-  border-left: 1px solid var(--sc-border);
-  background: var(--sc-bg-card); overflow: hidden;
+/* ---- BOTTOM strip ---- */
+.xvm-starchart-overlay .xvm-sc-bottom {
+  grid-area: bottom;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 10px 14px 12px;
+  border-top: 1px solid var(--sc-border);
+  background: var(--sc-bg-card);
+  min-height: 0;
+}
+.xvm-starchart-overlay .xvm-sc-bottom-search-row {
+  display: flex; align-items: center; gap: 10px; flex-shrink: 0;
 }
 
 /* Shared section header */
@@ -451,10 +466,10 @@ article[data-testid="tweet"].xvm-article-linked {
   flex-shrink: 0;
 }
 .xvm-starchart-overlay .xvm-sc-section-header--river {
-  color: var(--sc-cyan);
+  color: var(--sc-cyan); border-bottom: none; padding: 0;
 }
 
-/* ---- Stats card ---- */
+/* ---- Stats card (left column) ---- */
 .xvm-starchart-overlay .xvm-sc-stats-card {
   flex-shrink: 0;
   border-bottom: 1px solid var(--sc-border);
@@ -467,7 +482,7 @@ article[data-testid="tweet"].xvm-article-linked {
   padding: 6px 8px; border-radius: 8px;
 }
 .xvm-starchart-overlay .xvm-sc-stat-num {
-  font-size: 18px; font-weight: 800; line-height: 1.15;
+  font-size: 22px; font-weight: 800; line-height: 1.15;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   color: var(--sc-gold);
 }
@@ -482,16 +497,29 @@ article[data-testid="tweet"].xvm-article-linked {
   letter-spacing: 0.05em; text-transform: uppercase; margin-top: 1px;
 }
 
-/* ---- People panel (chips + search + list) ---- */
-.xvm-starchart-overlay .xvm-sc-people {
-  display: flex; flex-direction: column; flex: 1 1 0; min-height: 0;
-  border-bottom: 1px solid var(--sc-border);
+/* ---- Legend (bottom of left column) ---- */
+.xvm-starchart-overlay .xvm-sc-legend {
+  margin-top: auto; flex-shrink: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  padding: 14px;
+  border-top: 1px solid var(--sc-border-s);
+}
+.xvm-starchart-overlay .xvm-sc-legend-item {
+  display: flex; align-items: center; gap: 7px;
+}
+.xvm-starchart-overlay .xvm-sc-dot {
+  display: inline-block; width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+}
+.xvm-starchart-overlay .xvm-sc-dot--rt   { background: var(--sc-gold); box-shadow: 0 0 6px var(--sc-gold); }
+.xvm-starchart-overlay .xvm-sc-dot--qt   { background: var(--sc-cyan); box-shadow: 0 0 6px var(--sc-cyan); }
+.xvm-starchart-overlay .xvm-sc-dot--both { background: var(--sc-rose); box-shadow: 0 0 6px var(--sc-rose); }
+.xvm-starchart-overlay .xvm-sc-legend-text {
+  font-size: 12px; color: var(--sc-text-muted); letter-spacing: 0.02em;
 }
 
-/* Filter chips */
+/* ---- Filter chips (bottom strip) ---- */
 .xvm-starchart-overlay .xvm-sc-chips {
-  display: flex; gap: 5px; padding: 7px 10px 6px;
-  flex-shrink: 0; flex-wrap: wrap;
+  display: flex; gap: 5px; flex-shrink: 0; flex-wrap: wrap;
 }
 .xvm-starchart-overlay .xvm-sc-chip {
   padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600;
@@ -501,7 +529,6 @@ article[data-testid="tweet"].xvm-article-linked {
   letter-spacing: 0.02em; line-height: 1.6;
 }
 .xvm-starchart-overlay .xvm-sc-chip:hover { background: rgba(255,255,255,0.10); }
-/* Active chip per type */
 .xvm-starchart-overlay .xvm-sc-chip--all.xvm-sc-chip--active {
   background: rgba(255,255,255,0.14); border-color: rgba(255,255,255,0.3);
   color: var(--sc-text);
@@ -519,9 +546,9 @@ article[data-testid="tweet"].xvm-article-linked {
   color: var(--sc-rose);
 }
 
-/* Search input */
+/* Search input (bottom strip) */
 .xvm-starchart-overlay .xvm-sc-search-wrap {
-  position: relative; margin: 0 10px 6px; flex-shrink: 0;
+  position: relative; flex: 1 1 auto; min-width: 0;
   display: flex; align-items: center;
 }
 .xvm-starchart-overlay .xvm-sc-search-icon {
@@ -533,6 +560,7 @@ article[data-testid="tweet"].xvm-article-linked {
   border-radius: 8px; box-sizing: border-box;
   background: rgba(255,255,255,0.055); border: 1px solid rgba(255,255,255,0.10);
   color: var(--sc-text); font-size: 12px; outline: none;
+  min-height: 34px;
 }
 .xvm-starchart-overlay .xvm-sc-search::placeholder { color: var(--sc-text-dim); }
 .xvm-starchart-overlay .xvm-sc-search:focus {
@@ -540,101 +568,117 @@ article[data-testid="tweet"].xvm-article-linked {
   background: rgba(255,255,255,0.07);
 }
 
-/* People list */
-.xvm-starchart-overlay .xvm-sc-people-list {
-  list-style: none; margin: 0; padding: 2px 0; overflow-y: auto; flex: 1 1 0;
+/* ---- People grid (bottom strip, 4 columns) ---- */
+.xvm-starchart-overlay .xvm-sc-people-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  max-height: 144px;
+  overflow-y: auto;
 }
-.xvm-starchart-overlay .xvm-sc-people-list::-webkit-scrollbar { width: 3px; }
-.xvm-starchart-overlay .xvm-sc-people-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.xvm-starchart-overlay .xvm-sc-people-list::-webkit-scrollbar-thumb {
+.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar { width: 3px; }
+.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-track { background: transparent; }
+.xvm-starchart-overlay .xvm-sc-people-grid::-webkit-scrollbar-thumb {
   background: rgba(255,255,255,0.10); border-radius: 2px;
 }
 
-/* Person row */
-.xvm-starchart-overlay .xvm-sc-person {
-  display: flex; align-items: center; gap: 9px;
-  padding: 6px 12px 6px 10px;
-  cursor: pointer; transition: background 0.10s;
-  border-bottom: 1px solid var(--sc-border-s);
+/* People card */
+.xvm-starchart-overlay .xvm-sc-people-card {
+  display: grid;
+  grid-template-columns: 38px minmax(0, 1fr);
+  gap: 8px;
+  align-items: center;
+  min-height: 58px;
+  padding: 8px;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.05);
+  cursor: pointer;
+  transition: background 0.10s, border-color 0.10s, transform 0.10s;
 }
-.xvm-starchart-overlay .xvm-sc-person:last-child { border-bottom: none; }
-.xvm-starchart-overlay .xvm-sc-person:hover { background: rgba(255,255,255,0.045); }
-.xvm-starchart-overlay .xvm-sc-person:active { background: rgba(100,215,255,0.07); }
+.xvm-starchart-overlay .xvm-sc-people-card:hover {
+  background: rgba(255,255,255,0.09);
+  border-color: rgba(100,215,255,0.25);
+  transform: translateY(-1px);
+}
+.xvm-starchart-overlay .xvm-sc-people-card:active {
+  transform: translateY(0);
+}
 
 /* Avatar circle */
 .xvm-starchart-overlay .xvm-sc-avatar {
-  width: 34px; height: 34px; border-radius: 50%; flex-shrink: 0;
-  background: linear-gradient(135deg, rgba(255,213,111,0.28) 0%, rgba(100,215,255,0.18) 100%);
+  width: 38px; height: 38px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg, var(--sc-gold), var(--sc-cyan), var(--sc-rose));
   display: flex; align-items: center; justify-content: center;
-  font-size: 14px; font-weight: 700; color: var(--sc-gold);
-  overflow: hidden; border: 1px solid rgba(255,255,255,0.08);
+  font-size: 14px; font-weight: 900; color: #111;
+  overflow: hidden;
 }
 .xvm-starchart-overlay .xvm-sc-avatar-img {
-  width: 34px; height: 34px; border-radius: 50%; display: block; object-fit: cover;
+  width: 38px; height: 38px; border-radius: 50%; display: block; object-fit: cover;
 }
 
 /* Name + handle */
 .xvm-starchart-overlay .xvm-sc-person-info {
-  flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 1px;
+  min-width: 0; display: flex; flex-direction: column; gap: 2px;
 }
 .xvm-starchart-overlay .xvm-sc-person-name {
-  font-size: 12px; font-weight: 600; color: var(--sc-text);
+  font-size: 12px; font-weight: 700; color: var(--sc-text);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block;
 }
 .xvm-starchart-overlay .xvm-sc-person-handle {
   font-size: 11px; color: var(--sc-text-muted);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  display: block;
 }
 
-/* Type badge */
-.xvm-starchart-overlay .xvm-sc-type-badge {
-  flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 2px 7px;
-  border-radius: 20px; letter-spacing: 0.04em; line-height: 1.6;
-}
-.xvm-starchart-overlay .xvm-sc-badge--rt   { background: rgba(255,213,111,0.15); color: var(--sc-gold); border: 1px solid rgba(255,213,111,0.3); }
-.xvm-starchart-overlay .xvm-sc-badge--qt   { background: rgba(100,215,255,0.15); color: var(--sc-cyan); border: 1px solid rgba(100,215,255,0.3); }
-.xvm-starchart-overlay .xvm-sc-badge--both { background: rgba(255,111,145,0.15); color: var(--sc-rose); border: 1px solid rgba(255,111,145,0.3); }
-
-/* ---- Quote River panel ---- */
+/* ---- Quote River panel (right column, compact card) ---- */
 .xvm-starchart-overlay .xvm-sc-river {
-  flex-shrink: 0; display: flex; flex-direction: column;
-  padding: 0 0 10px;
-  border-top: 1px solid var(--sc-border);
-  max-height: 200px;
+  display: flex; flex-direction: column;
+  flex: 1 1 auto; min-height: 0;
+  padding: 12px 14px 14px;
+}
+/* River header row: title LEFT, nav RIGHT */
+.xvm-starchart-overlay .xvm-sc-river-header-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 10px; flex-shrink: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--sc-border-s);
+}
+.xvm-starchart-overlay .xvm-sc-river-title {
+  font-size: 10px; font-weight: 700; letter-spacing: 0.10em;
+  text-transform: uppercase; color: var(--sc-cyan);
 }
 .xvm-starchart-overlay .xvm-sc-river-content {
-  flex: 1 1 auto; display: flex; flex-direction: column; gap: 5px;
-  padding: 8px 14px 6px; overflow: hidden; min-height: 70px;
+  flex: 1 1 auto; display: flex; flex-direction: column; gap: 8px;
+  overflow: hidden; min-height: 0;
 }
 .xvm-starchart-overlay .xvm-sc-river-text {
-  font-size: 12px; color: #c2cbe0; line-height: 1.5;
-  display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+  font-size: 15px; color: #fffdf6; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 7; -webkit-box-orient: vertical;
   overflow: hidden; flex: 1 1 auto;
 }
 .xvm-starchart-overlay .xvm-sc-river-author {
-  font-size: 11px; font-weight: 600; color: var(--sc-cyan); text-decoration: none;
+  font-size: 12px; font-weight: 800; color: var(--sc-gold); text-decoration: none;
   cursor: pointer; flex-shrink: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .xvm-starchart-overlay .xvm-sc-river-author:hover { text-decoration: underline; }
 .xvm-starchart-overlay .xvm-sc-river-ts {
-  font-size: 10px; color: var(--sc-text-dim); flex-shrink: 0;
+  font-size: 11px; color: var(--sc-text-muted); flex-shrink: 0;
 }
 .xvm-starchart-overlay .xvm-sc-river-empty {
   font-size: 12px; color: var(--sc-text-dim); font-style: italic;
-  padding: 12px 14px; text-align: center;
+  text-align: center; padding: 20px 0;
 }
-/* Nav strip */
+/* River nav (inside header row) */
 .xvm-starchart-overlay .xvm-sc-river-nav {
-  display: flex; align-items: center; gap: 8px;
-  padding: 0 14px; flex-shrink: 0;
+  display: flex; align-items: center; gap: 4px; flex-shrink: 0;
 }
 .xvm-starchart-overlay .xvm-sc-river-btn {
   width: 28px; height: 28px; border-radius: 50%;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(255,255,255,0.05); color: var(--sc-text-muted); font-size: 16px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(255,255,255,0.05); color: var(--sc-text-muted); font-size: 18px;
   cursor: pointer; display: flex; align-items: center; justify-content: center;
   transition: background 0.12s, color 0.12s; padding: 0; line-height: 1;
 }
@@ -643,6 +687,6 @@ article[data-testid="tweet"].xvm-article-linked {
   color: var(--sc-cyan);
 }
 .xvm-starchart-overlay .xvm-sc-river-counter {
-  flex: 1; text-align: center; font-size: 11px; color: var(--sc-text-muted);
-  font-variant-numeric: tabular-nums;
+  font-size: 10px; color: var(--sc-text-dim);
+  font-variant-numeric: tabular-nums; padding: 0 2px;
 }
