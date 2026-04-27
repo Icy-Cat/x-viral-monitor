@@ -65,6 +65,182 @@
     return m ? decodeURIComponent(m[1]) : '';
   }
 
+  async function callGraphQL(op, variables) {
+    const tpl = getTemplate(op);
+    if (!tpl.queryId || tpl.queryId === 'REPLACE_AT_RUNTIME') {
+      throw new Error(`No queryId for ${op}. View a Retweets/Search tab once on x.com to populate cache.`);
+    }
+    if (!tpl.authorization) {
+      throw new Error(`No bearer token captured for ${op}.`);
+    }
+    const url = new URL(`/i/api/graphql/${tpl.queryId}/${op}`, location.origin);
+    url.searchParams.set('variables', JSON.stringify(variables));
+    if (tpl.features) url.searchParams.set('features', tpl.features);
+
+    const res = await fetch(url.toString(), {
+      method: 'GET',
+      credentials: 'include',
+      headers: {
+        'authorization': tpl.authorization,
+        'x-csrf-token': getCsrfToken(),
+        'content-type': 'application/json',
+        'x-twitter-active-user': 'yes',
+        'x-twitter-auth-type': 'OAuth2Session',
+        'x-twitter-client-language': navigator.language?.split('-')[0] || 'en',
+      },
+    });
+
+    if (res.status === 429) {
+      const reset = parseInt(res.headers.get('x-rate-limit-reset') || '0', 10);
+      const waitMs = Math.max(1000, reset * 1000 - Date.now());
+      const err = new Error('rate-limited');
+      err.code = 429;
+      err.waitMs = waitMs;
+      throw err;
+    }
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  function extractCursor(instructions) {
+    for (const inst of instructions || []) {
+      const entries = inst.entries || (inst.entry ? [inst.entry] : []);
+      for (const e of entries) {
+        const c = e?.content;
+        if (c?.cursorType === 'Bottom' || c?.itemContent?.cursorType === 'Bottom') {
+          return c.value || c.itemContent.value;
+        }
+        if (c?.entryType === 'TimelineTimelineCursor' && /Bottom/i.test(c.cursorType || '')) {
+          return c.value;
+        }
+      }
+    }
+    return null;
+  }
+
+  function extractUsersFromTimeline(instructions) {
+    const out = [];
+    for (const inst of instructions || []) {
+      const entries = inst.entries || (inst.entry ? [inst.entry] : []);
+      for (const e of entries) {
+        const u = e?.content?.itemContent?.user_results?.result;
+        if (u && u.legacy) {
+          out.push({
+            id: u.rest_id,
+            screenName: u.legacy.screen_name,
+            name: u.legacy.name,
+            avatar: u.legacy.profile_image_url_https,
+          });
+        }
+      }
+    }
+    return out;
+  }
+
+  async function fetchAllRetweeters(tweetId, onPage, opts = {}) {
+    const { signal } = opts;
+    let cursor = null;
+    let total = 0;
+    const seen = new Set();
+    while (true) {
+      if (signal?.aborted) return;
+      if (total >= MAX_USERS) return;
+      const variables = { tweetId, count: PAGE_LIMIT };
+      if (cursor) variables.cursor = cursor;
+
+      let resp;
+      try {
+        resp = await callGraphQL('Retweeters', variables);
+      } catch (e) {
+        if (e.code === 429 && opts.onRateLimit) {
+          const seconds = Math.ceil(e.waitMs / 1000);
+          opts.onRateLimit(seconds);
+          await new Promise((r) => setTimeout(r, e.waitMs));
+          continue;
+        }
+        throw e;
+      }
+
+      const instructions = resp?.data?.retweeters_timeline?.timeline?.instructions
+        || resp?.data?.timeline?.timeline?.instructions
+        || [];
+      const users = extractUsersFromTimeline(instructions).filter((u) => {
+        if (seen.has(u.id)) return false;
+        seen.add(u.id);
+        return true;
+      });
+      if (users.length) {
+        total += users.length;
+        onPage(users, 'retweet');
+      }
+
+      const nextCursor = extractCursor(instructions);
+      if (!nextCursor || nextCursor === cursor || users.length === 0) return;
+      cursor = nextCursor;
+    }
+  }
+
+  async function fetchAllQuotes(tweetId, onPage, opts = {}) {
+    const { signal } = opts;
+    let cursor = null;
+    const seen = new Set();
+    let total = 0;
+    while (true) {
+      if (signal?.aborted) return;
+      if (total >= MAX_USERS) return;
+      const variables = {
+        rawQuery: `quoted_tweet_id:${tweetId}`,
+        count: 20,
+        product: 'Latest',
+        querySource: 'recent_search_click',
+      };
+      if (cursor) variables.cursor = cursor;
+
+      let resp;
+      try {
+        resp = await callGraphQL('SearchTimeline', variables);
+      } catch (e) {
+        if (e.code === 429 && opts.onRateLimit) {
+          const seconds = Math.ceil(e.waitMs / 1000);
+          opts.onRateLimit(seconds);
+          await new Promise((r) => setTimeout(r, e.waitMs));
+          continue;
+        }
+        throw e;
+      }
+
+      const instructions = resp?.data?.search_by_raw_query?.search_timeline?.timeline?.instructions || [];
+      const users = [];
+      for (const inst of instructions) {
+        const entries = inst.entries || (inst.entry ? [inst.entry] : []);
+        for (const e of entries) {
+          const tw = e?.content?.itemContent?.tweet_results?.result;
+          const user = tw?.core?.user_results?.result;
+          if (user?.legacy && !seen.has(user.rest_id)) {
+            seen.add(user.rest_id);
+            users.push({
+              id: user.rest_id,
+              screenName: user.legacy.screen_name,
+              name: user.legacy.name,
+              avatar: user.legacy.profile_image_url_https,
+              quoteUrl: tw?.legacy?.id_str
+                ? `https://x.com/${user.legacy.screen_name}/status/${tw.legacy.id_str}`
+                : null,
+            });
+          }
+        }
+      }
+      if (users.length) {
+        total += users.length;
+        onPage(users, 'quote');
+      }
+
+      const nextCursor = extractCursor(instructions);
+      if (!nextCursor || nextCursor === cursor || users.length === 0) return;
+      cursor = nextCursor;
+    }
+  }
+
   // Stub — implemented in Task 6
   async function openStarChart(tweetCtx) {
     await loadTemplatesFromStorage();
@@ -78,5 +254,8 @@
 
   if (__XVM_DEBUG) {
     window.__XVMStarChart._internal.DEFAULT_TEMPLATES = DEFAULT_TEMPLATES;
+    window.__XVMStarChart._internal.fetchAllRetweeters = fetchAllRetweeters;
+    window.__XVMStarChart._internal.fetchAllQuotes = fetchAllQuotes;
+    window.__XVMStarChart._internal.callGraphQL = callGraphQL;
   }
 })();
