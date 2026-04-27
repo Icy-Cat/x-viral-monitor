@@ -92,7 +92,10 @@
 
     if (res.status === 429) {
       const reset = parseInt(res.headers.get('x-rate-limit-reset') || '0', 10);
-      const waitMs = Math.max(1000, reset * 1000 - Date.now());
+      const FALLBACK_WAIT_MS = 60_000;
+      const waitMs = reset * 1000 > Date.now()
+        ? reset * 1000 - Date.now()
+        : FALLBACK_WAIT_MS;
       const err = new Error('rate-limited');
       err.code = 429;
       err.waitMs = waitMs;
