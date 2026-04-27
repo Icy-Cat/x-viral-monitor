@@ -25,7 +25,7 @@
 
   const PAGE_LIMIT = 100;
   const MAX_USERS = 50000;
-  const __XVM_DEBUG = true;  // flipped to false in Task 10
+  const __XVM_DEBUG = false;
 
   let cachedTemplates = null;
 

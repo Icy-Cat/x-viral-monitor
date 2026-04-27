@@ -13,6 +13,8 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 - Color-coded badges indicate traffic levels at a glance
 - Hover tooltip with detailed metrics (views, likes, retweets, replies, bookmarks, viral score)
 - Works across all timeline tabs (For You, Following, Lists, etc.)
+- Copy any tweet as Markdown from the share menu
+- Generate a Thank-You Star Chart for any tweet — animated visualization of every retweeter and quoter
 - Supports English, Chinese, and Japanese
 
 ### Velocity Tiers
