@@ -1355,7 +1355,7 @@ function injectStarChartItem(menuEl) {
     const data = tweetDataStore.get(tweetId) || {};
     closeOpenMenus();
     if (!window.__XVMStarChart?.open) {
-      showToast('Star chart module not loaded');
+      showToast(i18n('contentStarChartModuleNotLoaded'));
       return;
     }
     window.__XVMStarChart.open({

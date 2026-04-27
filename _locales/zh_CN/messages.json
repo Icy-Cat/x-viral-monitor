@@ -175,6 +175,7 @@
     "placeholders": { "reason": { "content": "$1", "example": "网络错误" } }
   },
   "contentStarChartNoTweetFound": { "message": "无法识别这条推文" },
+  "contentStarChartModuleNotLoaded": { "message": "星图组件未加载 — 请刷新页面后重试" },
   "contentStarChartLegendRT": { "message": "转推" },
   "contentStarChartLegendQuote": { "message": "引用" },
   "contentStarChartLegendBoth": { "message": "两者皆有" },

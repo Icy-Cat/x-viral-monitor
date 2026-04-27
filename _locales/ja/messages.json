@@ -175,6 +175,7 @@
     "placeholders": { "reason": { "content": "$1", "example": "ネットワークエラー" } }
   },
   "contentStarChartNoTweetFound": { "message": "ツイートを特定できません" },
+  "contentStarChartModuleNotLoaded": { "message": "スターチャートを読み込めません — ページを再読み込みしてください" },
   "contentStarChartLegendRT": { "message": "リツイート" },
   "contentStarChartLegendQuote": { "message": "引用" },
   "contentStarChartLegendBoth": { "message": "両方" },

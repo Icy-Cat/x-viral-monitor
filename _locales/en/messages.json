@@ -195,6 +195,9 @@
   "contentStarChartNoTweetFound": {
     "message": "Could not identify the tweet"
   },
+  "contentStarChartModuleNotLoaded": {
+    "message": "Star chart not available — please reload the page"
+  },
   "contentStarChartLegendRT": {
     "message": "Retweet"
   },
