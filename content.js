@@ -544,7 +544,11 @@ let leaderboardRaf = 0;
 const LB_DEFAULT_WIDTH = 280;
 const LB_MIN_WIDTH = 240;
 const LB_MAX_WIDTH = 640;
+const LB_DEFAULT_HEIGHT = 300;
+const LB_MIN_HEIGHT = 120;
+const LB_MAX_HEIGHT = 800;
 let leaderboardWidth = LB_DEFAULT_WIDTH;
+let leaderboardHeight = LB_DEFAULT_HEIGHT;
 
 function ensureLeaderboard() {
   if (leaderboardEl) return leaderboardEl;
@@ -563,12 +567,15 @@ function ensureLeaderboard() {
     </div>
     <ul class="xvm-lb-list"></ul>
     <div class="xvm-lb-resize" aria-hidden="true"></div>
+    <div class="xvm-lb-resize-v" aria-hidden="true"></div>
   `;
   document.body.appendChild(leaderboardEl);
   applyLeaderboardWidth();
+  applyLeaderboardHeight();
   applyLeaderboardPosition();
   installLeaderboardDrag();
   installLeaderboardResize();
+  installLeaderboardResizeHeight();
   installLeaderboardBackButton();
   return leaderboardEl;
 }
@@ -614,6 +621,20 @@ function applyLeaderboardWidth() {
   leaderboardWidth = clampLeaderboardWidth(leaderboardWidth);
   leaderboardEl.style.width = leaderboardWidth + 'px';
 }
+function clampLeaderboardHeight(height) {
+  const safeHeight = Number.isFinite(height) ? height : LB_DEFAULT_HEIGHT;
+  const maxByViewport = Math.max(LB_MIN_HEIGHT, Math.min(LB_MAX_HEIGHT, window.innerHeight - 80));
+  const maxByPosition = leaderboardPos && Number.isFinite(leaderboardPos.top)
+    ? Math.max(LB_MIN_HEIGHT, Math.min(maxByViewport, window.innerHeight - leaderboardPos.top - 16))
+    : maxByViewport;
+  return Math.max(LB_MIN_HEIGHT, Math.min(safeHeight, maxByPosition));
+}
+function applyLeaderboardHeight() {
+  if (!leaderboardEl) return;
+  leaderboardHeight = clampLeaderboardHeight(leaderboardHeight);
+  const list = leaderboardEl.querySelector('.xvm-lb-list');
+  if (list) list.style.maxHeight = leaderboardHeight + 'px';
+}
 function applyLeaderboardPosition() {
   if (!leaderboardEl) return;
   if (leaderboardPos && Number.isFinite(leaderboardPos.left) && Number.isFinite(leaderboardPos.top)) {
@@ -645,8 +666,13 @@ window.addEventListener('message', (event) => {
     applyLeaderboardWidth();
     applyLeaderboardPosition();
   }
+  if (event.data?.type === 'XVM_LB_HEIGHT_LOAD' && Number.isFinite(event.data.height)) {
+    leaderboardHeight = event.data.height;
+    applyLeaderboardHeight();
+  }
 });
 window.postMessage({ type: 'XVM_LB_POS_REQUEST' }, '*');
+window.postMessage({ type: 'XVM_LB_HEIGHT_REQUEST' }, '*');
 window.postMessage({ type: 'XVM_LB_SIZE_REQUEST' }, '*');
 
 function installLeaderboardDrag() {
@@ -746,9 +772,55 @@ function installLeaderboardResize() {
   });
 }
 
+function installLeaderboardResizeHeight() {
+  if (!leaderboardEl) return;
+  const handle = leaderboardEl.querySelector('.xvm-lb-resize-v');
+  if (!handle) return;
+  let resizeState = null;
+  let resizeRaf = 0;
+  let pendingClientY = 0;
+
+  const flushResize = () => {
+    resizeRaf = 0;
+    if (!resizeState) return;
+    leaderboardHeight = clampLeaderboardHeight(resizeState.startHeight + (pendingClientY - resizeState.startClientY));
+    applyLeaderboardHeight();
+    if (linkState) updateLinkGeometry();
+  };
+
+  handle.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    const list = leaderboardEl.querySelector('.xvm-lb-list');
+    resizeState = {
+      startHeight: list ? list.getBoundingClientRect().height : leaderboardHeight,
+      startClientY: e.clientY,
+    };
+    leaderboardEl.classList.add('xvm-lb-resizing');
+    e.stopPropagation();
+    e.preventDefault();
+  });
+  window.addEventListener('mousemove', (e) => {
+    if (!resizeState) return;
+    pendingClientY = e.clientY;
+    if (resizeRaf) return;
+    resizeRaf = requestAnimationFrame(flushResize);
+  }, { passive: true });
+  window.addEventListener('mouseup', () => {
+    if (!resizeState) return;
+    resizeState = null;
+    if (resizeRaf) {
+      cancelAnimationFrame(resizeRaf);
+      resizeRaf = 0;
+    }
+    leaderboardEl.classList.remove('xvm-lb-resizing');
+    window.postMessage({ type: 'XVM_LB_HEIGHT_SAVE', height: leaderboardHeight }, '*');
+  });
+}
+
 window.addEventListener('resize', () => {
   if (!leaderboardEl) return;
   applyLeaderboardWidth();
+  applyLeaderboardHeight();
   applyLeaderboardPosition();
   if (linkState) updateLinkGeometry();
 });
@@ -807,12 +879,13 @@ function collectRanked() {
     if (!data) continue;
     seen.add(id);
     const { velocity } = computeScore(data);
-    let handle = '';
-    const userLink = article.querySelector('a[href^="/"][role="link"] span');
-    if (userLink) handle = userLink.textContent || '';
+    // Use the canonical User-Name container (works on x.com AND pro.x.com).
+    // Prefer the display name ("张三") over the @handle ("zhangsan") — more
+    // recognizable to humans skimming the leaderboard.
+    const { displayName, handle: authorHandle } = getAuthorInfo(article);
+    let handle = displayName || authorHandle || '';
     if (!handle) {
-      const m = (data.text || '').slice(0, 60);
-      handle = m;
+      handle = (data.text || '').slice(0, 60);
     }
     out.push({ id, article, velocity, views: data.views || 0, handle, text: data.text });
   }

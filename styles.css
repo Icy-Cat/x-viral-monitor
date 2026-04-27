@@ -164,6 +164,31 @@
   background: rgba(191, 90, 42, 0.35);
 }
 
+.xvm-lb-resize-v {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  cursor: ns-resize;
+}
+.xvm-lb-resize-v::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(110, 91, 77, 0.22);
+  transform: translateX(-50%);
+  transition: background 0.12s;
+}
+.xvm-lb:hover .xvm-lb-resize-v::before,
+.xvm-lb.xvm-lb-resizing .xvm-lb-resize-v::before {
+  background: rgba(191, 90, 42, 0.35);
+}
+
 .xvm-lb-item {
   display: flex;
   align-items: center;
