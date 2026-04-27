@@ -217,9 +217,22 @@
     const body = document.createElement('div');
     body.className = 'xvm-sc-body';
 
-    // LEFT column: stats + legend
+    // LEFT column: hero + stats + legend
     const sideLeft = document.createElement('div');
     sideLeft.className = 'xvm-sc-side-left';
+
+    // Hero block: small eyebrow label + larger emotional title
+    const heroBlock = document.createElement('div');
+    heroBlock.className = 'xvm-sc-hero';
+    const heroEyebrow = document.createElement('div');
+    heroEyebrow.className = 'xvm-sc-hero-eyebrow';
+    heroEyebrow.textContent = tt('contentStarChartHeroEyebrow');
+    const heroTitle = document.createElement('div');
+    heroTitle.className = 'xvm-sc-hero-title';
+    heroTitle.textContent = tt('contentStarChartHeroTitle');
+    heroBlock.appendChild(heroEyebrow);
+    heroBlock.appendChild(heroTitle);
+    sideLeft.appendChild(heroBlock);
 
     // Stats card (goes in left column)
     const statsCard = document.createElement('div');
@@ -764,18 +777,28 @@
         const sy = (cy + panY) + Math.sin(hAngle) * (s.radius * 0.58 + s.gardenOffset) * zoom;
         const text = `${s.name} (@${s.screenName})`;
         ctx.font = '700 12px system-ui, sans-serif';
-        const tw = Math.min(ctx.measureText(text).width + 18, 220);
+        const truncated = text.length > 18 ? text.slice(0, 18) + '…' : text;
+        const tw = Math.min(ctx.measureText(truncated).width + 18, 180);
+        // Two visual modes:
+        //  - hover only            → light dim panel, soft white border
+        //  - "strong" (also pinned via highlightedId) → solid warm fill, gold border
+        const isStrong = highlightedId !== null && s.id === highlightedId;
         ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.7)';
-        ctx.strokeStyle = 'rgba(255,213,111,0.6)';
+        if (isStrong) {
+          ctx.fillStyle = 'rgba(255,247,232,0.92)';
+          ctx.strokeStyle = 'rgba(255,213,111,0.9)';
+        } else {
+          ctx.fillStyle = 'rgba(13,16,24,0.72)';
+          ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+        }
         ctx.lineWidth = 1;
         roundRect(ctx, sx + 10, sy - 20, tw, 28, 7);
         ctx.fill();
         ctx.stroke();
         ctx.restore();
-        ctx.fillStyle = '#fff7e8';
+        ctx.fillStyle = isStrong ? '#17110b' : '#fff7e8';
         ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        ctx.fillText(text.slice(0, 28), sx + 19, sy - 2);
+        ctx.fillText(truncated, sx + 19, sy - 2);
         if (lastCursor !== 'pointer') { canvas.style.cursor = 'pointer'; lastCursor = 'pointer'; }
       } else {
         hoverIdx = -1;
@@ -1218,9 +1241,20 @@
       nameEl.className = 'xvm-sc-person-name';
       nameEl.textContent = u.name;
 
-      const handleEl = document.createElement('span');
+      // Make @handle an actual link so users still have a path to the
+      // profile. Stop propagation so the card-level click (highlight +
+      // river sync) does NOT fire when the user is intentionally
+      // navigating away.
+      const profileUrl = safeProfileUrl(u.screenName);
+      const handleEl = document.createElement(profileUrl ? 'a' : 'span');
       handleEl.className = 'xvm-sc-person-handle';
       handleEl.textContent = `@${u.screenName}`;
+      if (profileUrl) {
+        handleEl.href = profileUrl;
+        handleEl.target = '_blank';
+        handleEl.rel = 'noopener';
+        handleEl.addEventListener('click', (ev) => ev.stopPropagation());
+      }
 
       info.appendChild(nameEl);
       info.appendChild(handleEl);
@@ -1312,8 +1346,8 @@
     renderQuote();
     startAuto();
 
-    // Return an update function to refresh quotes when byId changes
-    return function updateRiver() {
+    // Returned API: refresh data, and jump to a specific user's quote.
+    function update() {
       const prevLen = quotes.length;
       quotes = Array.from(byId.values())
         .filter((u) => u.type === 'quote' || u.type === 'both')
@@ -1322,12 +1356,20 @@
           const db = b.createdAt ? new Date(b.createdAt).getTime() : 0;
           return db - da;
         });
-      // Keep currentIdx in bounds
       if (currentIdx >= quotes.length) currentIdx = Math.max(0, quotes.length - 1);
       renderQuote();
-      // Start timer if we now have quotes but didn't before
       if (prevLen === 0 && quotes.length > 0) startAuto();
-    };
+    }
+    function focusUser(userId) {
+      const idx = quotes.findIndex((q) => q.id === userId);
+      if (idx < 0) return false;
+      currentIdx = idx;
+      renderQuote();
+      startAuto();
+      return true;
+    }
+    update.focusUser = focusUser;
+    return update;
   }
 
   async function openStarChart(tweetCtx) {
@@ -1365,8 +1407,10 @@
       function refreshPeople() {
         renderPeople(peopleGrid, byId, searchFilter, (u) => {
           if (activeRenderer) activeRenderer.highlight(u.id);
-          const url = safeProfileUrl(u.screenName);
-          if (url) window.open(url, '_blank', 'noopener');
+          // If this user has a quote, sync the Quote River to it. This
+          // closes the loop the original repo had: clicking a supporter
+          // card focuses both the star AND the corresponding quote text.
+          if (updateRiver && updateRiver.focusUser) updateRiver.focusUser(u.id);
         }, getActiveTypeFilter());
       }
 

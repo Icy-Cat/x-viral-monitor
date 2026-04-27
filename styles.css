@@ -670,6 +670,45 @@ article[data-testid="tweet"].xvm-article-linked {
   padding: 0;
 }
 
+/* ---- Hero block (top of left column) ---- */
+/* Bleed outward to the panel edges so the bottom rule spans the
+   full panel width, then restore inner padding. The parent
+   .xvm-sc-side-left has padding: 22px. */
+.xvm-starchart-overlay .xvm-sc-hero {
+  margin: -22px -22px 14px;
+  padding: 22px 22px 16px;
+  border-bottom: 1px solid var(--sc-line);
+  flex-shrink: 0;
+}
+
+/* @handle in supporter card becomes a real link — keep the muted
+   underline-on-hover affordance without breaking the surrounding card layout. */
+.xvm-starchart-overlay a.xvm-sc-person-handle {
+  text-decoration: none;
+  cursor: pointer;
+}
+.xvm-starchart-overlay a.xvm-sc-person-handle:hover {
+  text-decoration: underline;
+  color: var(--sc-gold);
+}
+.xvm-starchart-overlay .xvm-sc-hero-eyebrow {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--sc-gold);
+  opacity: 0.78;
+  margin-bottom: 10px;
+  line-height: 1.4;
+}
+.xvm-starchart-overlay .xvm-sc-hero-title {
+  font-size: 17px;
+  font-weight: 700;
+  line-height: 1.42;
+  color: var(--sc-text);
+  letter-spacing: 0.01em;
+}
+
 /* ---- Stats card = original .stats-grid + its children ---- */
 .xvm-starchart-overlay .xvm-sc-stats-card {
   flex-shrink: 0;

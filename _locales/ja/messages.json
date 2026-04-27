@@ -193,6 +193,8 @@
   "flashStarChartOn": { "message": "スターチャートを有効化" },
   "flashStarChartOff": { "message": "スターチャートを無効化" },
   "contentStarChartTitleLabel": { "message": "ベロシティモニター" },
+  "contentStarChartHeroEyebrow": { "message": "この投稿を運んでくれたすべての人へ" },
+  "contentStarChartHeroTitle": { "message": "ひとつひとつの光は、投稿を手渡した手。" },
   "contentStarChartStatsSectionTitle": { "message": "概要" },
   "contentStarChartPeopleSectionTitle": { "message": "サポーター" },
   "contentStarChartFilterAll": { "message": "全て" },

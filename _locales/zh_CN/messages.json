@@ -193,6 +193,8 @@
   "flashStarChartOn": { "message": "已开启星图功能" },
   "flashStarChartOff": { "message": "已关闭星图功能" },
   "contentStarChartTitleLabel": { "message": "速度监测" },
+  "contentStarChartHeroEyebrow": { "message": "谢谢每一个让这条推文继续走下去的人" },
+  "contentStarChartHeroTitle": { "message": "每一束光，都是一只把它传出去的手。" },
   "contentStarChartStatsSectionTitle": { "message": "概览" },
   "contentStarChartPeopleSectionTitle": { "message": "支持者" },
   "contentStarChartFilterAll": { "message": "全部" },
