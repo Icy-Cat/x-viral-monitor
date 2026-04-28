@@ -27,6 +27,11 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 
 ## Install
 
+**Recommended — Chrome Web Store:**
+[Install X Viral Monitor](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
+
+**Manual install (latest unpublished build):**
+
 1. Download the latest release zip from [Releases](../../releases)
 2. Unzip the downloaded file
 3. Open Chrome and go to `chrome://extensions/`

@@ -25,6 +25,11 @@
 
 ## 安装
 
+**推荐 — Chrome 应用商店：**
+[安装 X Viral Monitor](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
+
+**手动安装（最新未上架版本）：**
+
 1. 从 [Releases](../../releases) 页面下载最新版本的 zip 压缩包
 2. 解压压缩包
 3. 打开 Chrome 浏览器，访问 `chrome://extensions/`
