@@ -1,5 +1,7 @@
 # X Viral Monitor
 
+[English](README.en.md)
+
 在 X (Twitter) 时间线的每条推文上实时显示流量流速的 Chrome 扩展。
 
 ![Chrome Extension](https://img.shields.io/badge/Chrome-扩展-blue?logo=googlechrome)

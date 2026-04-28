@@ -1,6 +1,6 @@
 # X Viral Monitor
 
-[中文说明](README.zh-CN.md)
+[中文说明](README.md)
 
 Chrome extension that displays real-time impression velocity on every tweet in your X (Twitter) timeline.
 
