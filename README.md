@@ -1,67 +1,64 @@
 # X Viral Monitor
 
-[中文说明](README.zh-CN.md)
+在 X (Twitter) 时间线的每条推文上实时显示流量流速的 Chrome 扩展。
 
-Chrome extension that displays real-time impression velocity on every tweet in your X (Twitter) timeline.
-
-![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=googlechrome)
+![Chrome Extension](https://img.shields.io/badge/Chrome-扩展-blue?logo=googlechrome)
 ![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)
 
-## What it does
+## 功能
 
-- Shows impression velocity (views/hour) on each tweet in your timeline
-- Color-coded badges indicate traffic levels at a glance
-- Hover tooltip with detailed metrics (views, likes, retweets, replies, bookmarks, viral score)
-- Works across all timeline tabs (For You, Following, Lists, etc.)
-- Copy any tweet as Markdown from the share menu
-- Generate a Thank-You Star Chart for any tweet — animated visualization of every retweeter and quoter
-- Supports English, Chinese, and Japanese
+- 在每条推文旁显示每小时浏览量（impression/h）
+- 颜色标签一眼区分流量等级
+- 悬浮弹窗展示详细数据（浏览量、点赞、转发、回复、收藏、爆帖指数）
+- 支持所有时间线标签页（为你推荐、正在关注、列表等）
+- 在分享菜单将任意推文复制为 Markdown
+- 为任意推文生成「感谢星图」——把所有转推与引用用户做成动画粒子可视化
+- 支持中文、英文、日文
 
-### Velocity Tiers
+### 流速分级
 
-| Icon | Color | Velocity | Meaning |
-|------|-------|----------|---------|
-| 🌱 | Green | < 1,000/h | Normal |
-| 🚀 | Orange | 1,000 - 10,000/h | Trending |
-| 🔥 | Red | ≥ 10,000/h | Viral |
+| 图标 | 颜色 | 流速 | 含义 |
+|------|------|------|------|
+| 🌱 | 绿色 | < 1,000/h | 正常 |
+| 🚀 | 橙色 | 1,000 - 10,000/h | 有热度 |
+| 🔥 | 红色 | ≥ 10,000/h | 爆帖 |
 
-## Install
+## 安装
 
-**Recommended — Chrome Web Store:**
-[Install X Viral Monitor](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
+**推荐 — Chrome 应用商店：**
+[安装 X Viral Monitor](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
 
-**Manual install (latest unpublished build):**
+**手动安装（最新未上架版本）：**
 
-1. Download the latest release zip from [Releases](../../releases)
-2. Unzip the downloaded file
-3. Open Chrome and go to `chrome://extensions/`
-4. Toggle **Developer mode** on (top right corner)
-5. Click **Load unpacked** (top left)
-6. Select the unzipped folder and confirm
+1. 从 [Releases](../../releases) 页面下载最新版本的 zip 压缩包
+2. 解压压缩包
+3. 打开 Chrome 浏览器，访问 `chrome://extensions/`
+4. 右上角打开**开发者模式**
+5. 点击左上角**加载已解压的扩展程序**
+6. 选择刚才解压的文件夹，确定
 
-## How it works
+## 工作原理
 
-The extension intercepts X's GraphQL API responses to extract tweet metrics (views, likes, retweets, replies, bookmarks, post time). It calculates the average impression velocity (`total views / hours since posted`) and renders an inline badge next to each tweet's action buttons.
+扩展通过拦截 X 前端的 GraphQL API 响应，提取每条推文的指标数据（浏览量、点赞、转发、回复、收藏、发布时间）。计算平均流速（`总浏览量 / 发布至今小时数`），在推文的操作按钮旁渲染内联标签。
 
-For tweets not captured by the initial intercept, it falls back to fetching individual tweet details via the TweetDetail API.
+对于未被初始拦截捕获的推文，会通过 TweetDetail API 逐条补充获取数据。
 
-### Viral Score (shown in tooltip)
+### 爆帖指数（悬浮弹窗中显示）
 
-A composite 0-100 score based on four weighted dimensions:
+综合评分 0-100，基于四个加权维度：
 
-| Dimension | Weight | Max condition |
-|-----------|--------|---------------|
-| Velocity | 40% | 50,000/h |
-| Engagement rate | 25% | 10% |
-| Retweet ratio | 20% | RT/Like = 50% |
-| Bookmark ratio | 15% | Bookmark/Like = 30% |
+| 维度 | 权重 | 满分条件 |
+|------|------|----------|
+| 流速 | 40% | 50,000/h |
+| 互动率 | 25% | 10% |
+| 转发比 | 20% | 转发/点赞 = 50% |
+| 收藏比 | 15% | 收藏/点赞 = 30% |
 
-## Acknowledgements
+## 致谢
 
-The Thank-You Star Chart visualization is adapted from
-[London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart) (MIT License) —
-orbital field math, side-panel layout, and color palette ported from that project.
+「感谢星图」功能改编自 [London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart)（MIT 协议）——
+轨道动画的数学公式、侧边面板的布局、配色方案均移植自该项目。
 
-## License
+## 许可证
 
 MIT
