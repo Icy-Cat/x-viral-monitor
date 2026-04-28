@@ -4,8 +4,8 @@
 
 Chrome extension that displays real-time impression velocity on every tweet in your X (Twitter) timeline.
 
-![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=googlechrome)
-![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)
+[![Chrome Extension](https://img.shields.io/badge/Chrome-Extension-blue?logo=googlechrome)](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
+[![Manifest V3](https://img.shields.io/badge/Manifest-V3-green)](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
 
 ## What it does
 
