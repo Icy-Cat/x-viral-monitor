@@ -1,5 +1,11 @@
 // === Tweet Data Store ===
 const tweetDataStore = new Map();
+
+function postObserveSample(data) {
+  if (!data?.id || !data?.author) return;
+  window.postMessage({ type: 'XVM_HIST_OBSERVE', tweet: data }, '*');
+}
+
 const DEFAULT_THRESHOLDS = {
   trending: 1000,
   viral: 10000,
@@ -213,7 +219,11 @@ function scanForTweets(obj) {
 
   if (obj.tweet_results?.result) {
     const data = extractTweetData(obj.tweet_results.result);
-    if (data) { tweetDataStore.set(data.id, data); found = true; }
+    if (data) {
+      tweetDataStore.set(data.id, data);
+      found = true;
+      postObserveSample(data);
+    }
   }
 
   // Recurse into arrays and objects
@@ -279,6 +289,15 @@ function extractTweetData(result) {
     }
   }
 
+  const userResult =
+    tweet.core?.user_results?.result ||
+    result.core?.user_results?.result ||
+    null;
+  const userLegacy = userResult?.legacy || {};
+  const author = userLegacy.screen_name ? userLegacy.screen_name.toLowerCase() : '';
+  const authorName = userLegacy.name || '';
+  const authorAvatar = userLegacy.profile_image_url_https || '';
+
   return {
     id: legacy.id_str,
     views: viewCount,
@@ -291,6 +310,9 @@ function extractTweetData(result) {
     urlMap,
     articleMd,
     articleTitle,
+    author,
+    authorName,
+    authorAvatar,
   };
 }
 
