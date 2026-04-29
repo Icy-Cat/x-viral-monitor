@@ -46,9 +46,14 @@ window.addEventListener('message', (e) => {
       if (!tweetId) return;
       const data = tweetDataStore.get(tweetId);
       if (!data) return;
-      const handle = findArticleHandle(article);
-      if (!handle || !added.includes(handle)) return;
-      postObserveSample({ ...data, author: handle });
+      const articleAuthor = findArticleAuthor(article);
+      if (!articleAuthor?.handle || !added.includes(articleAuthor.handle)) return;
+      postObserveSample({
+        ...data,
+        author: articleAuthor.handle,
+        authorName: articleAuthor.name || '',
+        authorAvatar: articleAuthor.avatar || '',
+      });
       replayed++;
     });
     if (replayed > 0) console.debug('[XVM-HIST] replayed', replayed, 'cached tweets for newly-added handles');
@@ -532,6 +537,45 @@ function findArticleHandle(article) {
   return null;
 }
 
+function findArticleAuthor(article) {
+  // Handle from author link href
+  const links = article.querySelectorAll('a[role="link"][href^="/"]');
+  let handle = null;
+  for (const a of links) {
+    const m = a.getAttribute('href').match(/^\/([A-Za-z0-9_]{1,15})(?:\/|$)/);
+    if (!m) continue;
+    const slug = m[1].toLowerCase();
+    if (['home', 'explore', 'notifications', 'messages', 'i', 'compose', 'search'].includes(slug)) continue;
+    if (!handle) { handle = slug; break; }
+  }
+  if (!handle) return null;
+
+  // Display name: User-Name testid contains spans with the name + handle stacked
+  let name = '';
+  const userNameBlock = article.querySelector('[data-testid="User-Name"]');
+  if (userNameBlock) {
+    // First non-empty span that isn't the handle or a separator is the display name
+    const spans = userNameBlock.querySelectorAll('span');
+    for (const s of spans) {
+      const t = (s.textContent || '').trim();
+      if (!t) continue;
+      if (t.startsWith('@')) break; // reached the handle, stop
+      if (t === '·' || /^\d+[smhdw]$/.test(t) || /^\d{1,2}月\d{1,2}日/.test(t)) break;
+      name = t;
+      break;
+    }
+  }
+
+  // Avatar: img inside [data-testid="Tweet-User-Avatar"] / [data-testid^="UserAvatar"]
+  let avatar = '';
+  const avatarImg = article.querySelector(
+    '[data-testid="Tweet-User-Avatar"] img, [data-testid^="UserAvatar-Container"] img, a[href^="/' + handle + '"] img[src*="profile_images"]'
+  );
+  if (avatarImg) avatar = avatarImg.getAttribute('src') || '';
+
+  return { handle, name, avatar };
+}
+
 function buildSubscribeButton(handle) {
   const btn = document.createElement('button');
   btn.className = 'xvm-sub-btn xvm-sub-btn-wide';
@@ -569,8 +613,15 @@ function renderBadges() {
     // Always dispatch observe (even for already-scored articles) so subscription
     // changes and metric updates are recorded. The SW deduplicates via the
     // sampler's interval/event logic.
-    const handle = findArticleHandle(article);
-    if (handle) postObserveSample({ ...data, author: handle });
+    const author = findArticleAuthor(article);
+    if (author?.handle) {
+      postObserveSample({
+        ...data,
+        author: author.handle,
+        authorName: author.name || '',
+        authorAvatar: author.avatar || '',
+      });
+    }
 
     if (article.hasAttribute('data-xvm-scored')) continue;
 

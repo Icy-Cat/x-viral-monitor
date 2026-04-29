@@ -78,9 +78,9 @@ async function observe({ tweet, subscribed }) {
   await upsertTweet(d, {
     tweet_id: tweet.id,
     author,
-    author_name: tweet.authorName || '',
-    author_avatar: tweet.authorAvatar || '',
-    text: tweet.text || '',
+    author_name: tweet.authorName || existing?.author_name || '',
+    author_avatar: tweet.authorAvatar || existing?.author_avatar || '',
+    text: tweet.text || existing?.text || '',
     created_at: createdAt,
     first_seen_at: existing?.first_seen_at || now,
     last_sampled_at: now,

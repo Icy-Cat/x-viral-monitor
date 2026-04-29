@@ -38,3 +38,23 @@ body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 .xvm-h-empty-side { padding: 16px 8px; font-size: 12px; color: #536471; line-height: 1.5; }
 .xvm-h-empty strong { color: #0f1419; }
 .xvm-h-empty-text { color: #aab8c2; font-style: italic; font-size: 13px; }
+
+/* Avatar + display name — sidebar, cards, detail */
+.xvm-h-blogger { gap: 8px; }
+.xvm-h-blogger-info { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1; }
+.xvm-h-blogger-text { min-width: 0; flex: 1; }
+.xvm-h-blogger-name { font-size: 13px; font-weight: 600; color: #0f1419; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xvm-h-blogger-handle { font-size: 11px; color: #536471; }
+.xvm-h-avatar { width: 32px; height: 32px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #eff3f4; }
+.xvm-h-avatar-placeholder { display: inline-flex; align-items: center; justify-content: center; background: #cfd9de; color: #fff; font-weight: 600; font-size: 13px; }
+
+.xvm-h-card .meta { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.xvm-h-card-avatar { width: 36px; height: 36px; border-radius: 50%; object-fit: cover; flex-shrink: 0; background: #eff3f4; }
+.xvm-h-card-author { display: flex; flex-direction: column; line-height: 1.3; min-width: 0; }
+.xvm-h-card-name { font-size: 14px; font-weight: 600; color: #0f1419; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.xvm-h-card-handle { font-size: 13px; color: #536471; }
+
+.xvm-h-detail-header { display: flex; align-items: center; gap: 12px; margin: 8px 0 12px; }
+.xvm-h-detail-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #eff3f4; }
+.xvm-h-detail-handle { font-size: 14px; color: #536471; margin-top: 2px; }
+#xvm-h-detail-meta h2 { margin: 0; font-size: 20px; }

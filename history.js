@@ -75,7 +75,22 @@ function renderBloggers() {
     if (!subscribed) el.classList.add('xvm-h-blogger-archived');
     el.dataset.handle = handle;
     const tag = subscribed ? '★' : '';
-    el.innerHTML = `<span>${tag} @${escapeHtml(handle)}</span><span class="count">${n}</span>`;
+    // Find a representative tweet for this handle to get name/avatar
+    const rep = state.tweets.find((t) => t.author === handle);
+    const name = rep?.author_name || '';
+    const avatar = rep?.author_avatar || '';
+    const avatarHtml = avatar
+      ? `<img class="xvm-h-avatar" src="${escapeHtml(avatar)}" alt="">`
+      : `<span class="xvm-h-avatar xvm-h-avatar-placeholder">${escapeHtml(handle.slice(0, 1).toUpperCase())}</span>`;
+    el.innerHTML = `
+      <div class="xvm-h-blogger-info">
+        ${avatarHtml}
+        <div class="xvm-h-blogger-text">
+          <div class="xvm-h-blogger-name">${tag}${name ? ' ' + escapeHtml(name) : ''}</div>
+          <div class="xvm-h-blogger-handle">@${escapeHtml(handle)}</div>
+        </div>
+      </div>
+      <span class="count">${n}</span>`;
     el.addEventListener('click', () => { state.filter.handle = handle; renderAll(); });
     root.appendChild(el);
   }
@@ -126,8 +141,17 @@ async function renderList() {
     const last = state.lastByTweet.get(t.tweet_id);
     const card = document.createElement('div');
     card.className = 'xvm-h-card';
+    const cardAvatar = t.author_avatar
+      ? `<img class="xvm-h-card-avatar" src="${escapeHtml(t.author_avatar)}" alt="">`
+      : `<span class="xvm-h-card-avatar xvm-h-avatar-placeholder">${escapeHtml((t.author || '?').slice(0, 1).toUpperCase())}</span>`;
     card.innerHTML = `
-      <div class="meta">@${t.author} · ${new Date(t.created_at).toLocaleString()}</div>
+      <div class="meta">
+        ${cardAvatar}
+        <div class="xvm-h-card-author">
+          <div class="xvm-h-card-name">${t.author_name ? escapeHtml(t.author_name) : ''}</div>
+          <div class="xvm-h-card-handle">@${escapeHtml(t.author)} · ${new Date(t.created_at).toLocaleString()}</div>
+        </div>
+      </div>
       <div class="text">${(t.text || '').trim() ? escapeHtml(t.text.slice(0, 240)) : '<span class="xvm-h-empty-text">[empty text — possibly media-only tweet]</span>'}</div>
       <div class="stats">
         <span>👁 ${last?.impressions ?? 0}</span>
@@ -167,8 +191,17 @@ async function openDetail(tweetId) {
     rpc({ type: 'XVM_HIST_GET_SAMPLES', tweetId }),
   ]);
   const last = samples?.[samples.length - 1];
+  const detailAvatar = tweet?.author_avatar
+    ? `<img class="xvm-h-detail-avatar" src="${escapeHtml(tweet.author_avatar)}" alt="">`
+    : '';
   document.getElementById('xvm-h-detail-meta').innerHTML = `
-    <h2>@${tweet?.author || '?'} · ${tweet?.created_at ? new Date(tweet.created_at).toLocaleString() : ''}</h2>
+    <div class="xvm-h-detail-header">
+      ${detailAvatar}
+      <div>
+        <h2>${tweet?.author_name ? escapeHtml(tweet.author_name) : ''}</h2>
+        <div class="xvm-h-detail-handle">@${tweet?.author || '?'} · ${tweet?.created_at ? new Date(tweet.created_at).toLocaleString() : ''}</div>
+      </div>
+    </div>
     <p class="xvm-h-detail-text">${(tweet?.text || '').trim() ? escapeHtml(tweet.text.slice(0, 800)) : '<span class="xvm-h-empty-text">[empty text — possibly media-only tweet]</span>'}</p>
     <p class="xvm-h-detail-stats">
       <span>👁 ${last?.impressions ?? 0}</span>
