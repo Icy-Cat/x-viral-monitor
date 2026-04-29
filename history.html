@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>X Viral Monitor — History</title>
+  <link rel="stylesheet" href="history.css">
+</head>
+<body>
+  <header class="xvm-h-top">
+    <h1>X Viral Monitor — History</h1>
+    <div class="xvm-h-actions">
+      <input id="xvm-h-search" type="search" placeholder="Search tweet text…">
+      <button id="xvm-h-export">Export CSV</button>
+    </div>
+  </header>
+  <main class="xvm-h-main">
+    <aside id="xvm-h-bloggers" class="xvm-h-side">
+      <div class="xvm-h-blogger xvm-h-blogger-all" data-handle="">★ All <span class="count" data-count="all">0</span></div>
+      <div id="xvm-h-blogger-list"></div>
+      <button id="xvm-h-add-blogger">+ Add blogger</button>
+    </aside>
+    <section class="xvm-h-content">
+      <div class="xvm-h-filters">
+        <label>Sort: <select id="xvm-h-sort">
+          <option value="velocity">Velocity</option>
+          <option value="impressions">Impressions</option>
+          <option value="likes">Likes</option>
+          <option value="retweets">Retweets</option>
+          <option value="created_at">Posted</option>
+        </select></label>
+        <label>Range: <select id="xvm-h-range">
+          <option value="all">All</option>
+          <option value="day">24h</option>
+          <option value="week">7 days</option>
+        </select></label>
+        <label>Status: <select id="xvm-h-status">
+          <option value="all">All</option>
+          <option value="active">Active</option>
+          <option value="frozen">Frozen</option>
+        </select></label>
+      </div>
+      <div id="xvm-h-list"></div>
+      <div id="xvm-h-detail" hidden></div>
+    </section>
+  </main>
+  <script type="module" src="history.js"></script>
+</body>
+</html>

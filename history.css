@@ -1,0 +1,24 @@
+* { box-sizing: border-box; }
+body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif; color: #0f1419; background: #fff; }
+.xvm-h-top { display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; border-bottom: 1px solid #eff3f4; }
+.xvm-h-top h1 { margin: 0; font-size: 18px; }
+.xvm-h-actions { display: flex; gap: 8px; }
+.xvm-h-actions input, .xvm-h-actions button { padding: 6px 10px; border: 1px solid #cfd9de; border-radius: 6px; background: #fff; cursor: pointer; }
+.xvm-h-main { display: grid; grid-template-columns: 280px 1fr; height: calc(100vh - 53px); }
+.xvm-h-side { border-right: 1px solid #eff3f4; padding: 12px; overflow: auto; }
+.xvm-h-blogger { padding: 8px 10px; border-radius: 6px; cursor: pointer; display: flex; justify-content: space-between; }
+.xvm-h-blogger:hover, .xvm-h-blogger.active { background: #f7f9f9; }
+.xvm-h-blogger .count { color: #536471; }
+.xvm-h-content { padding: 12px 20px; overflow: auto; }
+.xvm-h-filters { display: flex; gap: 16px; align-items: center; padding-bottom: 12px; border-bottom: 1px solid #eff3f4; }
+.xvm-h-filters label { font-size: 13px; color: #536471; }
+.xvm-h-filters select { margin-left: 4px; padding: 4px 8px; border: 1px solid #cfd9de; border-radius: 6px; }
+.xvm-h-card { padding: 12px; border: 1px solid #eff3f4; border-radius: 10px; margin: 12px 0; cursor: pointer; transition: background 0.15s; }
+.xvm-h-card:hover { background: #f7f9f9; }
+.xvm-h-card .meta { color: #536471; font-size: 13px; margin-bottom: 6px; }
+.xvm-h-card .text { font-size: 14px; line-height: 1.4; margin-bottom: 8px; white-space: pre-wrap; word-wrap: break-word; }
+.xvm-h-card .stats { display: flex; gap: 14px; align-items: center; font-size: 13px; color: #0f1419; }
+.xvm-h-card .spark { height: 24px; }
+#xvm-h-add-blogger { width: 100%; margin-top: 16px; padding: 8px; background: #fff; border: 1px dashed #cfd9de; border-radius: 6px; cursor: pointer; color: #536471; }
+#xvm-h-add-blogger:hover { background: #f7f9f9; }
+.xvm-h-empty { padding: 40px 20px; text-align: center; color: #536471; }

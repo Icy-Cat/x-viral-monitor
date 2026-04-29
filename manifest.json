@@ -34,7 +34,7 @@
   ],
   "web_accessible_resources": [
     {
-      "resources": ["history.html", "history.js", "history.css", "lib/chart.js"],
+      "resources": ["history.html", "history.js", "history.css", "lib/chart.js", "lib/subscriptions.js"],
       "matches": ["<all_urls>"]
     }
   ]
