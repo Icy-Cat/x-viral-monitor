@@ -264,3 +264,40 @@ safeChromeCall(() => {
     });
   });
 });
+
+// === History tracker relay ===
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  const data = event.data;
+  if (!data || typeof data.type !== 'string' || !data.type.startsWith('XVM_HIST_')) return;
+
+  if (data.type === 'XVM_HIST_SUBS_REQUEST') {
+    safeChromeCall(() => {
+      chrome.storage.sync.get({ subscribed: [] }, (items) => {
+        window.postMessage({ type: 'XVM_HIST_SUBS_LOAD', subscribed: items.subscribed || [] }, '*');
+      });
+    });
+    return;
+  }
+  if (data.type === 'XVM_HIST_SUBS_SET' && Array.isArray(data.subscribed)) {
+    safeChromeCall(() => {
+      chrome.storage.sync.set({ subscribed: data.subscribed });
+    });
+    return;
+  }
+  if (data.type === 'XVM_HIST_OBSERVE') {
+    safeChromeCall(() => {
+      chrome.runtime.sendMessage({ type: 'XVM_HIST_OBSERVE', tweet: data.tweet }, () => {
+        if (chrome.runtime.lastError) { /* worker dead, ignore */ }
+      });
+    });
+    return;
+  }
+});
+
+safeChromeCall(() => {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'sync' || !changes.subscribed) return;
+    window.postMessage({ type: 'XVM_HIST_SUBS_LOAD', subscribed: changes.subscribed.newValue || [] }, '*');
+  });
+});
