@@ -33,3 +33,7 @@ body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 .xvm-status-deleted { background: #fde7e7; color: #d12d2d; }
 #xvm-h-chart { padding: 12px 0; }
 .xvm-chart { max-width: 100%; }
+.xvm-h-blogger-archived { opacity: 0.55; }
+.xvm-h-blogger-archived:hover { opacity: 1; }
+.xvm-h-empty-side { padding: 16px 8px; font-size: 12px; color: #536471; line-height: 1.5; }
+.xvm-h-empty strong { color: #0f1419; }

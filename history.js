@@ -15,6 +15,7 @@ async function rpc(message) {
 const state = {
   tweets: [],
   lastByTweet: new Map(),
+  subscribed: [],
   filter: { handle: '', sort: 'velocity', range: 'all', status: 'all', search: '' },
 };
 
@@ -53,16 +54,28 @@ function applyFilter() {
 function renderBloggers() {
   const counts = new Map();
   for (const t of state.tweets) counts.set(t.author, (counts.get(t.author) || 0) + 1);
+  // Ensure every subscribed handle appears, even with 0 tweets
+  for (const h of state.subscribed) if (!counts.has(h)) counts.set(h, 0);
+
   document.querySelector('[data-count="all"]').textContent = state.tweets.length;
   document.querySelector('.xvm-h-blogger-all').classList.toggle('active', state.filter.handle === '');
+
   const root = document.getElementById('xvm-h-blogger-list');
   root.innerHTML = '';
-  for (const [handle, n] of [...counts.entries()].sort()) {
+  if (counts.size === 0) {
+    root.innerHTML = '<div class="xvm-h-empty-side">No subscriptions yet. Hover any tweet\'s velocity badge on x.com → click ☆ Track.</div>';
+    return;
+  }
+  const handles = [...counts.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  for (const [handle, n] of handles) {
+    const subscribed = state.subscribed.includes(handle);
     const el = document.createElement('div');
     el.className = 'xvm-h-blogger';
     if (handle === state.filter.handle) el.classList.add('active');
+    if (!subscribed) el.classList.add('xvm-h-blogger-archived');
     el.dataset.handle = handle;
-    el.innerHTML = `@${handle}<span class="count">${n}</span>`;
+    const tag = subscribed ? '★' : '';
+    el.innerHTML = `<span>${tag} @${escapeHtml(handle)}</span><span class="count">${n}</span>`;
     el.addEventListener('click', () => { state.filter.handle = handle; renderAll(); });
     root.appendChild(el);
   }
@@ -84,7 +97,15 @@ async function renderList() {
   list.innerHTML = '';
   const rows = applyFilter();
   if (rows.length === 0) {
-    list.innerHTML = '<div class="xvm-h-empty">No tracked tweets yet. Subscribe to a blogger from any tweet (☆ button) and wait for X to refresh.</div>';
+    let msg;
+    if (state.subscribed.length === 0) {
+      msg = `<strong>No subscriptions yet.</strong><br>Go to x.com or pro.x.com, hover any tweet's velocity badge, then click "☆ Track @handle" in the popup.`;
+    } else if (state.tweets.length === 0) {
+      msg = `<strong>Subscribed to ${state.subscribed.length} blogger(s) but no tweets captured yet.</strong><br>Open the blogger's profile or wait for the timeline to refresh — the extension records tweets as they pass through GraphQL responses. Tweets you've already seen this session should replay automatically when you (re-)subscribe.`;
+    } else {
+      msg = `<strong>${state.tweets.length} tweet(s) in history, but none match the current filters.</strong><br>Try changing the sort, range, or status filter, or click "★ All" in the sidebar.`;
+    }
+    list.innerHTML = `<div class="xvm-h-empty">${msg}</div>`;
     return;
   }
   for (const t of rows) {
@@ -150,9 +171,11 @@ function renderAll() { renderBloggers(); renderList(); }
 
 async function refresh() {
   console.debug('[XVM-HIST] refreshing dashboard');
+  const subsResult = await chrome.storage.sync.get({ subscribed: [] });
+  state.subscribed = Array.isArray(subsResult.subscribed) ? subsResult.subscribed : [];
   const r = await rpc({ type: 'XVM_HIST_LIST_TWEETS' });
   state.tweets = r?.tweets || [];
-  console.debug('[XVM-HIST] loaded', state.tweets.length, 'tweets');
+  console.debug('[XVM-HIST] loaded', state.tweets.length, 'tweets,', state.subscribed.length, 'subscriptions');
   state.lastByTweet.clear();
   await Promise.all(state.tweets.map(async (t) => {
     try {
@@ -223,6 +246,10 @@ async function exportCsv() {
 }
 
 document.getElementById('xvm-h-export').addEventListener('click', exportCsv);
+document.getElementById('xvm-h-refresh').addEventListener('click', () => {
+  console.debug('[XVM-HIST] manual refresh');
+  refresh();
+});
 
 refresh();
 chrome.storage.onChanged.addListener((_c, area) => { if (area === 'sync') refresh(); });
