@@ -22,3 +22,14 @@ body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 #xvm-h-add-blogger { width: 100%; margin-top: 16px; padding: 8px; background: #fff; border: 1px dashed #cfd9de; border-radius: 6px; cursor: pointer; color: #536471; }
 #xvm-h-add-blogger:hover { background: #f7f9f9; }
 .xvm-h-empty { padding: 40px 20px; text-align: center; color: #536471; }
+.xvm-h-back-btn { padding: 6px 12px; border: 1px solid #cfd9de; background: #fff; border-radius: 6px; cursor: pointer; margin-bottom: 12px; }
+.xvm-h-back-btn:hover { background: #f7f9f9; }
+#xvm-h-detail-meta h2 { margin: 0 0 8px; font-size: 18px; }
+.xvm-h-detail-text { font-size: 15px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word; padding: 8px 0; }
+.xvm-h-detail-stats { display: flex; gap: 16px; align-items: center; padding: 8px 0; border-bottom: 1px solid #eff3f4; }
+.xvm-status { font-size: 12px; padding: 2px 8px; border-radius: 10px; }
+.xvm-status-active { background: #e6f6ec; color: #00ba7c; }
+.xvm-status-frozen { background: #f0f3f4; color: #536471; }
+.xvm-status-deleted { background: #fde7e7; color: #d12d2d; }
+#xvm-h-chart { padding: 12px 0; }
+.xvm-chart { max-width: 100%; }

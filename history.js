@@ -115,7 +115,35 @@ function escapeHtml(s) {
 
 async function openDetail(tweetId) {
   console.debug('[XVM-HIST] open detail', tweetId);
-  alert('detail view — implemented in Task 11. tweet: ' + tweetId);
+  const list = document.getElementById('xvm-h-list');
+  const detail = document.getElementById('xvm-h-detail');
+  list.hidden = true;
+  detail.hidden = false;
+  detail.innerHTML = `
+    <button id="xvm-h-back" class="xvm-h-back-btn">← Back</button>
+    <div id="xvm-h-detail-meta"></div>
+    <div id="xvm-h-chart"></div>`;
+  document.getElementById('xvm-h-back').addEventListener('click', () => {
+    state.filter.search = state.filter.search; // no-op, but keep state coherent
+    renderList();
+  });
+  const [{ tweet }, { samples }] = await Promise.all([
+    rpc({ type: 'XVM_HIST_GET_TWEET', tweetId }),
+    rpc({ type: 'XVM_HIST_GET_SAMPLES', tweetId }),
+  ]);
+  const last = samples?.[samples.length - 1];
+  document.getElementById('xvm-h-detail-meta').innerHTML = `
+    <h2>@${tweet?.author || '?'} · ${tweet?.created_at ? new Date(tweet.created_at).toLocaleString() : ''}</h2>
+    <p class="xvm-h-detail-text">${escapeHtml((tweet?.text || '').slice(0, 800))}</p>
+    <p class="xvm-h-detail-stats">
+      <span>👁 ${last?.impressions ?? 0}</span>
+      <span>❤ ${last?.likes ?? 0}</span>
+      <span>↻ ${last?.retweets ?? 0}</span>
+      <span>💬 ${last?.replies ?? 0}</span>
+      <span class="xvm-status xvm-status-${tweet?.status || 'active'}">${tweet?.status || 'active'}</span>
+    </p>`;
+  const { renderChart } = await import('./lib/chart.js');
+  renderChart(document.getElementById('xvm-h-chart'), samples || []);
 }
 
 function renderAll() { renderBloggers(); renderList(); }
