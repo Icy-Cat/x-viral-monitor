@@ -4,7 +4,11 @@
   "version": "1.5.0",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
-  "permissions": ["storage"],
+  "permissions": ["storage", "tabs"],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "__MSG_extName__"
@@ -26,6 +30,12 @@
       "css": ["styles.css"],
       "run_at": "document_start",
       "world": "MAIN"
+    }
+  ],
+  "web_accessible_resources": [
+    {
+      "resources": ["history.html", "history.js", "history.css", "lib/chart.js"],
+      "matches": ["<all_urls>"]
     }
   ]
 }
