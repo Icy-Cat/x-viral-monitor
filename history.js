@@ -114,7 +114,7 @@ async function renderList() {
     card.className = 'xvm-h-card';
     card.innerHTML = `
       <div class="meta">@${t.author} · ${new Date(t.created_at).toLocaleString()}</div>
-      <div class="text">${escapeHtml((t.text || '').slice(0, 240))}</div>
+      <div class="text">${(t.text || '').trim() ? escapeHtml(t.text.slice(0, 240)) : '<span class="xvm-h-empty-text">[empty text — possibly media-only tweet]</span>'}</div>
       <div class="stats">
         <span>👁 ${last?.impressions ?? 0}</span>
         <span>❤ ${last?.likes ?? 0}</span>
@@ -155,7 +155,7 @@ async function openDetail(tweetId) {
   const last = samples?.[samples.length - 1];
   document.getElementById('xvm-h-detail-meta').innerHTML = `
     <h2>@${tweet?.author || '?'} · ${tweet?.created_at ? new Date(tweet.created_at).toLocaleString() : ''}</h2>
-    <p class="xvm-h-detail-text">${escapeHtml((tweet?.text || '').slice(0, 800))}</p>
+    <p class="xvm-h-detail-text">${(tweet?.text || '').trim() ? escapeHtml(tweet.text.slice(0, 800)) : '<span class="xvm-h-empty-text">[empty text — possibly media-only tweet]</span>'}</p>
     <p class="xvm-h-detail-stats">
       <span>👁 ${last?.impressions ?? 0}</span>
       <span>❤ ${last?.likes ?? 0}</span>
