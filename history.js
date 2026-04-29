@@ -84,8 +84,22 @@ function renderBloggers() {
 function spark(samples) {
   if (!samples?.length) return '';
   const w = 80, h = 24;
-  const max = Math.max(...samples.map((s) => s.impressions), 1);
-  const pts = samples.map((s, i) => [i * w / Math.max(1, samples.length - 1), h - (s.impressions / max) * h]);
+  const imps = samples.map((s) => s.impressions);
+  const max = Math.max(...imps);
+  const min = Math.min(...imps);
+  if (samples.length === 1 || max === min) {
+    const dots = samples.map((s, i) => {
+      const x = samples.length === 1 ? w / 2 : i * w / (samples.length - 1);
+      return `<circle cx="${x}" cy="${h / 2}" r="2" fill="#1d9bf0"/>`;
+    }).join('');
+    return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}">${dots}</svg>`;
+  }
+  const pts = samples.map((s, i) => {
+    const x = i * w / (samples.length - 1);
+    const yNorm = (s.impressions - min) / (max - min);
+    const y = (h - 2) - yNorm * (h - 4);
+    return [x.toFixed(1), y.toFixed(1)];
+  });
   return `<svg class="spark" viewBox="0 0 ${w} ${h}" width="${w}" height="${h}"><polyline fill="none" stroke="#1d9bf0" stroke-width="1.5" points="${pts.map((p) => p.join(',')).join(' ')}"/></svg>`;
 }
 
