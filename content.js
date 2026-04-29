@@ -17,9 +17,13 @@ window.addEventListener('message', (e) => {
   if (e.data?.type !== 'XVM_HIST_SUBS_LOAD') return;
   subscribedHandles = Array.isArray(e.data.subscribed) ? e.data.subscribed : [];
   console.debug('[XVM-HIST] subscriptions updated:', subscribedHandles);
-  document.querySelectorAll('article[data-xvm-sub-rendered]').forEach((a) => a.removeAttribute('data-xvm-sub-rendered'));
-  document.querySelectorAll('.xvm-sub-btn').forEach((b) => b.remove());
-  renderSubscribeButtons();
+  // Update any subscribe buttons that are currently visible in an open popup
+  document.querySelectorAll('.xvm-sub-btn').forEach((b) => {
+    const h = b.dataset.handle;
+    if (!h) return;
+    b.textContent = isHandleSubscribed(h) ? `★ Tracking @${h} (click to untrack)` : `☆ Track @${h}`;
+    b.classList.toggle('xvm-sub-on', isHandleSubscribed(h));
+  });
 });
 
 const DEFAULT_THRESHOLDS = {
@@ -86,7 +90,6 @@ window.addEventListener('message', (event) => {
     badge.remove();
   });
   renderBadges();
-  renderSubscribeButtons();
 
   const nextLb = !!event.data.featureVelocityLeaderboard;
   const nextCount = Number.isFinite(event.data.leaderboardCount) ? event.data.leaderboardCount : 10;
@@ -254,7 +257,7 @@ function scanForTweets(obj) {
     }
   }
 
-  if (found) { renderBadges(); renderSubscribeButtons(); }
+  if (found) { renderBadges(); }
 }
 
 function extractTweetData(result) {
@@ -493,6 +496,9 @@ function getTooltip() {
   if (!tooltipEl) {
     tooltipEl = document.createElement('div');
     tooltipEl.className = 'xvm-tooltip';
+    tooltipEl.addEventListener('mouseleave', () => {
+      tooltipEl.style.display = 'none';
+    });
     document.body.appendChild(tooltipEl);
   }
   return tooltipEl;
@@ -510,35 +516,29 @@ function findArticleHandle(article) {
   return null;
 }
 
-function renderSubscribeButtons() {
-  const articles = document.querySelectorAll('article');
-  let added = 0;
-  articles.forEach((article) => {
-    if (article.dataset.xvmSubRendered) return;
-    const handle = findArticleHandle(article);
-    if (!handle) return;
-    const anchor = article.querySelector('a[role="link"][href^="/"]');
-    if (!anchor || !anchor.parentElement) return;
-    const btn = document.createElement('button');
-    btn.className = 'xvm-sub-btn';
-    btn.dataset.handle = handle;
-    btn.title = `Track @${handle}`;
-    btn.textContent = isHandleSubscribed(handle) ? '★' : '☆';
+function buildSubscribeButton(handle) {
+  const btn = document.createElement('button');
+  btn.className = 'xvm-sub-btn xvm-sub-btn-wide';
+  btn.dataset.handle = handle;
+  const sync = () => {
+    btn.textContent = isHandleSubscribed(handle)
+      ? `★ Tracking @${handle} (click to untrack)`
+      : `☆ Track @${handle}`;
     btn.classList.toggle('xvm-sub-on', isHandleSubscribed(handle));
-    btn.addEventListener('click', (ev) => {
-      ev.stopPropagation();
-      ev.preventDefault();
-      const next = isHandleSubscribed(handle)
-        ? subscribedHandles.filter((h) => h !== handle)
-        : [...subscribedHandles, handle];
-      console.debug('[XVM-HIST] toggle subscription for', handle, '->', next);
-      window.postMessage({ type: 'XVM_HIST_SUBS_SET', subscribed: next }, '*');
-    });
-    anchor.parentElement.appendChild(btn);
-    article.dataset.xvmSubRendered = '1';
-    added++;
+  };
+  sync();
+  btn.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    ev.preventDefault();
+    const next = isHandleSubscribed(handle)
+      ? subscribedHandles.filter((h) => h !== handle)
+      : [...subscribedHandles, handle];
+    console.debug('[XVM-HIST] toggle subscription via popup:', handle, '->', next);
+    subscribedHandles = next; // optimistic local update so the click feels instant
+    sync();
+    window.postMessage({ type: 'XVM_HIST_SUBS_SET', subscribed: next }, '*');
   });
-  if (added > 0) console.debug('[XVM-HIST] subscribe buttons rendered:', added);
+  return btn;
 }
 
 // === Badge Rendering ===
@@ -596,7 +596,19 @@ function renderBadges() {
 
     badge.addEventListener('mouseenter', () => {
       const tip = getTooltip();
-      tip.textContent = tooltipContent;
+      // Build tooltip content as DOM nodes so the subscribe button is interactive
+      tip.innerHTML = '';
+      const textNode = document.createElement('div');
+      textNode.className = 'xvm-tooltip-stats';
+      textNode.textContent = tooltipContent;
+      tip.appendChild(textNode);
+      const tipArticle = badge.closest('article');
+      if (tipArticle) {
+        const tipHandle = findArticleHandle(tipArticle);
+        if (tipHandle) {
+          tip.appendChild(buildSubscribeButton(tipHandle));
+        }
+      }
       const rect = badge.getBoundingClientRect();
       tip.style.display = 'block';
       tip.style.top = (rect.bottom + 6) + 'px';
@@ -609,8 +621,10 @@ function renderBadges() {
       tip.style.left = left + 'px';
     });
 
-    badge.addEventListener('mouseleave', () => {
+    badge.addEventListener('mouseleave', (e) => {
       const tip = getTooltip();
+      // Don't hide if mouse is moving into the tooltip itself
+      if (tip.contains(e.relatedTarget)) return;
       tip.style.display = 'none';
     });
 
@@ -1189,7 +1203,6 @@ setInterval(() => {
   const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
   if (unscored.length > 0) {
     renderBadges();
-    renderSubscribeButtons();
   } else if (leaderboardEnabled) {
     renderLeaderboard();
   }
@@ -1217,7 +1230,6 @@ const observer = new MutationObserver((mutations) => {
   }
   if (hasNewArticles) {
     renderBadges();
-    renderSubscribeButtons();
   }
 });
 

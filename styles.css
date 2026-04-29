@@ -53,11 +53,12 @@
   font-size: 12px;
   padding: 10px 12px;
   border-radius: 8px;
-  white-space: pre-line;
   line-height: 1.6;
   min-width: 160px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
+}
+.xvm-tooltip-stats {
+  white-space: pre-line;
 }
 
 .xvm-lb {
@@ -1114,7 +1115,7 @@ article[data-testid="tweet"].xvm-article-linked {
   padding: 20px 0;
 }
 
-/* === Inline subscribe button (☆/★) on timeline tweets === */
+/* === Subscribe button (☆/★) — base styles shared between variants === */
 .xvm-sub-btn {
   background: transparent;
   border: none;
@@ -1127,3 +1128,25 @@ article[data-testid="tweet"].xvm-article-linked {
 }
 .xvm-sub-btn:hover { color: #1d9bf0; }
 .xvm-sub-btn.xvm-sub-on { color: #f5a623; }
+
+/* === Wide popup variant of the subscribe button === */
+.xvm-sub-btn-wide {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  background: rgba(29, 155, 240, 0.08);
+  border: 1px solid rgba(29, 155, 240, 0.3);
+  border-radius: 8px;
+  color: #1d9bf0;
+  text-align: center;
+  cursor: pointer;
+}
+.xvm-sub-btn-wide:hover { background: rgba(29, 155, 240, 0.15); }
+.xvm-sub-btn-wide.xvm-sub-on {
+  background: rgba(245, 166, 35, 0.1);
+  border-color: rgba(245, 166, 35, 0.4);
+  color: #d6890b;
+}
+.xvm-sub-btn-wide.xvm-sub-on:hover { background: rgba(245, 166, 35, 0.2); }
