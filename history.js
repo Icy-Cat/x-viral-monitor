@@ -181,5 +181,48 @@ document.getElementById('xvm-h-add-blogger').addEventListener('click', async () 
   console.debug('[XVM-HIST] added subscription', h);
 });
 
+function csvEscape(v) {
+  const s = String(v ?? '');
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+async function exportCsv() {
+  console.debug('[XVM-HIST] exporting CSV for', state.tweets.length, 'tweets');
+  const rows = [['tweet_id', 'author', 'text', 'created_at', 'ts', 'impressions', 'likes', 'retweets', 'replies', 'bookmarks', 'd_likes', 'd_retweets', 'd_replies', 'd_bookmarks']];
+  for (const t of state.tweets) {
+    try {
+      const { samples } = await rpc({ type: 'XVM_HIST_GET_SAMPLES', tweetId: t.tweet_id });
+      for (const s of samples || []) {
+        rows.push([
+          t.tweet_id,
+          t.author,
+          (t.text || '').replace(/\s+/g, ' '),
+          new Date(t.created_at).toISOString(),
+          new Date(s.ts).toISOString(),
+          s.impressions, s.likes, s.retweets, s.replies, s.bookmarks,
+          s.d_likes ?? 0, s.d_retweets ?? 0, s.d_replies ?? 0, s.d_bookmarks ?? 0,
+        ]);
+      }
+    } catch (e) {
+      console.error('[XVM-HIST] export: failed to fetch samples for', t.tweet_id, e);
+    }
+  }
+  // Prepend BOM for Excel compatibility on Windows
+  const csv = '﻿' + rows.map((r) => r.map(csvEscape).join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `xvm-history-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-')}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  console.debug('[XVM-HIST] CSV download triggered:', a.download);
+}
+
+document.getElementById('xvm-h-export').addEventListener('click', exportCsv);
+
 refresh();
 chrome.storage.onChanged.addListener((_c, area) => { if (area === 'sync') refresh(); });
