@@ -23,15 +23,31 @@ window.postMessage({ type: 'XVM_HIST_SUBS_REQUEST' }, '*');
 window.addEventListener('message', (e) => {
   if (e.source !== window) return;
   if (e.data?.type !== 'XVM_HIST_SUBS_LOAD') return;
-  subscribedHandles = Array.isArray(e.data.subscribed) ? e.data.subscribed : [];
-  console.debug('[XVM-HIST] subscriptions updated:', subscribedHandles);
-  // Update any subscribe buttons that are currently visible in an open popup
+  const previous = subscribedHandles;
+  const next = Array.isArray(e.data.subscribed) ? e.data.subscribed : [];
+  subscribedHandles = next;
+  const added = next.filter((h) => !previous.includes(h));
+  console.debug('[XVM-HIST] subscriptions updated:', next, 'added=', added);
+
+  // Update any subscribe buttons currently rendered
   document.querySelectorAll('.xvm-sub-btn').forEach((b) => {
     const h = b.dataset.handle;
     if (!h) return;
     b.textContent = isHandleSubscribed(h) ? `★ Tracking @${h} (click to untrack)` : `☆ Track @${h}`;
     b.classList.toggle('xvm-sub-on', isHandleSubscribed(h));
   });
+
+  // Replay cached tweets for newly-added handles so the dashboard sees existing data immediately
+  if (added.length > 0 && tweetDataStore.size > 0) {
+    let replayed = 0;
+    for (const data of tweetDataStore.values()) {
+      if (data?.author && added.includes(data.author)) {
+        postObserveSample(data);
+        replayed++;
+      }
+    }
+    if (replayed > 0) console.debug('[XVM-HIST] replayed', replayed, 'cached tweets for newly-added handles');
+  }
 });
 
 const DEFAULT_THRESHOLDS = {
