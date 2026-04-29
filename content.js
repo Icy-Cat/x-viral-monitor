@@ -38,14 +38,19 @@ window.addEventListener('message', (e) => {
   });
 
   // Replay cached tweets for newly-added handles so the dashboard sees existing data immediately
-  if (added.length > 0 && tweetDataStore.size > 0) {
+  if (added.length > 0) {
+    // Replay by walking visible articles — same DOM path renderBadges uses.
     let replayed = 0;
-    for (const data of tweetDataStore.values()) {
-      if (data?.author && added.includes(data.author)) {
-        postObserveSample(data);
-        replayed++;
-      }
-    }
+    document.querySelectorAll('article[data-testid="tweet"]').forEach((article) => {
+      const tweetId = getTweetIdFromArticle(article);
+      if (!tweetId) return;
+      const data = tweetDataStore.get(tweetId);
+      if (!data) return;
+      const handle = findArticleHandle(article);
+      if (!handle || !added.includes(handle)) return;
+      postObserveSample({ ...data, author: handle });
+      replayed++;
+    });
     if (replayed > 0) console.debug('[XVM-HIST] replayed', replayed, 'cached tweets for newly-added handles');
   }
 });
@@ -266,7 +271,6 @@ function scanForTweets(obj) {
     if (data) {
       tweetDataStore.set(data.id, data);
       found = true;
-      postObserveSample(data);
     }
   }
 
@@ -333,15 +337,6 @@ function extractTweetData(result) {
     }
   }
 
-  const userResult =
-    tweet.core?.user_results?.result ||
-    result.core?.user_results?.result ||
-    null;
-  const userLegacy = userResult?.legacy || {};
-  const author = userLegacy.screen_name ? userLegacy.screen_name.toLowerCase() : '';
-  const authorName = userLegacy.name || '';
-  const authorAvatar = userLegacy.profile_image_url_https || '';
-
   return {
     id: legacy.id_str,
     views: viewCount,
@@ -354,9 +349,6 @@ function extractTweetData(result) {
     urlMap,
     articleMd,
     articleTitle,
-    author,
-    authorName,
-    authorAvatar,
   };
 }
 
@@ -569,13 +561,18 @@ function buildSubscribeButton(handle) {
 function renderBadges() {
   const articles = document.querySelectorAll('article[data-testid="tweet"]');
   for (const article of articles) {
-    if (article.hasAttribute('data-xvm-scored')) continue;
-
     const tweetId = getTweetIdFromArticle(article);
     if (!tweetId) continue;
-
     const data = tweetDataStore.get(tweetId);
     if (!data) continue;
+
+    // Always dispatch observe (even for already-scored articles) so subscription
+    // changes and metric updates are recorded. The SW deduplicates via the
+    // sampler's interval/event logic.
+    const handle = findArticleHandle(article);
+    if (handle) postObserveSample({ ...data, author: handle });
+
+    if (article.hasAttribute('data-xvm-scored')) continue;
 
     // Find header row before marking scored — if DOM isn't ready, skip and retry later
     const caretBtn = article.querySelector('[data-testid="caret"]');
