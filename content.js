@@ -2,7 +2,15 @@
 const tweetDataStore = new Map();
 
 function postObserveSample(data) {
-  if (!data?.id || !data?.author) return;
+  if (!data?.id) {
+    console.debug('[XVM-HIST] observe skipped: no tweet id');
+    return;
+  }
+  if (!data?.author) {
+    console.debug('[XVM-HIST] observe skipped: no author for tweet', data.id, data);
+    return;
+  }
+  console.debug('[XVM-HIST] observe →', data.author, data.id, 'views=', data.views, 'likes=', data.likes);
   window.postMessage({ type: 'XVM_HIST_OBSERVE', tweet: data }, '*');
 }
 

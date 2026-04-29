@@ -287,8 +287,12 @@ window.addEventListener('message', (event) => {
   }
   if (data.type === 'XVM_HIST_OBSERVE') {
     safeChromeCall(() => {
-      chrome.runtime.sendMessage({ type: 'XVM_HIST_OBSERVE', tweet: data.tweet }, () => {
-        if (chrome.runtime.lastError) { /* worker dead, ignore */ }
+      chrome.runtime.sendMessage({ type: 'XVM_HIST_OBSERVE', tweet: data.tweet }, (resp) => {
+        if (chrome.runtime.lastError) {
+          console.debug('[XVM-HIST] bridge: SW lastError forwarding observe:', chrome.runtime.lastError.message);
+          return;
+        }
+        console.debug('[XVM-HIST] bridge: SW response for', data.tweet?.id, '→', resp);
       });
     });
     return;

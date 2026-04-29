@@ -1,6 +1,8 @@
 import { openDb, upsertTweet, putSample, getTweet, listTweets, getSamples, getLastSample } from './lib/db.js';
 import { decide, MAX_TRACK_AGE_MS } from './lib/sampler.js';
 
+console.debug('[XVM-HIST][SW] background service worker booted');
+
 let dbPromise = null;
 function db() { return dbPromise || (dbPromise = openDb()); }
 
@@ -11,12 +13,21 @@ function parseCreatedAt(raw) {
 }
 
 async function observe({ tweet, subscribed }) {
-  if (!tweet?.id || !tweet?.author) return { written: false, reason: 'invalid' };
+  if (!tweet?.id || !tweet?.author) {
+    console.debug('[XVM-HIST][SW] observe rejected: missing id or author', { id: tweet?.id, author: tweet?.author });
+    return { written: false, reason: 'invalid' };
+  }
   const author = String(tweet.author).toLowerCase();
-  if (!subscribed.includes(author)) return { written: false, reason: 'not-subscribed' };
+  if (!subscribed.includes(author)) {
+    console.debug('[XVM-HIST][SW] observe rejected: not subscribed', author, 'subs=', subscribed);
+    return { written: false, reason: 'not-subscribed' };
+  }
 
   const createdAt = parseCreatedAt(tweet.createdAt);
-  if (!createdAt) return { written: false, reason: 'no-created-at' };
+  if (!createdAt) {
+    console.debug('[XVM-HIST][SW] observe rejected: no created_at', tweet.id, 'raw=', tweet.createdAt);
+    return { written: false, reason: 'no-created-at' };
+  }
   const now = Date.now();
   const ageMs = now - createdAt;
 
@@ -28,11 +39,14 @@ async function observe({ tweet, subscribed }) {
     ageMs,
     nowMs: now,
   });
+  console.debug('[XVM-HIST][SW] decision for', tweet.id, '@'+author, '→', decision.reason, 'shouldWrite=', decision.shouldWrite, 'ageH=', (ageMs/3600000).toFixed(1));
+
   if (!decision.shouldWrite) {
     if (decision.reason === 'aged-out') {
       const existing = await getTweet(d, tweet.id);
       if (existing && existing.status !== 'frozen') {
         await upsertTweet(d, { ...existing, status: 'frozen' });
+        console.debug('[XVM-HIST][SW] froze aged-out tweet', tweet.id);
       }
     }
     return { written: false, reason: decision.reason };
@@ -60,6 +74,7 @@ async function observe({ tweet, subscribed }) {
     bookmarks: tweet.bookmarks || 0,
     ...decision.deltas,
   });
+  console.debug('[XVM-HIST][SW] WROTE sample for', tweet.id, '@'+author, 'reason=', decision.reason, 'views=', tweet.views);
   return { written: true, reason: decision.reason };
 }
 
