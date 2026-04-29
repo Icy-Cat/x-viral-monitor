@@ -195,11 +195,20 @@ async function openDetail(tweetId) {
   list.hidden = true;
   detail.hidden = false;
   detail.innerHTML = `
-    <button id="xvm-h-back" class="xvm-h-back-btn">← Back</button>
+    <div class="xvm-h-detail-actions">
+      <button id="xvm-h-back" class="xvm-h-back-btn">← Back</button>
+      <button id="xvm-h-delete-tweet" class="xvm-h-danger-btn">Delete this tweet's history</button>
+    </div>
     <div id="xvm-h-detail-meta"></div>
     <div id="xvm-h-chart"></div>`;
   document.getElementById('xvm-h-back').addEventListener('click', () => {
     state.filter.search = state.filter.search; // no-op, but keep state coherent
+    renderList();
+  });
+  document.getElementById('xvm-h-delete-tweet').addEventListener('click', async () => {
+    if (!confirm('Delete this tweet\'s history? Subscription kept; future tweets still captured.')) return;
+    await rpc({ type: 'XVM_HIST_DELETE_TWEET', tweetId });
+    await refresh();
     renderList();
   });
   const [{ tweet }, { samples }] = await Promise.all([
@@ -316,3 +325,75 @@ document.getElementById('xvm-h-refresh').addEventListener('click', () => {
 
 refresh();
 chrome.storage.onChanged.addListener((_c, area) => { if (area === 'sync') refresh(); });
+
+async function openSettings() {
+  const modal = document.getElementById('xvm-h-modal');
+  modal.hidden = false;
+  // Stats
+  try {
+    const stats = await rpc({ type: 'XVM_HIST_STATS' });
+    const el = document.getElementById('xvm-h-stats');
+    const usage = stats.storage?.usage;
+    const usageStr = usage != null ? `${(usage / (1024 * 1024)).toFixed(2)} MB` : 'unknown';
+    el.innerHTML = `
+      <div><strong>${stats.tweets}</strong> tracked tweets</div>
+      <div><strong>${stats.samples}</strong> samples recorded</div>
+      <div>Storage usage: <strong>${usageStr}</strong></div>
+    `;
+  } catch (e) {
+    document.getElementById('xvm-h-stats').textContent = 'Failed to load stats: ' + e.message;
+  }
+  // Subscriptions list with per-handle clear button
+  const sl = document.getElementById('xvm-h-subs-list');
+  sl.innerHTML = '';
+  // Aggregate handles from both subscribed list and tweets table
+  const allHandles = new Set([...state.subscribed, ...state.tweets.map((t) => t.author)]);
+  if (allHandles.size === 0) {
+    sl.innerHTML = '<div class="xvm-h-help">No subscriptions or captured tweets.</div>';
+  } else {
+    for (const h of [...allHandles].sort()) {
+      const tweetCount = state.tweets.filter((t) => t.author === h).length;
+      const isSubbed = state.subscribed.includes(h);
+      const row = document.createElement('div');
+      row.className = 'xvm-h-subs-row';
+      row.innerHTML = `
+        <div class="xvm-h-subs-row-info">
+          <span>${isSubbed ? '★' : '☆'} @${escapeHtml(h)}</span>
+          <span class="xvm-h-help">${tweetCount} tweet(s)</span>
+        </div>
+        <div class="xvm-h-subs-row-actions">
+          ${isSubbed ? `<button data-action="untrack" data-handle="${escapeHtml(h)}">Untrack</button>` : ''}
+          ${tweetCount > 0 ? `<button data-action="clear" data-handle="${escapeHtml(h)}" class="xvm-h-danger-btn">Clear history</button>` : ''}
+        </div>`;
+      sl.appendChild(row);
+    }
+    sl.querySelectorAll('button[data-action]').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const action = btn.dataset.action;
+        const handle = btn.dataset.handle;
+        if (action === 'untrack') {
+          if (!confirm(`Untrack @${handle}?`)) return;
+          const cur = await chrome.storage.sync.get({ subscribed: [] });
+          await chrome.storage.sync.set({ subscribed: (cur.subscribed || []).filter((x) => x !== handle) });
+          openSettings();
+        } else if (action === 'clear') {
+          if (!confirm(`Delete all captured tweets for @${handle}? This cannot be undone.`)) return;
+          await rpc({ type: 'XVM_HIST_DELETE_BY_AUTHOR', author: handle });
+          await refresh();
+          openSettings();
+        }
+      });
+    });
+  }
+}
+
+document.getElementById('xvm-h-settings').addEventListener('click', openSettings);
+document.getElementById('xvm-h-modal-close').addEventListener('click', () => { document.getElementById('xvm-h-modal').hidden = true; });
+document.querySelector('#xvm-h-modal .xvm-h-modal-backdrop').addEventListener('click', () => { document.getElementById('xvm-h-modal').hidden = true; });
+document.getElementById('xvm-h-clear-all').addEventListener('click', async () => {
+  if (!confirm('Clear ALL history? This deletes every tracked tweet and sample. Subscriptions are kept. Cannot be undone.')) return;
+  await rpc({ type: 'XVM_HIST_CLEAR_ALL' });
+  alert('All history cleared.');
+  document.getElementById('xvm-h-modal').hidden = true;
+  await refresh();
+});

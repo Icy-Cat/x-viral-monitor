@@ -74,3 +74,23 @@ body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 }
 .xvm-h-blogger:hover .xvm-h-untrack { opacity: 1; }
 .xvm-h-untrack:hover { background: #fde7e7; color: #d12d2d; }
+
+.xvm-h-modal { position: fixed; inset: 0; z-index: 100; }
+.xvm-h-modal-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+.xvm-h-modal-panel { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border-radius: 12px; min-width: 480px; max-width: 700px; max-height: 80vh; overflow: auto; box-shadow: 0 24px 48px rgba(0,0,0,0.2); }
+.xvm-h-modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid #eff3f4; }
+.xvm-h-modal-head h2 { margin: 0; font-size: 18px; }
+#xvm-h-modal-close { background: transparent; border: none; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; }
+.xvm-h-modal-body { padding: 16px 20px; }
+.xvm-h-modal-body section { margin-bottom: 24px; }
+.xvm-h-modal-body section h3 { margin: 0 0 8px; font-size: 14px; color: #536471; text-transform: uppercase; letter-spacing: 0.04em; }
+.xvm-h-stats { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+.xvm-h-help { color: #536471; font-size: 12px; margin-top: 4px; }
+.xvm-h-subs-list { display: flex; flex-direction: column; gap: 6px; }
+.xvm-h-subs-row { display: flex; justify-content: space-between; align-items: center; padding: 8px 12px; border: 1px solid #eff3f4; border-radius: 8px; }
+.xvm-h-subs-row-info { display: flex; flex-direction: column; }
+.xvm-h-subs-row-actions { display: flex; gap: 6px; }
+.xvm-h-subs-row-actions button { padding: 4px 10px; font-size: 12px; border: 1px solid #cfd9de; background: #fff; border-radius: 6px; cursor: pointer; }
+.xvm-h-danger-btn { background: #fff !important; color: #d12d2d !important; border: 1px solid #f8d4d4 !important; }
+.xvm-h-danger-btn:hover { background: #fde7e7 !important; }
+.xvm-h-detail-actions { display: flex; gap: 8px; align-items: center; margin-bottom: 12px; }

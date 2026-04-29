@@ -566,12 +566,31 @@ function findArticleAuthor(article) {
     }
   }
 
-  // Avatar: img inside [data-testid="Tweet-User-Avatar"] / [data-testid^="UserAvatar"]
+  // Avatar: try multiple selectors and pick whichever has a non-empty src
   let avatar = '';
-  const avatarImg = article.querySelector(
-    '[data-testid="Tweet-User-Avatar"] img, [data-testid^="UserAvatar-Container"] img, a[href^="/' + handle + '"] img[src*="profile_images"]'
-  );
-  if (avatarImg) avatar = avatarImg.getAttribute('src') || '';
+  const avatarSelectors = [
+    `[data-testid="Tweet-User-Avatar"] img`,
+    `[data-testid^="UserAvatar-Container"] img`,
+    `[data-testid^="UserAvatar"] img`,
+    `a[href^="/${handle}"] img[src*="profile_images"]`,
+    `a[href^="/${handle}/"] img`,
+    `img[src*="profile_images"][src*="${handle}"]`,
+  ];
+  for (const sel of avatarSelectors) {
+    try {
+      const img = article.querySelector(sel);
+      const src = img?.getAttribute('src') || img?.src || '';
+      if (src && src.includes('profile_images')) { avatar = src; break; }
+    } catch (_) {}
+  }
+  // If still empty, walk all img elements inside the article header area
+  if (!avatar) {
+    const allImgs = article.querySelectorAll('img');
+    for (const img of allImgs) {
+      const src = img.getAttribute('src') || img.src || '';
+      if (src && src.includes('profile_images')) { avatar = src; break; }
+    }
+  }
 
   return { handle, name, avatar };
 }

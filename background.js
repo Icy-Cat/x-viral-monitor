@@ -122,6 +122,86 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
           sendResponse({ tweet: await getTweet(await db(), msg.tweetId) });
           return;
         }
+        case 'XVM_HIST_STATS': {
+          const d = await db();
+          const tweets = await listTweets(d);
+          // Count samples across all tweets — use a transaction
+          let totalSamples = 0;
+          await new Promise((res, rej) => {
+            const tx = d.transaction(['samples'], 'readonly');
+            const req = tx.objectStore('samples').count();
+            req.onsuccess = () => { totalSamples = req.result; res(); };
+            req.onerror = () => rej(req.error);
+          });
+          let storageEstimate = null;
+          try {
+            if (navigator.storage?.estimate) {
+              const est = await navigator.storage.estimate();
+              storageEstimate = { usage: est.usage, quota: est.quota };
+            }
+          } catch (_) {}
+          sendResponse({ tweets: tweets.length, samples: totalSamples, storage: storageEstimate });
+          return;
+        }
+        case 'XVM_HIST_DELETE_TWEET': {
+          const d = await db();
+          const tx = d.transaction(['tweets', 'samples'], 'readwrite');
+          await new Promise((res, rej) => {
+            const sIdx = tx.objectStore('samples').index('by_tweet');
+            const cur = sIdx.openCursor(IDBKeyRange.only(msg.tweetId));
+            cur.onsuccess = (e) => {
+              const c = e.target.result;
+              if (c) { c.delete(); c.continue(); } else { res(); }
+            };
+            cur.onerror = () => rej(cur.error);
+          });
+          await new Promise((res, rej) => {
+            const r = tx.objectStore('tweets').delete(msg.tweetId);
+            r.onsuccess = () => res();
+            r.onerror = () => rej(r.error);
+          });
+          sendResponse({ ok: true });
+          return;
+        }
+        case 'XVM_HIST_DELETE_BY_AUTHOR': {
+          const d = await db();
+          const author = String(msg.author || '').toLowerCase();
+          const all = await listTweets(d);
+          const toDelete = all.filter((t) => t.author === author);
+          for (const t of toDelete) {
+            await new Promise((res, rej) => {
+              const tx = d.transaction(['tweets', 'samples'], 'readwrite');
+              const sIdx = tx.objectStore('samples').index('by_tweet');
+              const cur = sIdx.openCursor(IDBKeyRange.only(t.tweet_id));
+              cur.onsuccess = (e) => {
+                const c = e.target.result;
+                if (c) { c.delete(); c.continue(); } else {
+                  const r = tx.objectStore('tweets').delete(t.tweet_id);
+                  r.onsuccess = () => res();
+                  r.onerror = () => rej(r.error);
+                }
+              };
+              cur.onerror = () => rej(cur.error);
+            });
+          }
+          sendResponse({ ok: true, deleted: toDelete.length });
+          return;
+        }
+        case 'XVM_HIST_CLEAR_ALL': {
+          // Close existing connection so deletion isn't blocked, then re-open lazily
+          if (dbPromise) {
+            try { (await dbPromise).close(); } catch (_) {}
+            dbPromise = null;
+          }
+          await new Promise((res, rej) => {
+            const r = indexedDB.deleteDatabase('viral-history');
+            r.onsuccess = () => res();
+            r.onerror = () => rej(r.error);
+            r.onblocked = () => rej(new Error('blocked — close other tabs'));
+          });
+          sendResponse({ ok: true });
+          return;
+        }
         default:
           sendResponse({ error: 'unknown-type' });
       }

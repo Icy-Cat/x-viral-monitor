@@ -12,6 +12,7 @@
       <input id="xvm-h-search" type="search" placeholder="Search tweet text…">
       <button id="xvm-h-refresh" title="Reload from database">⟳ Refresh</button>
       <button id="xvm-h-export">Export CSV</button>
+      <button id="xvm-h-settings" title="Settings &amp; data management">⚙ Settings</button>
     </div>
   </header>
   <main class="xvm-h-main">
@@ -44,6 +45,30 @@
       <div id="xvm-h-detail" hidden></div>
     </section>
   </main>
+  <div id="xvm-h-modal" class="xvm-h-modal" hidden>
+    <div class="xvm-h-modal-backdrop"></div>
+    <div class="xvm-h-modal-panel">
+      <div class="xvm-h-modal-head">
+        <h2>Settings &amp; Data</h2>
+        <button id="xvm-h-modal-close" aria-label="Close">×</button>
+      </div>
+      <div class="xvm-h-modal-body">
+        <section>
+          <h3>Storage</h3>
+          <div id="xvm-h-stats" class="xvm-h-stats">Loading…</div>
+        </section>
+        <section>
+          <h3>Subscriptions</h3>
+          <div id="xvm-h-subs-list" class="xvm-h-subs-list"></div>
+        </section>
+        <section>
+          <h3>Danger zone</h3>
+          <button id="xvm-h-clear-all" class="xvm-h-danger-btn">Clear all history</button>
+          <p class="xvm-h-help">Removes all tracked tweets and samples from this device. Subscriptions are kept; future captures resume normally.</p>
+        </section>
+      </div>
+    </div>
+  </div>
   <script type="module" src="history.js"></script>
 </body>
 </html>
