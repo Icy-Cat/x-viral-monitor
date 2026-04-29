@@ -443,7 +443,12 @@ body {
   box-shadow: var(--shadow-md);
   padding: 4px;
   z-index: 50;
-  animation: pop 0.12s;
+  transform-origin: top left;
+  animation: cselect-in 0.12s ease-out;
+}
+@keyframes cselect-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
 }
 .xvm-h-cselect-option {
   display: flex; align-items: center; gap: 8px;
