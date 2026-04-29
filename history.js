@@ -82,6 +82,9 @@ function renderBloggers() {
     const avatarHtml = avatar
       ? `<img class="xvm-h-avatar" src="${escapeHtml(avatar)}" alt="">`
       : `<span class="xvm-h-avatar xvm-h-avatar-placeholder">${escapeHtml(handle.slice(0, 1).toUpperCase())}</span>`;
+    const untrackBtn = subscribed
+      ? `<button class="xvm-h-untrack" data-handle="${escapeHtml(handle)}" title="Untrack @${escapeHtml(handle)}">✕</button>`
+      : '';
     el.innerHTML = `
       <div class="xvm-h-blogger-info">
         ${avatarHtml}
@@ -90,8 +93,21 @@ function renderBloggers() {
           <div class="xvm-h-blogger-handle">@${escapeHtml(handle)}</div>
         </div>
       </div>
-      <span class="count">${n}</span>`;
+      <span class="count">${n}</span>
+      ${untrackBtn}`;
     el.addEventListener('click', () => { state.filter.handle = handle; renderAll(); });
+    const xBtn = el.querySelector('.xvm-h-untrack');
+    if (xBtn) {
+      xBtn.addEventListener('click', async (ev) => {
+        ev.stopPropagation();
+        ev.preventDefault();
+        if (!confirm(`Untrack @${handle}? Existing history will be kept; new tweets won't be captured.`)) return;
+        const cur = await chrome.storage.sync.get({ subscribed: [] });
+        const next = (cur.subscribed || []).filter((h) => h !== handle);
+        await chrome.storage.sync.set({ subscribed: next });
+        console.debug('[XVM-HIST] untracked', handle);
+      });
+    }
     root.appendChild(el);
   }
 }

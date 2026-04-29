@@ -58,3 +58,19 @@ body { margin: 0; font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
 .xvm-h-detail-avatar { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; background: #eff3f4; }
 .xvm-h-detail-handle { font-size: 14px; color: #536471; margin-top: 2px; }
 #xvm-h-detail-meta h2 { margin: 0; font-size: 20px; }
+
+.xvm-h-untrack {
+  background: transparent;
+  border: none;
+  color: #aab8c2;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 2px 6px;
+  margin-left: 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.xvm-h-blogger:hover .xvm-h-untrack { opacity: 1; }
+.xvm-h-untrack:hover { background: #fde7e7; color: #d12d2d; }
