@@ -6,6 +6,22 @@ function postObserveSample(data) {
   window.postMessage({ type: 'XVM_HIST_OBSERVE', tweet: data }, '*');
 }
 
+let subscribedHandles = [];
+function isHandleSubscribed(h) { return !!h && subscribedHandles.includes(String(h).toLowerCase()); }
+
+console.debug('[XVM-HIST] content.js loaded, requesting subscription list');
+window.postMessage({ type: 'XVM_HIST_SUBS_REQUEST' }, '*');
+
+window.addEventListener('message', (e) => {
+  if (e.source !== window) return;
+  if (e.data?.type !== 'XVM_HIST_SUBS_LOAD') return;
+  subscribedHandles = Array.isArray(e.data.subscribed) ? e.data.subscribed : [];
+  console.debug('[XVM-HIST] subscriptions updated:', subscribedHandles);
+  document.querySelectorAll('article[data-xvm-sub-rendered]').forEach((a) => a.removeAttribute('data-xvm-sub-rendered'));
+  document.querySelectorAll('.xvm-sub-btn').forEach((b) => b.remove());
+  renderSubscribeButtons();
+});
+
 const DEFAULT_THRESHOLDS = {
   trending: 1000,
   viral: 10000,
@@ -70,6 +86,7 @@ window.addEventListener('message', (event) => {
     badge.remove();
   });
   renderBadges();
+  renderSubscribeButtons();
 
   const nextLb = !!event.data.featureVelocityLeaderboard;
   const nextCount = Number.isFinite(event.data.leaderboardCount) ? event.data.leaderboardCount : 10;
@@ -237,7 +254,7 @@ function scanForTweets(obj) {
     }
   }
 
-  if (found) renderBadges();
+  if (found) { renderBadges(); renderSubscribeButtons(); }
 }
 
 function extractTweetData(result) {
@@ -479,6 +496,49 @@ function getTooltip() {
     document.body.appendChild(tooltipEl);
   }
   return tooltipEl;
+}
+
+// === Subscribe Button Rendering ===
+function findArticleHandle(article) {
+  const links = article.querySelectorAll('a[role="link"][href^="/"]');
+  for (const a of links) {
+    const m = a.getAttribute('href').match(/^\/([A-Za-z0-9_]{1,15})(?:\/|$)/);
+    if (m && !['home', 'explore', 'notifications', 'messages', 'i', 'compose', 'search'].includes(m[1].toLowerCase())) {
+      return m[1].toLowerCase();
+    }
+  }
+  return null;
+}
+
+function renderSubscribeButtons() {
+  const articles = document.querySelectorAll('article');
+  let added = 0;
+  articles.forEach((article) => {
+    if (article.dataset.xvmSubRendered) return;
+    const handle = findArticleHandle(article);
+    if (!handle) return;
+    const anchor = article.querySelector('a[role="link"][href^="/"]');
+    if (!anchor || !anchor.parentElement) return;
+    const btn = document.createElement('button');
+    btn.className = 'xvm-sub-btn';
+    btn.dataset.handle = handle;
+    btn.title = `Track @${handle}`;
+    btn.textContent = isHandleSubscribed(handle) ? '★' : '☆';
+    btn.classList.toggle('xvm-sub-on', isHandleSubscribed(handle));
+    btn.addEventListener('click', (ev) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      const next = isHandleSubscribed(handle)
+        ? subscribedHandles.filter((h) => h !== handle)
+        : [...subscribedHandles, handle];
+      console.debug('[XVM-HIST] toggle subscription for', handle, '->', next);
+      window.postMessage({ type: 'XVM_HIST_SUBS_SET', subscribed: next }, '*');
+    });
+    anchor.parentElement.appendChild(btn);
+    article.dataset.xvmSubRendered = '1';
+    added++;
+  });
+  if (added > 0) console.debug('[XVM-HIST] subscribe buttons rendered:', added);
 }
 
 // === Badge Rendering ===
@@ -1129,6 +1189,7 @@ setInterval(() => {
   const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
   if (unscored.length > 0) {
     renderBadges();
+    renderSubscribeButtons();
   } else if (leaderboardEnabled) {
     renderLeaderboard();
   }
@@ -1156,6 +1217,7 @@ const observer = new MutationObserver((mutations) => {
   }
   if (hasNewArticles) {
     renderBadges();
+    renderSubscribeButtons();
   }
 });
 

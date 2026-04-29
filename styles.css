@@ -1113,3 +1113,17 @@ article[data-testid="tweet"].xvm-article-linked {
   text-align: center;
   padding: 20px 0;
 }
+
+/* === Inline subscribe button (☆/★) on timeline tweets === */
+.xvm-sub-btn {
+  background: transparent;
+  border: none;
+  color: #71767b;
+  font-size: 16px;
+  cursor: pointer;
+  padding: 2px 6px;
+  margin-left: 4px;
+  line-height: 1;
+}
+.xvm-sub-btn:hover { color: #1d9bf0; }
+.xvm-sub-btn.xvm-sub-on { color: #f5a623; }
