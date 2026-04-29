@@ -371,3 +371,91 @@ body {
   transition: background 0.15s, border-color 0.15s;
 }
 .xvm-h-danger-btn:hover { background: var(--danger-bg) !important; border-color: var(--danger) !important; }
+
+/* Custom dialog (alert / confirm / prompt) */
+.xvm-h-dialog { position: fixed; inset: 0; z-index: 200; }
+.xvm-h-dialog-backdrop { position: absolute; inset: 0; background: rgb(0 0 0 / 0.5); animation: fade 0.15s; }
+.xvm-h-dialog-panel {
+  position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  min-width: 380px; max-width: 480px;
+  padding: 22px 24px 20px;
+  box-shadow: var(--shadow-lg);
+  animation: pop 0.18s;
+}
+.xvm-h-dialog-title { font-size: 16px; font-weight: 600; margin-bottom: 6px; color: var(--fg); }
+.xvm-h-dialog-message { font-size: 14px; line-height: 1.5; color: var(--fg-muted); margin-bottom: 18px; }
+.xvm-h-dialog-input {
+  width: 100%; height: 36px; padding: 0 12px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 14px; color: var(--fg); background: var(--bg);
+  margin-bottom: 18px;
+}
+.xvm-h-dialog-input:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px hsl(221.2 83.2% 53.3% / 0.15); }
+.xvm-h-dialog-actions { display: flex; gap: 8px; justify-content: flex-end; }
+.xvm-h-dialog-btn {
+  height: 34px; padding: 0 16px;
+  border-radius: var(--radius);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  border: 1px solid var(--border); background: var(--bg); color: var(--fg);
+}
+.xvm-h-dialog-btn:hover { background: var(--bg-muted); }
+.xvm-h-dialog-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px hsl(221.2 83.2% 53.3% / 0.2); }
+.xvm-h-dialog-confirm { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.xvm-h-dialog-confirm:hover { background: hsl(222.2 47.4% 20%); border-color: hsl(222.2 47.4% 20%); }
+.xvm-h-dialog-confirm-danger { background: var(--danger); border-color: var(--danger); color: white; }
+.xvm-h-dialog-confirm-danger:hover { background: hsl(0 75% 50%); border-color: hsl(0 75% 50%); }
+.xvm-h-dialog-confirm-warning { background: var(--warning); border-color: var(--warning); color: white; }
+.xvm-h-dialog-confirm-warning:hover { background: hsl(38 92% 42%); border-color: hsl(38 92% 42%); }
+
+/* Custom select component */
+.xvm-h-cselect { position: relative; display: inline-block; }
+.xvm-h-cselect-trigger {
+  height: 32px; padding: 0 10px 0 12px;
+  display: inline-flex; align-items: center; gap: 8px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  background: var(--bg); color: var(--fg);
+  font-size: 13px; font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, box-shadow 0.15s;
+  min-width: 120px;
+}
+.xvm-h-cselect-trigger:hover { background: var(--bg-muted); }
+.xvm-h-cselect.open .xvm-h-cselect-trigger,
+.xvm-h-cselect-trigger:focus-visible {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px hsl(221.2 83.2% 53.3% / 0.15);
+}
+.xvm-h-cselect-value { flex: 1; text-align: left; }
+.xvm-h-cselect-arrow { color: var(--fg-muted); transition: transform 0.15s; }
+.xvm-h-cselect.open .xvm-h-cselect-arrow { transform: rotate(180deg); }
+.xvm-h-cselect-menu {
+  position: absolute; top: calc(100% + 4px); left: 0;
+  min-width: 100%;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-md);
+  padding: 4px;
+  z-index: 50;
+  animation: pop 0.12s;
+}
+.xvm-h-cselect-option {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 10px;
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--fg);
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.xvm-h-cselect-option:hover { background: var(--bg-muted); }
+.xvm-h-cselect-option.selected { font-weight: 500; color: var(--primary); }
+.xvm-h-cselect-option svg { color: var(--primary); flex-shrink: 0; }
+.xvm-h-cselect-spacer { display: inline-block; width: 14px; height: 14px; }

@@ -19,6 +19,131 @@ const state = {
   filter: { handle: '', sort: 'velocity', range: 'all', status: 'all', search: '' },
 };
 
+// === Custom dialogs (replace native alert/confirm/prompt) ===
+function showDialog({ title, message, kind = 'info', input = null, confirmText = 'OK', cancelText = 'Cancel' }) {
+  return new Promise((resolve) => {
+    const overlay = document.createElement('div');
+    overlay.className = 'xvm-h-dialog';
+    overlay.innerHTML = `
+      <div class="xvm-h-dialog-backdrop"></div>
+      <div class="xvm-h-dialog-panel xvm-h-dialog-${kind}">
+        ${title ? `<div class="xvm-h-dialog-title">${escapeHtml(title)}</div>` : ''}
+        <div class="xvm-h-dialog-message">${escapeHtml(message || '')}</div>
+        ${input !== null ? `<input class="xvm-h-dialog-input" type="text" placeholder="${escapeHtml(input.placeholder || '')}" value="${escapeHtml(input.value || '')}">` : ''}
+        <div class="xvm-h-dialog-actions">
+          ${cancelText ? `<button class="xvm-h-dialog-btn xvm-h-dialog-cancel">${escapeHtml(cancelText)}</button>` : ''}
+          <button class="xvm-h-dialog-btn xvm-h-dialog-confirm xvm-h-dialog-confirm-${kind}">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+
+    const inputEl = overlay.querySelector('.xvm-h-dialog-input');
+    if (inputEl) {
+      requestAnimationFrame(() => { inputEl.focus(); inputEl.select(); });
+    } else {
+      requestAnimationFrame(() => overlay.querySelector('.xvm-h-dialog-confirm').focus());
+    }
+
+    function close(result) {
+      overlay.remove();
+      document.removeEventListener('keydown', onKey);
+      resolve(result);
+    }
+    function onKey(ev) {
+      if (ev.key === 'Escape') close(null);
+      if (ev.key === 'Enter' && (inputEl ? document.activeElement === inputEl : true)) {
+        close(inputEl ? inputEl.value : true);
+      }
+    }
+    document.addEventListener('keydown', onKey);
+    overlay.querySelector('.xvm-h-dialog-cancel')?.addEventListener('click', () => close(null));
+    overlay.querySelector('.xvm-h-dialog-confirm').addEventListener('click', () => close(inputEl ? inputEl.value : true));
+    overlay.querySelector('.xvm-h-dialog-backdrop').addEventListener('click', () => close(null));
+  });
+}
+
+async function uiAlert(message, { title = 'Notice', kind = 'info' } = {}) {
+  await showDialog({ title, message, kind, confirmText: 'OK', cancelText: '' });
+}
+
+async function uiConfirm(message, { title = 'Confirm', kind = 'warning', confirmText = 'Confirm', cancelText = 'Cancel' } = {}) {
+  const result = await showDialog({ title, message, kind, confirmText, cancelText });
+  return result === true;
+}
+
+async function uiPrompt(message, { title = 'Input', placeholder = '', defaultValue = '', confirmText = 'OK', cancelText = 'Cancel' } = {}) {
+  const result = await showDialog({
+    title, message, kind: 'info',
+    input: { placeholder, value: defaultValue },
+    confirmText, cancelText,
+  });
+  if (result === null) return null;
+  return result;
+}
+
+// === Custom select component ===
+function makeSelect(host, { value, options, onChange }) {
+  const wrapper = document.createElement('div');
+  wrapper.className = 'xvm-h-cselect';
+  wrapper.innerHTML = `
+    <button class="xvm-h-cselect-trigger" aria-haspopup="listbox">
+      <span class="xvm-h-cselect-value"></span>
+      <svg class="xvm-h-cselect-arrow" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+    </button>
+    <div class="xvm-h-cselect-menu" role="listbox" hidden></div>
+  `;
+  host.replaceWith(wrapper);
+
+  const trigger = wrapper.querySelector('.xvm-h-cselect-trigger');
+  const valueEl = wrapper.querySelector('.xvm-h-cselect-value');
+  const menu = wrapper.querySelector('.xvm-h-cselect-menu');
+  let current = value;
+
+  function render() {
+    const opt = options.find((o) => o.value === current);
+    valueEl.textContent = opt ? opt.label : '';
+    menu.innerHTML = options.map((o) => `
+      <div class="xvm-h-cselect-option ${o.value === current ? 'selected' : ''}" data-value="${escapeHtml(o.value)}" role="option">
+        ${o.value === current ? '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>' : '<span class="xvm-h-cselect-spacer"></span>'}
+        <span>${escapeHtml(o.label)}</span>
+      </div>`).join('');
+    menu.querySelectorAll('.xvm-h-cselect-option').forEach((el) => {
+      el.addEventListener('click', () => {
+        current = el.dataset.value;
+        wrapper.classList.remove('open');
+        menu.hidden = true;
+        render();
+        onChange?.(current);
+      });
+    });
+  }
+  function toggle() {
+    const open = !menu.hidden;
+    if (open) {
+      menu.hidden = true;
+      wrapper.classList.remove('open');
+    } else {
+      menu.hidden = false;
+      wrapper.classList.add('open');
+    }
+  }
+
+  trigger.addEventListener('click', (ev) => { ev.stopPropagation(); toggle(); });
+  document.addEventListener('click', (ev) => {
+    if (!wrapper.contains(ev.target)) {
+      menu.hidden = true;
+      wrapper.classList.remove('open');
+    }
+  });
+
+  render();
+  return {
+    setValue: (v) => { current = v; render(); },
+    getValue: () => current,
+    element: wrapper,
+  };
+}
+
 function velocity(tweet, last) {
   if (!last) return 0;
   const ageH = Math.max(0.1, (last.ts - tweet.created_at) / 3_600_000);
@@ -101,7 +226,7 @@ function renderBloggers() {
       xBtn.addEventListener('click', async (ev) => {
         ev.stopPropagation();
         ev.preventDefault();
-        if (!confirm(`Untrack @${handle}? Existing history will be kept; new tweets won't be captured.`)) return;
+        if (!await uiConfirm(`Untrack @${handle}? Existing history will be kept; new tweets won't be captured.`, { title: `Untrack @${handle}`, kind: 'warning' })) return;
         const cur = await chrome.storage.sync.get({ subscribed: [] });
         const next = (cur.subscribed || []).filter((h) => h !== handle);
         await chrome.storage.sync.set({ subscribed: next });
@@ -206,7 +331,7 @@ async function openDetail(tweetId) {
     renderList();
   });
   document.getElementById('xvm-h-delete-tweet').addEventListener('click', async () => {
-    if (!confirm('Delete this tweet\'s history? Subscription kept; future tweets still captured.')) return;
+    if (!await uiConfirm("Delete this tweet's history? Subscription kept; future tweets still captured.", { title: 'Delete tweet history', kind: 'danger', confirmText: 'Delete' })) return;
     await rpc({ type: 'XVM_HIST_DELETE_TWEET', tweetId });
     await refresh();
     renderList();
@@ -260,16 +385,45 @@ async function refresh() {
 }
 
 document.getElementById('xvm-h-search').addEventListener('input', (e) => { state.filter.search = e.target.value; renderList(); });
-document.getElementById('xvm-h-sort').addEventListener('change', (e) => { state.filter.sort = e.target.value; renderList(); });
-document.getElementById('xvm-h-range').addEventListener('change', (e) => { state.filter.range = e.target.value; renderList(); });
-document.getElementById('xvm-h-status').addEventListener('change', (e) => { state.filter.status = e.target.value; renderList(); });
+
+makeSelect(document.getElementById('xvm-h-sort'), {
+  value: 'velocity',
+  options: [
+    { value: 'velocity', label: 'Velocity' },
+    { value: 'impressions', label: 'Impressions' },
+    { value: 'likes', label: 'Likes' },
+    { value: 'retweets', label: 'Retweets' },
+    { value: 'created_at', label: 'Posted' },
+  ],
+  onChange: (v) => { state.filter.sort = v; renderList(); },
+});
+
+makeSelect(document.getElementById('xvm-h-range'), {
+  value: 'all',
+  options: [
+    { value: 'all', label: 'All time' },
+    { value: 'day', label: 'Last 24h' },
+    { value: 'week', label: 'Last 7 days' },
+  ],
+  onChange: (v) => { state.filter.range = v; renderList(); },
+});
+
+makeSelect(document.getElementById('xvm-h-status'), {
+  value: 'all',
+  options: [
+    { value: 'all', label: 'All' },
+    { value: 'active', label: 'Active' },
+    { value: 'frozen', label: 'Frozen' },
+  ],
+  onChange: (v) => { state.filter.status = v; renderList(); },
+});
 document.querySelector('.xvm-h-blogger-all').addEventListener('click', () => { state.filter.handle = ''; renderAll(); });
 document.getElementById('xvm-h-add-blogger').addEventListener('click', async () => {
-  const input = prompt('Enter @handle or x.com URL:');
+  const input = await uiPrompt('Enter the @handle or x.com URL of the blogger you want to track:', { title: 'Add blogger', placeholder: '@handle or https://x.com/handle' });
   if (!input) return;
   const { normalizeHandle } = await import('./lib/subscriptions.js');
   const h = normalizeHandle(input);
-  if (!h) return alert('Invalid handle');
+  if (!h) { await uiAlert('That doesn\'t look like a valid handle or X URL.', { title: 'Invalid input', kind: 'danger' }); return; }
   const cur = await chrome.storage.sync.get({ subscribed: [] });
   const next = cur.subscribed.includes(h) ? cur.subscribed : [...cur.subscribed, h];
   await chrome.storage.sync.set({ subscribed: next });
@@ -372,12 +526,12 @@ async function openSettings() {
         const action = btn.dataset.action;
         const handle = btn.dataset.handle;
         if (action === 'untrack') {
-          if (!confirm(`Untrack @${handle}?`)) return;
+          if (!await uiConfirm(`Untrack @${handle}?`, { title: `Untrack @${handle}`, kind: 'warning' })) return;
           const cur = await chrome.storage.sync.get({ subscribed: [] });
           await chrome.storage.sync.set({ subscribed: (cur.subscribed || []).filter((x) => x !== handle) });
           openSettings();
         } else if (action === 'clear') {
-          if (!confirm(`Delete all captured tweets for @${handle}? This cannot be undone.`)) return;
+          if (!await uiConfirm(`Delete all captured tweets for @${handle}? This cannot be undone.`, { title: 'Clear history', kind: 'danger', confirmText: 'Clear history' })) return;
           await rpc({ type: 'XVM_HIST_DELETE_BY_AUTHOR', author: handle });
           await refresh();
           openSettings();
@@ -391,9 +545,9 @@ document.getElementById('xvm-h-settings').addEventListener('click', openSettings
 document.getElementById('xvm-h-modal-close').addEventListener('click', () => { document.getElementById('xvm-h-modal').hidden = true; });
 document.querySelector('#xvm-h-modal .xvm-h-modal-backdrop').addEventListener('click', () => { document.getElementById('xvm-h-modal').hidden = true; });
 document.getElementById('xvm-h-clear-all').addEventListener('click', async () => {
-  if (!confirm('Clear ALL history? This deletes every tracked tweet and sample. Subscriptions are kept. Cannot be undone.')) return;
+  if (!await uiConfirm('Clear ALL history? This deletes every tracked tweet and sample. Subscriptions are kept. Cannot be undone.', { title: 'Clear all history', kind: 'danger', confirmText: 'Clear everything' })) return;
   await rpc({ type: 'XVM_HIST_CLEAR_ALL' });
-  alert('All history cleared.');
+  await uiAlert('All history cleared.', { title: 'Done' });
   document.getElementById('xvm-h-modal').hidden = true;
   await refresh();
 });
