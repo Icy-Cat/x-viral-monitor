@@ -117,23 +117,28 @@ function makeSelect(host, { value, options, onChange }) {
       });
     });
   }
+  function close() {
+    menu.hidden = true;
+    wrapper.classList.remove('open');
+  }
+  function open() {
+    document.querySelectorAll('.xvm-h-cselect.open').forEach((other) => {
+      if (other !== wrapper) {
+        other.classList.remove('open');
+        const m = other.querySelector('.xvm-h-cselect-menu');
+        if (m) m.hidden = true;
+      }
+    });
+    menu.hidden = false;
+    wrapper.classList.add('open');
+  }
   function toggle() {
-    const open = !menu.hidden;
-    if (open) {
-      menu.hidden = true;
-      wrapper.classList.remove('open');
-    } else {
-      menu.hidden = false;
-      wrapper.classList.add('open');
-    }
+    if (menu.hidden) open(); else close();
   }
 
   trigger.addEventListener('click', (ev) => { ev.stopPropagation(); toggle(); });
   document.addEventListener('click', (ev) => {
-    if (!wrapper.contains(ev.target)) {
-      menu.hidden = true;
-      wrapper.classList.remove('open');
-    }
+    if (!wrapper.contains(ev.target)) close();
   });
 
   render();
