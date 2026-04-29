@@ -214,10 +214,27 @@
       font-weight: 500;
     }
     .col-item.col-hidden .col-name { color: var(--muted); }
+
+    .xvm-popup-btn {
+      display: block;
+      width: 100%;
+      margin: 8px 0 12px;
+      padding: 10px;
+      background: #1d9bf0;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      flex: none;
+    }
+    .xvm-popup-btn:hover { background: #1a8cd8; }
   </style>
 </head>
 <body>
   <div class="popup">
+    <button id="xvm-open-history" class="xvm-popup-btn">📊 <span data-i18n="popupOpenHistory">Open History Dashboard</span></button>
     <h1 data-i18n="extName">X Viral Monitor</h1>
     <p class="subtitle" data-i18n="popupSubtitle">Real-time impression velocity on X tweets</p>
 

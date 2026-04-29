@@ -223,3 +223,8 @@ resetBtn.addEventListener('click', () => {
   fill(DEFAULT_THRESHOLDS);
   chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash(tr('flashReset')));
 });
+
+document.getElementById('xvm-open-history')?.addEventListener('click', () => {
+  console.debug('[XVM-HIST] opening history dashboard');
+  chrome.tabs.create({ url: chrome.runtime.getURL('history.html') });
+});

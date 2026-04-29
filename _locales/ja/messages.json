@@ -202,5 +202,6 @@
   "contentStarChartFilterQuote": { "message": "引用" },
   "contentStarChartFilterBoth": { "message": "両方" },
   "contentStarChartRiverPrev": { "message": "前の引用" },
-  "contentStarChartRiverNext": { "message": "次の引用" }
+  "contentStarChartRiverNext": { "message": "次の引用" },
+  "popupOpenHistory": { "message": "履歴ダッシュボードを開く" }
 }

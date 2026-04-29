@@ -228,5 +228,6 @@
   "contentStarChartFilterQuote": { "message": "Quote" },
   "contentStarChartFilterBoth": { "message": "Both" },
   "contentStarChartRiverPrev": { "message": "Previous quote" },
-  "contentStarChartRiverNext": { "message": "Next quote" }
+  "contentStarChartRiverNext": { "message": "Next quote" },
+  "popupOpenHistory": { "message": "Open History Dashboard" }
 }

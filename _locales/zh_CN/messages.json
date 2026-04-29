@@ -202,5 +202,6 @@
   "contentStarChartFilterQuote": { "message": "引用" },
   "contentStarChartFilterBoth": { "message": "两者" },
   "contentStarChartRiverPrev": { "message": "上一条引用" },
-  "contentStarChartRiverNext": { "message": "下一条引用" }
+  "contentStarChartRiverNext": { "message": "下一条引用" },
+  "popupOpenHistory": { "message": "打开历史面板" }
 }
