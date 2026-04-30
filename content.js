@@ -1802,7 +1802,16 @@ function findArticleForCurrentStatus() {
 }
 
 function findReplyComposerRoot(editable) {
-  return editable?.closest('[role="dialog"], [data-testid="tweetTextarea_0"]') || editable?.parentElement || null;
+  if (!editable) return null;
+  const dialog = editable.closest('[role="dialog"]');
+  if (dialog?.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')) return dialog;
+
+  let node = editable;
+  for (let depth = 0; node && depth < 24; depth++, node = node.parentElement) {
+    if (node.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')) return node;
+    if (node.matches?.('article[data-testid="tweet"]')) break;
+  }
+  return editable.closest('form') || editable.parentElement || null;
 }
 
 function findReplyArticle(composerRoot) {
@@ -1819,6 +1828,11 @@ function findReplyEditable(root = document) {
   return root.querySelector?.('[data-testid="tweetTextarea_0"] [contenteditable="true"], div[role="textbox"][contenteditable="true"]');
 }
 
+function cleanupMisplacedGrokButtons(editable) {
+  const editorShell = editable?.closest?.('[data-testid="tweetTextarea_0RichTextInputContainer"], .DraftEditor-root, .DraftEditor-editorContainer');
+  editorShell?.querySelectorAll?.('.xvm-grok-generate-btn').forEach((btn) => btn.remove());
+}
+
 function insertTextIntoReply(editable, text) {
   if (!editable) return false;
   editable.focus();
@@ -1832,8 +1846,13 @@ function insertTextIntoReply(editable, text) {
     return true;
   }
   try {
-    document.execCommand('selectAll', false, null);
+    const selection = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(editable);
+    selection.removeAllRanges();
+    selection.addRange(range);
     document.execCommand('insertText', false, text);
+    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
   } catch (_) {}
   if ((editable.textContent || '').trim() !== text.trim()) {
     editable.textContent = text;
@@ -2034,6 +2053,7 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
 function injectGrokReplyButtons(root = document) {
   const editors = root.querySelectorAll?.('[data-testid="tweetTextarea_0"] [contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || [];
   for (const editable of editors) {
+    cleanupMisplacedGrokButtons(editable);
     const composerRoot = findReplyComposerRoot(editable);
     if (!composerRoot || composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
     if (!composerRoot.closest('[role="dialog"]') && !editable.closest('article[data-testid="tweet"]') && !getStatusIdFromLocation()) continue;
