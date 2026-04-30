@@ -2,3 +2,4 @@ dist/
 *.zip
 *.png.bak
 node_modules/
+.superpowers/
