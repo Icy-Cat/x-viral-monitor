@@ -212,6 +212,9 @@
   "popupOpenHistory": { "message": "打开历史面板" },
   "popupGrokPromptTitle": { "message": "Grok 评论提示词" },
   "popupGrokPromptHint": { "message": "用 [推文内容] 表示原推文插入位置。点击回复框里的 AI 生成后选择模板，生成完成后再从 Options 中选择一条填入。" },
+  "popupGrokTempChatLabel": { "message": "使用临时对话（不污染 Grok 历史记录）" },
+  "flashGrokTempChatOn": { "message": "已开启临时对话 ✓" },
+  "flashGrokTempChatOff": { "message": "已关闭临时对话" },
   "flashGrokPromptSaved": { "message": "Grok 提示词已保存 ✓" },
   "flashGrokPromptReset": { "message": "Grok 提示词已重置 ✓" }
 }

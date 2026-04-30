@@ -153,26 +153,22 @@ window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
-const GROK_API_RE = /(?:grok\.x\.com\/\d+\/grok\/|\/i\/api\/(?:graphql\/[^/]+\/[^/?]*grok[^/?]*|grok\b))/i;
 const DEFAULT_GROK_COMMENT_PROMPT = '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹';
 const DEFAULT_GROK_PROMPT_TEMPLATES = [
   { id: 'default', name: '默认评论', prompt: DEFAULT_GROK_COMMENT_PROMPT },
   { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
   { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
 ];
-const DEFAULT_X_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
-const BUILTIN_GROK_URL = 'https://grok.x.com/2/grok/add_response.json';
-const USE_CAPTURED_GROK_TEMPLATE = false;
-const GROK_PROMPT_KEYS = /^(message|prompt|query|input|text|content)$/i;
 let grokPromptTemplate = DEFAULT_GROK_COMMENT_PROMPT;
 let grokPromptTemplates = DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
 let grokSelectedTemplateId = 'default';
-let grokEndpointTemplate = null;
+let grokTemporaryChat = true;
 let grokLastReplyArticle = null;
-let grokLatestAuthHeader = DEFAULT_X_BEARER;
-let grokLatestSessionHeaders = {};
 
 window.postMessage({ type: 'XVM_GROK_SETTINGS_REQUEST' }, '*');
+
+// Pre-warm tx-id context so the first AI 生成 click is fast.
+window.__xvmXct?.warmup?.();
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
@@ -188,10 +184,8 @@ window.addEventListener('message', (event) => {
   if (typeof event.data.selectedPromptId === 'string' && event.data.selectedPromptId) {
     grokSelectedTemplateId = event.data.selectedPromptId;
   }
-  if ('endpointTemplate' in event.data) {
-    grokEndpointTemplate = isUsableGrokTemplate(event.data.endpointTemplate)
-      ? event.data.endpointTemplate
-      : null;
+  if (typeof event.data.temporaryChat === 'boolean') {
+    grokTemporaryChat = event.data.temporaryChat;
   }
 });
 
@@ -212,9 +206,10 @@ function recordStarChartTemplate(url, requestHeaders) {
   // capture it from ANY call (TweetDetail, HomeTimeline, etc.) into a
   // shared `_global` slot. queryId is per-op and only stored for our
   // target ops (Retweeters / SearchTimeline).
+  // Bearer is auto-cached in __xvmNet.getBearer() — we only need to forward
+  // the global capture for star chart's persistent storage.
   const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
   if (auth) {
-    grokLatestAuthHeader = auth;
     window.postMessage({
       type: 'XVM_SC_TEMPLATE_CAPTURE',
       op: '_global',
@@ -241,33 +236,6 @@ function recordStarChartTemplate(url, requestHeaders) {
   }, '*');
 }
 
-function normalizeHeaders(headersLike) {
-  try {
-    const headers = headersLike instanceof Headers
-      ? headersLike
-      : new Headers(headersLike || {});
-    const out = {};
-    headers.forEach((value, key) => {
-      if (/^(authorization|x-csrf-token|x-twitter-auth-type|x-twitter-active-user|x-twitter-client-language|x-client-transaction-id|x-xai-request-id|content-type|accept)$/i.test(key)) {
-        out[key] = value;
-      }
-    });
-    return out;
-  } catch (_) {
-    return {};
-  }
-}
-
-function rememberGrokSessionHeaders(headersLike) {
-  const headers = normalizeHeaders(headersLike);
-  if (headers.authorization || headers.Authorization) {
-    grokLatestAuthHeader = headers.authorization || headers.Authorization;
-  }
-  if (Object.keys(headers).length) {
-    grokLatestSessionHeaders = { ...grokLatestSessionHeaders, ...headers };
-  }
-}
-
 function normalizeGrokPromptTemplates(raw) {
   const seen = new Set();
   const out = [];
@@ -286,185 +254,28 @@ function normalizeGrokPromptTemplates(raw) {
   return out.length ? out : DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
 }
 
-function getPath(obj, path) {
-  let cur = obj;
-  for (const key of path || []) {
-    if (!cur || typeof cur !== 'object') return undefined;
-    cur = cur[key];
-  }
-  return cur;
+function reportRateLimit(remaining, reset) {
+  if (remaining === null || remaining === undefined) return;
+  window.postMessage({
+    type: 'XVM_RATE_LIMIT',
+    remaining: parseInt(remaining, 10),
+    reset: parseInt(reset, 10),
+  }, '*');
 }
 
-function setPath(obj, path, value) {
-  let cur = obj;
-  for (let i = 0; i < path.length - 1; i++) {
-    cur = cur[path[i]];
-    if (!cur || typeof cur !== 'object') return false;
+// Subscribe to GraphQL traffic for star-chart template capture + tweet scanning.
+window.__xvmNet?.onRequest(GRAPHQL_RE, ({ url, headers }) => {
+  recordStarChartTemplate(url, headers);
+});
+window.__xvmNet?.onResponse(GRAPHQL_RE, async ({ url, response, source }) => {
+  if (source === 'fetch') {
+    reportRateLimit(response.headers.get('x-rate-limit-remaining'), response.headers.get('x-rate-limit-reset'));
+    response.clone().json().then(scanForTweets).catch(() => {});
+  } else {
+    reportRateLimit(response.getHeader('x-rate-limit-remaining'), response.getHeader('x-rate-limit-reset'));
+    try { scanForTweets(response.json()); } catch (_) {}
   }
-  cur[path[path.length - 1]] = value;
-  return true;
-}
-
-function findPromptPath(obj, path = []) {
-  if (!obj || typeof obj !== 'object') return null;
-  if (typeof obj?.responses?.[0]?.message === 'string' && obj.responses[0].message.trim()) {
-    return { path: ['responses', '0', 'message'], value: obj.responses[0].message };
-  }
-  let best = null;
-  for (const [key, value] of Object.entries(obj)) {
-    const nextPath = path.concat(key);
-    if (typeof value === 'string' && GROK_PROMPT_KEYS.test(key) && value.trim().length >= 2 && !/^https?:\/\//i.test(value)) {
-      if (!best || value.length > best.value.length) best = { path: nextPath, value };
-    } else if (value && typeof value === 'object') {
-      const nested = findPromptPath(value, nextPath);
-      if (nested && (!best || nested.value.length > best.value.length)) best = nested;
-    }
-  }
-  return best;
-}
-
-function isUsableGrokTemplate(template) {
-  if (!template?.url || !template?.bodyText) return false;
-  try {
-    const body = JSON.parse(template.bodyText);
-    const path = Array.isArray(template.promptPath) && template.promptPath.length
-      ? template.promptPath
-      : findPromptPath(body)?.path;
-    return !!path && typeof getPath(body, path) === 'string';
-  } catch (_) {
-    return !!template.samplePrompt && template.bodyText.includes(template.samplePrompt);
-  }
-}
-
-function shouldInspectGrokRequest(url) {
-  return !!url && (GROK_API_RE.test(url) || (GRAPHQL_RE.test(url) && location.pathname.startsWith('/i/grok')));
-}
-
-function recordGrokTemplate(url, method, requestHeaders, bodyText) {
-  if (!url || !shouldInspectGrokRequest(url) || !bodyText) return;
-  let bodyJson = null;
-  let promptPath = null;
-  let samplePrompt = '';
-  try {
-    bodyJson = JSON.parse(bodyText);
-    const found = findPromptPath(bodyJson);
-    if (found) {
-      promptPath = found.path;
-      samplePrompt = found.value;
-    }
-  } catch (_) {}
-  if (!promptPath) return;
-
-  const template = {
-    url: String(url),
-    method: method || 'POST',
-    headers: normalizeHeaders(requestHeaders),
-    bodyText: String(bodyText),
-    promptPath,
-    samplePrompt,
-  };
-  grokEndpointTemplate = template;
-  window.postMessage({ type: 'XVM_GROK_TEMPLATE_CAPTURE', template }, '*');
-  console.debug('[XVM-GROK] captured endpoint template', { url: template.url, promptPath });
-}
-
-// Extract and report rate limit headers
-function reportRateLimit(headers) {
-  const remaining = headers.get('x-rate-limit-remaining');
-  const reset = headers.get('x-rate-limit-reset');
-  if (remaining !== null) {
-    window.postMessage({
-      type: 'XVM_RATE_LIMIT',
-      remaining: parseInt(remaining, 10),
-      reset: parseInt(reset, 10),
-    }, '*');
-  }
-}
-
-// Hook fetch
-const originalFetch = window.fetch;
-window.fetch = async function (...args) {
-  const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-  const init = args[1] || {};
-  const headers = init.headers instanceof Headers
-    ? Object.fromEntries(init.headers.entries())
-    : (init.headers || (args[0]?.headers ? Object.fromEntries(new Headers(args[0].headers).entries()) : {}));
-  if (url && (/^https:\/\/(?:x|api)\.com\//.test(String(url)) || GRAPHQL_RE.test(String(url)))) {
-    rememberGrokSessionHeaders(headers);
-  }
-  if (shouldInspectGrokRequest(url)) {
-    let bodyText = '';
-    if (typeof init.body === 'string') {
-      bodyText = init.body;
-    } else if (init.body && typeof init.body.text === 'function') {
-      try { bodyText = await init.body.clone().text(); } catch (_) {}
-    } else if (args[0] instanceof Request) {
-      try { bodyText = await args[0].clone().text(); } catch (_) {}
-    }
-    recordGrokTemplate(url, init.method || args[0]?.method || 'POST', headers, bodyText);
-  }
-  // Star chart: capture queryId + auth header from outgoing request
-  if (url && GRAPHQL_RE.test(url)) {
-    recordStarChartTemplate(url, headers);
-  }
-  const response = await originalFetch.apply(this, args);
-  if (url && GRAPHQL_RE.test(url)) {
-    reportRateLimit(response.headers);
-    const clone = response.clone();
-    clone.json().then(scanForTweets).catch(() => {});
-  }
-  return response;
-};
-
-// Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
-const originalXHROpen = XMLHttpRequest.prototype.open;
-XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-  this.__xvmMethod = method;
-  this.__xvmUrl = url;
-  if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
-    this.addEventListener('load', function () {
-      try {
-        // Report rate limit from XHR headers
-        const remaining = this.getResponseHeader('x-rate-limit-remaining');
-        const reset = this.getResponseHeader('x-rate-limit-reset');
-        if (remaining !== null) {
-          window.postMessage({
-            type: 'XVM_RATE_LIMIT',
-            remaining: parseInt(remaining, 10),
-            reset: parseInt(reset, 10),
-          }, '*');
-        }
-        recordStarChartTemplate(url, { authorization: this.__xvmAuthHeader });
-        scanForTweets(JSON.parse(this.responseText));
-      } catch (e) {}
-    });
-  }
-  return originalXHROpen.call(this, method, url, ...rest);
-};
-
-const originalXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
-XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
-  if (!this.__xvmHeaders) this.__xvmHeaders = {};
-  this.__xvmHeaders[name] = value;
-  if (name && /^authorization$/i.test(name)) {
-    this.__xvmAuthHeader = value;
-  }
-  return originalXHRSetHeader.apply(this, arguments);
-};
-
-const originalXHRSend = XMLHttpRequest.prototype.send;
-XMLHttpRequest.prototype.send = function (body) {
-  try {
-    if (typeof this.__xvmUrl === 'string' && (/^https:\/\/(?:x|api)\.com\//.test(this.__xvmUrl) || GRAPHQL_RE.test(this.__xvmUrl))) {
-      rememberGrokSessionHeaders(this.__xvmHeaders || {});
-    }
-    if (typeof this.__xvmUrl === 'string' && shouldInspectGrokRequest(this.__xvmUrl)) {
-      const bodyText = typeof body === 'string' ? body : '';
-      recordGrokTemplate(this.__xvmUrl, this.__xvmMethod || 'POST', this.__xvmHeaders || {}, bodyText);
-    }
-  } catch (_) {}
-  return originalXHRSend.apply(this, arguments);
-};
+});
 
 // === Data Extraction ===
 // Recursively scan any JSON for tweet_results objects
@@ -1681,86 +1492,8 @@ function showToast(msg) {
   }, 1400);
 }
 
-function buildGrokPrompt(tweetText) {
-  return buildGrokPromptFromTemplate(tweetText, getSelectedGrokPromptTemplate().prompt);
-}
-
 function getSelectedGrokPromptTemplate() {
   return grokPromptTemplates.find((tpl) => tpl.id === grokSelectedTemplateId) || grokPromptTemplates[0] || DEFAULT_GROK_PROMPT_TEMPLATES[0];
-}
-
-function buildGrokPromptFromTemplate(tweetText, templateText) {
-  const text = (tweetText || '').trim();
-  const template = (templateText || grokPromptTemplate || DEFAULT_GROK_COMMENT_PROMPT).trim();
-  return template.includes('[推文内容]')
-    ? template.replaceAll('[推文内容]', text)
-    : `${text}\n\n${template}`;
-}
-
-function getCookieValue(name) {
-  const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
-  return match ? decodeURIComponent(match[1]) : '';
-}
-
-function makeGrokConversationId() {
-  try {
-    const epoch = 1288834974657n;
-    const ms = BigInt(Date.now()) - epoch;
-    const rand = BigInt(Math.floor(Math.random() * 4194304));
-    return String((ms << 22n) + rand);
-  } catch (_) {
-    return `${Date.now()}${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
-  }
-}
-
-function buildBuiltinGrokBody(prompt) {
-  return JSON.stringify({
-    responses: [{
-      message: prompt,
-      sender: 1,
-      promptSource: '',
-      fileAttachments: [],
-    }],
-    systemPromptName: '',
-    grokModelOptionId: 'grok-3-latest',
-    modelMode: 'MODEL_MODE_FAST',
-    conversationId: makeGrokConversationId(),
-    returnSearchResults: true,
-    returnCitations: true,
-    promptMetadata: {
-      promptSource: 'NATURAL',
-      action: 'INPUT',
-    },
-    imageGenerationCount: 4,
-    requestFeatures: {
-      eagerTweets: true,
-      serverHistory: true,
-    },
-    enableSideBySide: true,
-    toolOverrides: {},
-    modelConfigOverride: {},
-    isTemporaryChat: false,
-  });
-}
-
-function buildGrokHeaders() {
-  const captured = { ...grokLatestSessionHeaders, ...(grokEndpointTemplate?.headers || {}) };
-  const csrf = captured['x-csrf-token'] || getCookieValue('ct0');
-  const headers = {
-    authorization: captured.authorization || captured.Authorization || grokLatestAuthHeader || DEFAULT_X_BEARER,
-    'content-type': 'text/plain;charset=UTF-8',
-    accept: captured.accept || '*/*',
-    'x-csrf-token': csrf,
-    'x-twitter-active-user': captured['x-twitter-active-user'] || 'no',
-    'x-twitter-auth-type': captured['x-twitter-auth-type'] || 'OAuth2Session',
-    'x-twitter-client-language': captured['x-twitter-client-language'] || navigator.language?.toLowerCase() || 'en',
-    'x-xai-request-id': crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
-  };
-  if (captured['x-client-transaction-id']) {
-    headers['x-client-transaction-id'] = captured['x-client-transaction-id'];
-  }
-  return headers;
 }
 
 function getTweetTextFromArticle(article) {
@@ -1845,6 +1578,14 @@ function insertTextIntoReply(editable, text) {
     editable.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   }
+  // Draft.js editor (X reply box). Select-all + insertText is the path X's own
+  // paste handling uses; Draft will reconcile its model from the resulting
+  // beforeinput/input events.
+  //
+  // Important: do NOT fall back to `editable.textContent = text`. Draft renders
+  // emoji as a background-image span whose textContent often differs from the
+  // source string, so any equality check after execCommand is unreliable; the
+  // fallback would write plain text on top of Draft's model → duplicate text.
   try {
     const selection = window.getSelection();
     const range = document.createRange();
@@ -1853,100 +1594,10 @@ function insertTextIntoReply(editable, text) {
     selection.addRange(range);
     document.execCommand('insertText', false, text);
     editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
-  } catch (_) {}
-  if ((editable.textContent || '').trim() !== text.trim()) {
-    editable.textContent = text;
-    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    return true;
+  } catch (_) {
+    return false;
   }
-  return true;
-}
-
-function cloneGrokBodyWithPrompt(template, prompt) {
-  try {
-    const body = JSON.parse(template.bodyText);
-    if (Array.isArray(template.promptPath) && template.promptPath.length && typeof getPath(body, template.promptPath) === 'string') {
-      setPath(body, template.promptPath, prompt);
-    } else {
-      const found = findPromptPath(body);
-      if (!found || !setPath(body, found.path, prompt)) {
-        throw new Error('当前捕获的 Grok 接口不是发送消息接口，请重新打开 x.com/i/grok 发送一条任意消息以刷新接口模板');
-      }
-    }
-    return JSON.stringify(body);
-  } catch (err) {
-    if (template.samplePrompt && template.bodyText.includes(template.samplePrompt)) {
-      return template.bodyText.split(template.samplePrompt).join(prompt);
-    }
-    throw err;
-  }
-}
-
-function extractGrokComments(rawText) {
-  const chunks = [];
-  const codeBlocks = [];
-  const blockRe = /```(?:[\w-]+)?\s*([\s\S]*?)```/g;
-  let match;
-
-  function addText(text) {
-    if (!text) return;
-    chunks.push(text);
-  }
-
-  const lines = String(rawText || '').split(/\r?\n/);
-  for (const line of lines) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const data = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
-    if (!data || data === '[DONE]') continue;
-    if (data.startsWith('{') || data.startsWith('[')) {
-      try {
-        const payload = JSON.parse(data);
-        const result = payload?.result || payload;
-        if (result?.sender === 'ASSISTANT' && result?.messageTag === 'final' && typeof result.message === 'string') {
-          addText(result.message);
-        }
-        continue;
-      } catch (_) {}
-    }
-  }
-
-  const joinedFinal = chunks.join('');
-  while ((match = blockRe.exec(joinedFinal))) {
-    const comment = match[1].trim();
-    if (comment) codeBlocks.push(comment);
-  }
-
-  if (!codeBlocks.length) {
-    const numbered = joinedFinal.split(/\n+(?=\s*(?:\d+[\).]|[-*])\s+)/)
-      .map((s) => s.replace(/^\s*(?:\d+[\).]|[-*])\s+/, '').trim())
-      .filter((s) => s.length >= 2 && s.length <= 280);
-    return numbered.slice(0, 10);
-  }
-
-  return Array.from(new Set(codeBlocks)).slice(0, 10);
-}
-
-async function generateGrokComments(tweetText, promptTemplate) {
-  const prompt = buildGrokPromptFromTemplate(tweetText, promptTemplate?.prompt || promptTemplate);
-  const canUseCaptured = USE_CAPTURED_GROK_TEMPLATE && isUsableGrokTemplate(grokEndpointTemplate);
-  const body = canUseCaptured
-    ? cloneGrokBodyWithPrompt(grokEndpointTemplate, prompt)
-    : buildBuiltinGrokBody(prompt);
-  const headers = buildGrokHeaders();
-  if (!headers['x-client-transaction-id']) {
-    throw new Error('缺少 X 会话请求头，请刷新当前 X 页面后再点 AI 生成');
-  }
-  const res = await originalFetch(canUseCaptured ? grokEndpointTemplate.url : BUILTIN_GROK_URL, {
-    method: canUseCaptured ? (grokEndpointTemplate.method || 'POST') : 'POST',
-    headers,
-    body,
-    credentials: 'include',
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Grok 请求失败：${res.status}`);
-  const comments = extractGrokComments(text);
-  if (!comments.length) throw new Error('Grok 返回中没有解析到评论代码块');
-  return comments;
 }
 
 function closeGrokOptions() {
@@ -2039,7 +1690,15 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   btn.disabled = true;
   setGrokButtonLabel(btn, '生成中', true);
   try {
-    const comments = await generateGrokComments(tweetText, promptTemplate || getSelectedGrokPromptTemplate());
+    if (!window.__xvmGrok) {
+      throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
+    }
+    const tpl = promptTemplate || getSelectedGrokPromptTemplate();
+    const comments = await window.__xvmGrok.generate({
+      tweetText,
+      promptTemplate: tpl?.prompt || tpl,
+      temporaryChat: grokTemporaryChat,
+    });
     showGrokOptions(comments, editable);
   } catch (err) {
     console.debug('[XVM-GROK] generation failed', err);

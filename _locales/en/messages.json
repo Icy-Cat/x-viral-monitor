@@ -238,6 +238,9 @@
   "popupOpenHistory": { "message": "Open History Dashboard" },
   "popupGrokPromptTitle": { "message": "Grok comment prompt" },
   "popupGrokPromptHint": { "message": "Use [推文内容] where the source tweet should be inserted. Click AI Generate in a reply box, choose a template, then pick one generated option to fill the reply." },
+  "popupGrokTempChatLabel": { "message": "Use temporary chat (don't pollute Grok history)" },
+  "flashGrokTempChatOn": { "message": "Temporary chat enabled ✓" },
+  "flashGrokTempChatOff": { "message": "Temporary chat disabled" },
   "flashGrokPromptSaved": { "message": "Grok prompt saved ✓" },
   "flashGrokPromptReset": { "message": "Grok prompt reset ✓" }
 }

@@ -176,6 +176,16 @@
       font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
       font-size: 12px;
     }
+    .feature-row.grok-template .inline-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .feature-row.grok-template .inline-toggle input { margin: 0; }
     .grok-template-grid {
       display: grid;
       grid-template-columns: 1fr 1fr;
@@ -361,6 +371,10 @@
           <textarea id="grok-prompt" spellcheck="false"></textarea>
         </label>
         <div class="ft-desc" data-i18n="popupGrokPromptHint">Use [推文内容] where the source tweet should be inserted. Click AI 生成 in a reply box, choose a template, then pick one generated option to fill the reply.</div>
+        <label class="inline-toggle" for="grok-temp-chat">
+          <input id="grok-temp-chat" type="checkbox">
+          <span data-i18n="popupGrokTempChatLabel">Use temporary chat (don't pollute Grok history)</span>
+        </label>
         <div class="actions compact">
           <button type="button" id="grok-prompt-add" data-i18n="btnAdd">Add</button>
           <button type="button" id="grok-prompt-save" data-i18n="btnSave">Save</button>

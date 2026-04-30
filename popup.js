@@ -29,6 +29,7 @@ const DEFAULT_FEATURES = {
     { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
   ],
   grokSelectedPromptId: 'default',
+  grokTemporaryChat: true,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
@@ -83,6 +84,7 @@ const grokPromptSaveBtn = document.getElementById('grok-prompt-save');
 const grokPromptResetBtn = document.getElementById('grok-prompt-reset');
 const grokPromptAddBtn = document.getElementById('grok-prompt-add');
 const grokPromptDeleteBtn = document.getElementById('grok-prompt-delete');
+const grokTempChatToggle = document.getElementById('grok-temp-chat');
 
 let columnsState = normalizeColumns(null);
 let grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
@@ -157,6 +159,7 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   if (!grokTemplatesState.some((tpl) => tpl.id === grokSelectedTemplateId)) {
     grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
   }
+  if (grokTempChatToggle) grokTempChatToggle.checked = items.grokTemporaryChat !== false;
   renderGrokTemplateEditor();
   columnsState = normalizeColumns(items.leaderboardColumns);
   renderColList();
@@ -275,6 +278,12 @@ copyMdToggle.addEventListener('change', () => {
 starChartToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureStarChart: starChartToggle.checked }, () => {
     flash(tr(starChartToggle.checked ? 'flashStarChartOn' : 'flashStarChartOff'));
+  });
+});
+
+grokTempChatToggle?.addEventListener('change', () => {
+  chrome.storage.sync.set({ grokTemporaryChat: grokTempChatToggle.checked }, () => {
+    flash(tr(grokTempChatToggle.checked ? 'flashGrokTempChatOn' : 'flashGrokTempChatOff'));
   });
 });
 

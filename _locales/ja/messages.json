@@ -212,6 +212,9 @@
   "popupOpenHistory": { "message": "履歴ダッシュボードを開く" },
   "popupGrokPromptTitle": { "message": "Grok コメントプロンプト" },
   "popupGrokPromptHint": { "message": "[推文内容] を元ツイートの挿入位置として使います。返信欄の AI 生成をクリックしてテンプレートを選び、生成後に Options から1件を選んで入力します。" },
+  "popupGrokTempChatLabel": { "message": "一時チャットを使う（Grok 履歴を汚さない）" },
+  "flashGrokTempChatOn": { "message": "一時チャットを有効にしました ✓" },
+  "flashGrokTempChatOff": { "message": "一時チャットを無効にしました" },
   "flashGrokPromptSaved": { "message": "Grok プロンプトを保存しました ✓" },
   "flashGrokPromptReset": { "message": "Grok プロンプトをリセットしました ✓" }
 }
