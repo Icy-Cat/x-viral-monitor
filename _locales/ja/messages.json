@@ -32,6 +32,12 @@
   "btnReset": {
     "message": "リセット"
   },
+  "btnAdd": {
+    "message": "追加"
+  },
+  "btnDelete": {
+    "message": "削除"
+  },
   "flashSaved": {
     "message": "保存しました ✓"
   },
@@ -203,5 +209,9 @@
   "contentStarChartFilterBoth": { "message": "両方" },
   "contentStarChartRiverPrev": { "message": "前の引用" },
   "contentStarChartRiverNext": { "message": "次の引用" },
-  "popupOpenHistory": { "message": "履歴ダッシュボードを開く" }
+  "popupOpenHistory": { "message": "履歴ダッシュボードを開く" },
+  "popupGrokPromptTitle": { "message": "Grok コメントプロンプト" },
+  "popupGrokPromptHint": { "message": "[推文内容] を元ツイートの挿入位置として使います。返信欄の AI 生成をクリックしてテンプレートを選び、生成後に Options から1件を選んで入力します。" },
+  "flashGrokPromptSaved": { "message": "Grok プロンプトを保存しました ✓" },
+  "flashGrokPromptReset": { "message": "Grok プロンプトをリセットしました ✓" }
 }

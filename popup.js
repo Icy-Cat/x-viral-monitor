@@ -22,6 +22,13 @@ const DEFAULT_FEATURES = {
   featureStarChart: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
+  grokCommentPrompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹',
+  grokPromptTemplates: [
+    { id: 'default', name: '默认评论', prompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹' },
+    { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
+    { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
+  ],
+  grokSelectedPromptId: 'default',
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
@@ -69,8 +76,17 @@ const copyMdToggle = document.getElementById('feat-copy-md');
 const starChartToggle = document.getElementById('feat-starchart');
 const leaderboardCountInput = document.getElementById('lb-count');
 const colListEl = document.getElementById('lb-col-list');
+const grokTemplateSelect = document.getElementById('grok-template-select');
+const grokTemplateNameInput = document.getElementById('grok-template-name');
+const grokPromptInput = document.getElementById('grok-prompt');
+const grokPromptSaveBtn = document.getElementById('grok-prompt-save');
+const grokPromptResetBtn = document.getElementById('grok-prompt-reset');
+const grokPromptAddBtn = document.getElementById('grok-prompt-add');
+const grokPromptDeleteBtn = document.getElementById('grok-prompt-delete');
 
 let columnsState = normalizeColumns(null);
+let grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
+let grokSelectedTemplateId = DEFAULT_FEATURES.grokSelectedPromptId;
 
 function normalizeCount(v) {
   const n = parseInt(v, 10);
@@ -87,6 +103,27 @@ function normalize(raw) {
   };
   if (next.viral <= next.trending) next.viral = next.trending + 1;
   return next;
+}
+
+function normalizeGrokTemplates(raw, legacyPrompt) {
+  const source = Array.isArray(raw) && raw.length
+    ? raw
+    : [{ id: 'default', name: '默认评论', prompt: legacyPrompt || DEFAULT_FEATURES.grokCommentPrompt }];
+  const seen = new Set();
+  const out = [];
+  for (const item of source) {
+    const prompt = String(item?.prompt || '').trim();
+    if (!prompt) continue;
+    const id = String(item?.id || `tpl-${out.length + 1}`).trim() || `tpl-${out.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: String(item?.name || `模板 ${out.length + 1}`).trim() || `模板 ${out.length + 1}`,
+      prompt,
+    });
+  }
+  return out.length ? out : DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
 }
 
 function fmtNum(n) { return n >= 1000 ? (n / 1000).toFixed(0) + 'k' : n.toString(); }
@@ -115,9 +152,44 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   copyMdToggle.checked = items.featureCopyAsMarkdown !== false;
   starChartToggle.checked = items.featureStarChart !== false;
   leaderboardCountInput.value = normalizeCount(items.leaderboardCount);
+  grokTemplatesState = normalizeGrokTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
+  grokSelectedTemplateId = items.grokSelectedPromptId || grokTemplatesState[0]?.id || 'default';
+  if (!grokTemplatesState.some((tpl) => tpl.id === grokSelectedTemplateId)) {
+    grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
+  }
+  renderGrokTemplateEditor();
   columnsState = normalizeColumns(items.leaderboardColumns);
   renderColList();
 });
+
+function renderGrokTemplateEditor() {
+  if (!grokTemplateSelect || !grokPromptInput || !grokTemplateNameInput) return;
+  grokTemplateSelect.innerHTML = '';
+  grokTemplatesState.forEach((tpl) => {
+    const option = document.createElement('option');
+    option.value = tpl.id;
+    option.textContent = tpl.name;
+    option.selected = tpl.id === grokSelectedTemplateId;
+    grokTemplateSelect.appendChild(option);
+  });
+  const active = grokTemplatesState.find((tpl) => tpl.id === grokSelectedTemplateId) || grokTemplatesState[0];
+  if (active) {
+    grokSelectedTemplateId = active.id;
+    grokTemplateSelect.value = active.id;
+    grokTemplateNameInput.value = active.name;
+    grokPromptInput.value = active.prompt;
+  }
+  if (grokPromptDeleteBtn) grokPromptDeleteBtn.disabled = grokTemplatesState.length <= 1;
+}
+
+function persistGrokTemplates(messageKey = 'flashGrokPromptSaved') {
+  const active = grokTemplatesState.find((tpl) => tpl.id === grokSelectedTemplateId) || grokTemplatesState[0];
+  chrome.storage.sync.set({
+    grokCommentPrompt: active?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
+    grokPromptTemplates: grokTemplatesState,
+    grokSelectedPromptId: active?.id || 'default',
+  }, () => flash(tr(messageKey)));
+}
 
 function renderColList() {
   colListEl.innerHTML = '';
@@ -204,6 +276,51 @@ starChartToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureStarChart: starChartToggle.checked }, () => {
     flash(tr(starChartToggle.checked ? 'flashStarChartOn' : 'flashStarChartOff'));
   });
+});
+
+grokPromptSaveBtn?.addEventListener('click', () => {
+  const active = grokTemplatesState.find((tpl) => tpl.id === grokSelectedTemplateId);
+  const prompt = (grokPromptInput.value || '').trim() || DEFAULT_FEATURES.grokCommentPrompt;
+  if (active) {
+    active.name = (grokTemplateNameInput.value || '').trim() || active.name || '模板';
+    active.prompt = prompt;
+  }
+  grokPromptInput.value = prompt;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+grokPromptResetBtn?.addEventListener('click', () => {
+  grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
+  grokSelectedTemplateId = DEFAULT_FEATURES.grokSelectedPromptId;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptReset');
+});
+
+grokTemplateSelect?.addEventListener('change', () => {
+  grokSelectedTemplateId = grokTemplateSelect.value;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+grokPromptAddBtn?.addEventListener('click', () => {
+  const id = `custom-${Date.now()}`;
+  grokTemplatesState.push({
+    id,
+    name: `模板 ${grokTemplatesState.length + 1}`,
+    prompt: DEFAULT_FEATURES.grokCommentPrompt,
+  });
+  grokSelectedTemplateId = id;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+grokPromptDeleteBtn?.addEventListener('click', () => {
+  if (grokTemplatesState.length <= 1) return;
+  grokTemplatesState = grokTemplatesState.filter((tpl) => tpl.id !== grokSelectedTemplateId);
+  grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
 });
 
 leaderboardCountInput.addEventListener('change', () => {

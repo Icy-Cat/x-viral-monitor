@@ -153,6 +153,47 @@ window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
+const GROK_API_RE = /(?:grok\.x\.com\/\d+\/grok\/|\/i\/api\/(?:graphql\/[^/]+\/[^/?]*grok[^/?]*|grok\b))/i;
+const DEFAULT_GROK_COMMENT_PROMPT = '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹';
+const DEFAULT_GROK_PROMPT_TEMPLATES = [
+  { id: 'default', name: '默认评论', prompt: DEFAULT_GROK_COMMENT_PROMPT },
+  { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
+  { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
+];
+const DEFAULT_X_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
+const BUILTIN_GROK_URL = 'https://grok.x.com/2/grok/add_response.json';
+const USE_CAPTURED_GROK_TEMPLATE = false;
+const GROK_PROMPT_KEYS = /^(message|prompt|query|input|text|content)$/i;
+let grokPromptTemplate = DEFAULT_GROK_COMMENT_PROMPT;
+let grokPromptTemplates = DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
+let grokSelectedTemplateId = 'default';
+let grokEndpointTemplate = null;
+let grokLastReplyArticle = null;
+let grokLatestAuthHeader = DEFAULT_X_BEARER;
+let grokLatestSessionHeaders = {};
+
+window.postMessage({ type: 'XVM_GROK_SETTINGS_REQUEST' }, '*');
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'XVM_GROK_SETTINGS_LOAD') return;
+  if (typeof event.data.promptTemplate === 'string' && event.data.promptTemplate.trim()) {
+    grokPromptTemplate = event.data.promptTemplate;
+  }
+  if (Array.isArray(event.data.promptTemplates) && event.data.promptTemplates.length) {
+    grokPromptTemplates = normalizeGrokPromptTemplates(event.data.promptTemplates);
+  } else if (grokPromptTemplate) {
+    grokPromptTemplates = normalizeGrokPromptTemplates([{ id: 'default', name: '默认评论', prompt: grokPromptTemplate }]);
+  }
+  if (typeof event.data.selectedPromptId === 'string' && event.data.selectedPromptId) {
+    grokSelectedTemplateId = event.data.selectedPromptId;
+  }
+  if ('endpointTemplate' in event.data) {
+    grokEndpointTemplate = isUsableGrokTemplate(event.data.endpointTemplate)
+      ? event.data.endpointTemplate
+      : null;
+  }
+});
 
 // === Star Chart: GraphQL endpoint template capture ===
 // Learns the latest queryId + features blob X is using for known operations,
@@ -173,6 +214,7 @@ function recordStarChartTemplate(url, requestHeaders) {
   // target ops (Retweeters / SearchTimeline).
   const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
   if (auth) {
+    grokLatestAuthHeader = auth;
     window.postMessage({
       type: 'XVM_SC_TEMPLATE_CAPTURE',
       op: '_global',
@@ -199,6 +241,133 @@ function recordStarChartTemplate(url, requestHeaders) {
   }, '*');
 }
 
+function normalizeHeaders(headersLike) {
+  try {
+    const headers = headersLike instanceof Headers
+      ? headersLike
+      : new Headers(headersLike || {});
+    const out = {};
+    headers.forEach((value, key) => {
+      if (/^(authorization|x-csrf-token|x-twitter-auth-type|x-twitter-active-user|x-twitter-client-language|x-client-transaction-id|x-xai-request-id|content-type|accept)$/i.test(key)) {
+        out[key] = value;
+      }
+    });
+    return out;
+  } catch (_) {
+    return {};
+  }
+}
+
+function rememberGrokSessionHeaders(headersLike) {
+  const headers = normalizeHeaders(headersLike);
+  if (headers.authorization || headers.Authorization) {
+    grokLatestAuthHeader = headers.authorization || headers.Authorization;
+  }
+  if (Object.keys(headers).length) {
+    grokLatestSessionHeaders = { ...grokLatestSessionHeaders, ...headers };
+  }
+}
+
+function normalizeGrokPromptTemplates(raw) {
+  const seen = new Set();
+  const out = [];
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const prompt = String(item?.prompt || '').trim();
+    if (!prompt) continue;
+    const id = String(item?.id || `tpl-${out.length + 1}`).trim() || `tpl-${out.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: String(item?.name || `模板 ${out.length + 1}`).trim() || `模板 ${out.length + 1}`,
+      prompt,
+    });
+  }
+  return out.length ? out : DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
+}
+
+function getPath(obj, path) {
+  let cur = obj;
+  for (const key of path || []) {
+    if (!cur || typeof cur !== 'object') return undefined;
+    cur = cur[key];
+  }
+  return cur;
+}
+
+function setPath(obj, path, value) {
+  let cur = obj;
+  for (let i = 0; i < path.length - 1; i++) {
+    cur = cur[path[i]];
+    if (!cur || typeof cur !== 'object') return false;
+  }
+  cur[path[path.length - 1]] = value;
+  return true;
+}
+
+function findPromptPath(obj, path = []) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (typeof obj?.responses?.[0]?.message === 'string' && obj.responses[0].message.trim()) {
+    return { path: ['responses', '0', 'message'], value: obj.responses[0].message };
+  }
+  let best = null;
+  for (const [key, value] of Object.entries(obj)) {
+    const nextPath = path.concat(key);
+    if (typeof value === 'string' && GROK_PROMPT_KEYS.test(key) && value.trim().length >= 2 && !/^https?:\/\//i.test(value)) {
+      if (!best || value.length > best.value.length) best = { path: nextPath, value };
+    } else if (value && typeof value === 'object') {
+      const nested = findPromptPath(value, nextPath);
+      if (nested && (!best || nested.value.length > best.value.length)) best = nested;
+    }
+  }
+  return best;
+}
+
+function isUsableGrokTemplate(template) {
+  if (!template?.url || !template?.bodyText) return false;
+  try {
+    const body = JSON.parse(template.bodyText);
+    const path = Array.isArray(template.promptPath) && template.promptPath.length
+      ? template.promptPath
+      : findPromptPath(body)?.path;
+    return !!path && typeof getPath(body, path) === 'string';
+  } catch (_) {
+    return !!template.samplePrompt && template.bodyText.includes(template.samplePrompt);
+  }
+}
+
+function shouldInspectGrokRequest(url) {
+  return !!url && (GROK_API_RE.test(url) || (GRAPHQL_RE.test(url) && location.pathname.startsWith('/i/grok')));
+}
+
+function recordGrokTemplate(url, method, requestHeaders, bodyText) {
+  if (!url || !shouldInspectGrokRequest(url) || !bodyText) return;
+  let bodyJson = null;
+  let promptPath = null;
+  let samplePrompt = '';
+  try {
+    bodyJson = JSON.parse(bodyText);
+    const found = findPromptPath(bodyJson);
+    if (found) {
+      promptPath = found.path;
+      samplePrompt = found.value;
+    }
+  } catch (_) {}
+  if (!promptPath) return;
+
+  const template = {
+    url: String(url),
+    method: method || 'POST',
+    headers: normalizeHeaders(requestHeaders),
+    bodyText: String(bodyText),
+    promptPath,
+    samplePrompt,
+  };
+  grokEndpointTemplate = template;
+  window.postMessage({ type: 'XVM_GROK_TEMPLATE_CAPTURE', template }, '*');
+  console.debug('[XVM-GROK] captured endpoint template', { url: template.url, promptPath });
+}
+
 // Extract and report rate limit headers
 function reportRateLimit(headers) {
   const remaining = headers.get('x-rate-limit-remaining');
@@ -216,12 +385,26 @@ function reportRateLimit(headers) {
 const originalFetch = window.fetch;
 window.fetch = async function (...args) {
   const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
+  const init = args[1] || {};
+  const headers = init.headers instanceof Headers
+    ? Object.fromEntries(init.headers.entries())
+    : (init.headers || (args[0]?.headers ? Object.fromEntries(new Headers(args[0].headers).entries()) : {}));
+  if (url && (/^https:\/\/(?:x|api)\.com\//.test(String(url)) || GRAPHQL_RE.test(String(url)))) {
+    rememberGrokSessionHeaders(headers);
+  }
+  if (shouldInspectGrokRequest(url)) {
+    let bodyText = '';
+    if (typeof init.body === 'string') {
+      bodyText = init.body;
+    } else if (init.body && typeof init.body.text === 'function') {
+      try { bodyText = await init.body.clone().text(); } catch (_) {}
+    } else if (args[0] instanceof Request) {
+      try { bodyText = await args[0].clone().text(); } catch (_) {}
+    }
+    recordGrokTemplate(url, init.method || args[0]?.method || 'POST', headers, bodyText);
+  }
   // Star chart: capture queryId + auth header from outgoing request
   if (url && GRAPHQL_RE.test(url)) {
-    const init = args[1] || {};
-    const headers = init.headers instanceof Headers
-      ? Object.fromEntries(init.headers.entries())
-      : (init.headers || (args[0]?.headers ? Object.fromEntries(new Headers(args[0].headers).entries()) : {}));
     recordStarChartTemplate(url, headers);
   }
   const response = await originalFetch.apply(this, args);
@@ -236,6 +419,8 @@ window.fetch = async function (...args) {
 // Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
 const originalXHROpen = XMLHttpRequest.prototype.open;
 XMLHttpRequest.prototype.open = function (method, url, ...rest) {
+  this.__xvmMethod = method;
+  this.__xvmUrl = url;
   if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
     this.addEventListener('load', function () {
       try {
@@ -259,10 +444,26 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
 
 const originalXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
 XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
+  if (!this.__xvmHeaders) this.__xvmHeaders = {};
+  this.__xvmHeaders[name] = value;
   if (name && /^authorization$/i.test(name)) {
     this.__xvmAuthHeader = value;
   }
   return originalXHRSetHeader.apply(this, arguments);
+};
+
+const originalXHRSend = XMLHttpRequest.prototype.send;
+XMLHttpRequest.prototype.send = function (body) {
+  try {
+    if (typeof this.__xvmUrl === 'string' && (/^https:\/\/(?:x|api)\.com\//.test(this.__xvmUrl) || GRAPHQL_RE.test(this.__xvmUrl))) {
+      rememberGrokSessionHeaders(this.__xvmHeaders || {});
+    }
+    if (typeof this.__xvmUrl === 'string' && shouldInspectGrokRequest(this.__xvmUrl)) {
+      const bodyText = typeof body === 'string' ? body : '';
+      recordGrokTemplate(this.__xvmUrl, this.__xvmMethod || 'POST', this.__xvmHeaders || {}, bodyText);
+    }
+  } catch (_) {}
+  return originalXHRSend.apply(this, arguments);
 };
 
 // === Data Extraction ===
@@ -1310,17 +1511,24 @@ window.addEventListener('scroll', () => {
 // === MutationObserver ===
 const observer = new MutationObserver((mutations) => {
   let hasNewArticles = false;
+  let hasNewComposer = false;
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
       if (node.nodeType === 1 && (node.tagName === 'ARTICLE' || node.querySelector?.('article[data-testid="tweet"]'))) {
         hasNewArticles = true;
-        break;
       }
+      if (node.nodeType === 1 && (node.matches?.('[data-testid="tweetTextarea_0"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || node.querySelector?.('[data-testid="tweetTextarea_0"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]'))) {
+        hasNewComposer = true;
+      }
+      if (hasNewArticles && hasNewComposer) break;
     }
-    if (hasNewArticles) break;
+    if (hasNewArticles && hasNewComposer) break;
   }
   if (hasNewArticles) {
     renderBadges();
+  }
+  if (hasNewComposer) {
+    injectGrokReplyButtons();
   }
 });
 
@@ -1333,8 +1541,12 @@ function startObserver() {
 
 if (document.body) {
   startObserver();
+  injectGrokReplyButtons();
 } else {
-  document.addEventListener('DOMContentLoaded', startObserver);
+  document.addEventListener('DOMContentLoaded', () => {
+    startObserver();
+    injectGrokReplyButtons();
+  });
 }
 
 // Reset on SPA navigation (URL change)
@@ -1468,6 +1680,398 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 250);
   }, 1400);
 }
+
+function buildGrokPrompt(tweetText) {
+  return buildGrokPromptFromTemplate(tweetText, getSelectedGrokPromptTemplate().prompt);
+}
+
+function getSelectedGrokPromptTemplate() {
+  return grokPromptTemplates.find((tpl) => tpl.id === grokSelectedTemplateId) || grokPromptTemplates[0] || DEFAULT_GROK_PROMPT_TEMPLATES[0];
+}
+
+function buildGrokPromptFromTemplate(tweetText, templateText) {
+  const text = (tweetText || '').trim();
+  const template = (templateText || grokPromptTemplate || DEFAULT_GROK_COMMENT_PROMPT).trim();
+  return template.includes('[推文内容]')
+    ? template.replaceAll('[推文内容]', text)
+    : `${text}\n\n${template}`;
+}
+
+function getCookieValue(name) {
+  const escaped = String(name).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = document.cookie.match(new RegExp(`(?:^|;\\s*)${escaped}=([^;]+)`));
+  return match ? decodeURIComponent(match[1]) : '';
+}
+
+function makeGrokConversationId() {
+  try {
+    const epoch = 1288834974657n;
+    const ms = BigInt(Date.now()) - epoch;
+    const rand = BigInt(Math.floor(Math.random() * 4194304));
+    return String((ms << 22n) + rand);
+  } catch (_) {
+    return `${Date.now()}${Math.floor(Math.random() * 1000000).toString().padStart(6, '0')}`;
+  }
+}
+
+function buildBuiltinGrokBody(prompt) {
+  return JSON.stringify({
+    responses: [{
+      message: prompt,
+      sender: 1,
+      promptSource: '',
+      fileAttachments: [],
+    }],
+    systemPromptName: '',
+    grokModelOptionId: 'grok-3-latest',
+    modelMode: 'MODEL_MODE_FAST',
+    conversationId: makeGrokConversationId(),
+    returnSearchResults: true,
+    returnCitations: true,
+    promptMetadata: {
+      promptSource: 'NATURAL',
+      action: 'INPUT',
+    },
+    imageGenerationCount: 4,
+    requestFeatures: {
+      eagerTweets: true,
+      serverHistory: true,
+    },
+    enableSideBySide: true,
+    toolOverrides: {},
+    modelConfigOverride: {},
+    isTemporaryChat: false,
+  });
+}
+
+function buildGrokHeaders() {
+  const captured = { ...grokLatestSessionHeaders, ...(grokEndpointTemplate?.headers || {}) };
+  const csrf = captured['x-csrf-token'] || getCookieValue('ct0');
+  const headers = {
+    authorization: captured.authorization || captured.Authorization || grokLatestAuthHeader || DEFAULT_X_BEARER,
+    'content-type': 'text/plain;charset=UTF-8',
+    accept: captured.accept || '*/*',
+    'x-csrf-token': csrf,
+    'x-twitter-active-user': captured['x-twitter-active-user'] || 'no',
+    'x-twitter-auth-type': captured['x-twitter-auth-type'] || 'OAuth2Session',
+    'x-twitter-client-language': captured['x-twitter-client-language'] || navigator.language?.toLowerCase() || 'en',
+    'x-xai-request-id': crypto?.randomUUID ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+  };
+  if (captured['x-client-transaction-id']) {
+    headers['x-client-transaction-id'] = captured['x-client-transaction-id'];
+  }
+  return headers;
+}
+
+function getTweetTextFromArticle(article) {
+  const statusId = getStatusIdFromLocation();
+  const statusCached = statusId ? tweetDataStore.get(statusId) : null;
+  if (statusCached?.text) return statusCached.text.trim();
+  if (statusCached?.articleMd) return statusCached.articleMd.trim();
+
+  if (!article) return '';
+  const tweetId = getTweetIdFromArticle(article) || statusId;
+  const cached = tweetId ? tweetDataStore.get(tweetId) : null;
+  let text = cached?.text || cached?.articleMd || '';
+  if (!text) {
+    text = Array.from(article.querySelectorAll('[data-testid="tweetText"], div[lang]'))
+      .map((el) => (el.textContent || '').trim())
+      .filter(Boolean)
+      .join('\n');
+  }
+  return text.trim();
+}
+
+function getStatusIdFromLocation() {
+  const match = location.pathname.match(/\/status\/(\d+)/);
+  return match?.[1] || '';
+}
+
+function findArticleForCurrentStatus() {
+  const statusId = getStatusIdFromLocation();
+  const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+  if (!articles.length) return null;
+  if (statusId) {
+    for (const article of articles) {
+      const id = getTweetIdFromArticle(article);
+      if (id === statusId) return article;
+      if (article.querySelector(`a[href*="/status/${statusId}"]`)) return article;
+    }
+  }
+  return articles[0] || null;
+}
+
+function findReplyComposerRoot(editable) {
+  return editable?.closest('[role="dialog"], [data-testid="tweetTextarea_0"]') || editable?.parentElement || null;
+}
+
+function findReplyArticle(composerRoot) {
+  const dialog = composerRoot?.closest?.('[role="dialog"]') || composerRoot;
+  const article = dialog?.querySelector?.('article[data-testid="tweet"]');
+  if (article) return article;
+  if (grokLastReplyArticle?.isConnected) return grokLastReplyArticle;
+  const statusArticle = findArticleForCurrentStatus();
+  if (statusArticle) return statusArticle;
+  return null;
+}
+
+function findReplyEditable(root = document) {
+  return root.querySelector?.('[data-testid="tweetTextarea_0"] [contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+}
+
+function insertTextIntoReply(editable, text) {
+  if (!editable) return false;
+  editable.focus();
+  if (editable.tagName === 'TEXTAREA' || editable.tagName === 'INPUT') {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+      || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (setter) setter.call(editable, text);
+    else editable.value = text;
+    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    editable.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+  try {
+    document.execCommand('selectAll', false, null);
+    document.execCommand('insertText', false, text);
+  } catch (_) {}
+  if ((editable.textContent || '').trim() !== text.trim()) {
+    editable.textContent = text;
+    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+  }
+  return true;
+}
+
+function cloneGrokBodyWithPrompt(template, prompt) {
+  try {
+    const body = JSON.parse(template.bodyText);
+    if (Array.isArray(template.promptPath) && template.promptPath.length && typeof getPath(body, template.promptPath) === 'string') {
+      setPath(body, template.promptPath, prompt);
+    } else {
+      const found = findPromptPath(body);
+      if (!found || !setPath(body, found.path, prompt)) {
+        throw new Error('当前捕获的 Grok 接口不是发送消息接口，请重新打开 x.com/i/grok 发送一条任意消息以刷新接口模板');
+      }
+    }
+    return JSON.stringify(body);
+  } catch (err) {
+    if (template.samplePrompt && template.bodyText.includes(template.samplePrompt)) {
+      return template.bodyText.split(template.samplePrompt).join(prompt);
+    }
+    throw err;
+  }
+}
+
+function extractGrokComments(rawText) {
+  const chunks = [];
+  const codeBlocks = [];
+  const blockRe = /```(?:[\w-]+)?\s*([\s\S]*?)```/g;
+  let match;
+
+  function addText(text) {
+    if (!text) return;
+    chunks.push(text);
+  }
+
+  const lines = String(rawText || '').split(/\r?\n/);
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    const data = trimmed.startsWith('data:') ? trimmed.slice(5).trim() : trimmed;
+    if (!data || data === '[DONE]') continue;
+    if (data.startsWith('{') || data.startsWith('[')) {
+      try {
+        const payload = JSON.parse(data);
+        const result = payload?.result || payload;
+        if (result?.sender === 'ASSISTANT' && result?.messageTag === 'final' && typeof result.message === 'string') {
+          addText(result.message);
+        }
+        continue;
+      } catch (_) {}
+    }
+  }
+
+  const joinedFinal = chunks.join('');
+  while ((match = blockRe.exec(joinedFinal))) {
+    const comment = match[1].trim();
+    if (comment) codeBlocks.push(comment);
+  }
+
+  if (!codeBlocks.length) {
+    const numbered = joinedFinal.split(/\n+(?=\s*(?:\d+[\).]|[-*])\s+)/)
+      .map((s) => s.replace(/^\s*(?:\d+[\).]|[-*])\s+/, '').trim())
+      .filter((s) => s.length >= 2 && s.length <= 280);
+    return numbered.slice(0, 10);
+  }
+
+  return Array.from(new Set(codeBlocks)).slice(0, 10);
+}
+
+async function generateGrokComments(tweetText, promptTemplate) {
+  const prompt = buildGrokPromptFromTemplate(tweetText, promptTemplate?.prompt || promptTemplate);
+  const canUseCaptured = USE_CAPTURED_GROK_TEMPLATE && isUsableGrokTemplate(grokEndpointTemplate);
+  const body = canUseCaptured
+    ? cloneGrokBodyWithPrompt(grokEndpointTemplate, prompt)
+    : buildBuiltinGrokBody(prompt);
+  const headers = buildGrokHeaders();
+  if (!headers['x-client-transaction-id']) {
+    throw new Error('缺少 X 会话请求头，请刷新当前 X 页面后再点 AI 生成');
+  }
+  const res = await originalFetch(canUseCaptured ? grokEndpointTemplate.url : BUILTIN_GROK_URL, {
+    method: canUseCaptured ? (grokEndpointTemplate.method || 'POST') : 'POST',
+    headers,
+    body,
+    credentials: 'include',
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Grok 请求失败：${res.status}`);
+  const comments = extractGrokComments(text);
+  if (!comments.length) throw new Error('Grok 返回中没有解析到评论代码块');
+  return comments;
+}
+
+function closeGrokOptions() {
+  document.querySelectorAll('.xvm-grok-options').forEach((el) => el.remove());
+}
+
+function closeGrokTemplateMenu() {
+  document.querySelectorAll('.xvm-grok-template-menu').forEach((el) => el.remove());
+}
+
+function showGrokTemplateMenu(anchor, editable) {
+  closeGrokTemplateMenu();
+  const menu = document.createElement('div');
+  menu.className = 'xvm-grok-template-menu';
+  menu.innerHTML = `
+    <div class="xvm-grok-template-menu-head">选择提示词模板</div>
+    <div class="xvm-grok-template-menu-list"></div>
+  `;
+  const list = menu.querySelector('.xvm-grok-template-menu-list');
+  normalizeGrokPromptTemplates(grokPromptTemplates).forEach((tpl) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'xvm-grok-template-item';
+    item.innerHTML = `<span>${tpl.name}</span><small>${tpl.prompt.replace(/\s+/g, ' ').slice(0, 72)}</small>`;
+    item.addEventListener('click', () => {
+      closeGrokTemplateMenu();
+      handleGrokGenerate(anchor, editable, tpl);
+    });
+    list.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(320, window.innerWidth - 24);
+  menu.style.width = `${width}px`;
+  menu.style.left = `${Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width))}px`;
+  menu.style.top = `${Math.min(window.innerHeight - menu.offsetHeight - 12, rect.bottom + 8)}px`;
+  setTimeout(() => {
+    document.addEventListener('click', closeGrokTemplateMenu, { once: true, capture: true });
+  }, 0);
+}
+
+function showGrokOptions(comments, editable) {
+  closeGrokOptions();
+  const panel = document.createElement('div');
+  panel.className = 'xvm-grok-options';
+  panel.innerHTML = `
+    <div class="xvm-grok-options-head">
+      <strong>Grok 评论候选</strong>
+      <button type="button" class="xvm-grok-close" aria-label="Close">×</button>
+    </div>
+    <div class="xvm-grok-options-list"></div>
+  `;
+  const list = panel.querySelector('.xvm-grok-options-list');
+  comments.forEach((comment, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'xvm-grok-choice';
+    btn.textContent = comment;
+    btn.title = '填充到回复框';
+    btn.addEventListener('click', () => {
+      insertTextIntoReply(editable, comment);
+      closeGrokOptions();
+      showToast('已填充评论');
+    });
+    btn.dataset.idx = String(idx + 1);
+    list.appendChild(btn);
+  });
+  panel.querySelector('.xvm-grok-close')?.addEventListener('click', closeGrokOptions);
+  document.body.appendChild(panel);
+}
+
+function setGrokButtonLabel(btn, label = 'AI 生成', loading = false) {
+  btn.classList.toggle('xvm-grok-generate-btn--loading', loading);
+  btn.innerHTML = `<span class="xvm-grok-spark" aria-hidden="true">✦</span><span>${label}</span>`;
+}
+
+async function handleGrokGenerate(btn, editable, promptTemplate = null) {
+  if (!promptTemplate && grokPromptTemplates.length > 1) {
+    showGrokTemplateMenu(btn, editable);
+    return;
+  }
+  const root = findReplyComposerRoot(editable);
+  const article = findReplyArticle(root);
+  const tweetText = getTweetTextFromArticle(article);
+  if (!tweetText) {
+    showToast('未找到推文内容');
+    return;
+  }
+
+  btn.disabled = true;
+  setGrokButtonLabel(btn, '生成中', true);
+  try {
+    const comments = await generateGrokComments(tweetText, promptTemplate || getSelectedGrokPromptTemplate());
+    showGrokOptions(comments, editable);
+  } catch (err) {
+    console.debug('[XVM-GROK] generation failed', err);
+    showToast(err?.message || 'Grok 生成失败');
+  } finally {
+    btn.disabled = false;
+    setGrokButtonLabel(btn);
+  }
+}
+
+function injectGrokReplyButtons(root = document) {
+  const editors = root.querySelectorAll?.('[data-testid="tweetTextarea_0"] [contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || [];
+  for (const editable of editors) {
+    const composerRoot = findReplyComposerRoot(editable);
+    if (!composerRoot || composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
+    if (!composerRoot.closest('[role="dialog"]') && !editable.closest('article[data-testid="tweet"]') && !getStatusIdFromLocation()) continue;
+    if (!findReplyArticle(composerRoot)) continue;
+
+    const scope = composerRoot.closest('[role="dialog"]') || editable.closest('article[data-testid="tweet"]') || editable.closest('form') || composerRoot.parentElement;
+    const submitBtn = scope?.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]');
+    const host = submitBtn?.parentElement
+      || scope?.querySelector?.('[data-testid="toolBar"]')?.parentElement
+      || editable.closest('form')?.querySelector?.('[role="group"]')?.parentElement
+      || editable.parentElement;
+    if (!host) continue;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'xvm-grok-generate-btn';
+    setGrokButtonLabel(btn);
+    btn.title = '使用自定义提示词模板生成评论';
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      handleGrokGenerate(btn, editable);
+    });
+    if (submitBtn?.parentElement) {
+      submitBtn.parentElement.classList.add('xvm-grok-actions-host');
+      submitBtn.parentElement.insertBefore(btn, submitBtn);
+    } else {
+      host.appendChild(btn);
+    }
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const replyBtn = e.target.closest?.('[data-testid="reply"]');
+  if (!replyBtn) return;
+  const article = replyBtn.closest('article[data-testid="tweet"]');
+  if (article) grokLastReplyArticle = article;
+}, true);
 
 function closeOpenMenus() {
   // X's dropdown listens for outside pointerdown/mousedown on document to

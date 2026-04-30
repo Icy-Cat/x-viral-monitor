@@ -73,6 +73,13 @@ const DEFAULT_FEATURES = {
   featureStarChart: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
+  grokCommentPrompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹',
+  grokPromptTemplates: [
+    { id: 'default', name: '默认评论', prompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹' },
+    { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
+    { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
+  ],
+  grokSelectedPromptId: 'default',
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
@@ -98,6 +105,68 @@ function normalizeLeaderboardColumns(raw) {
     if (!seen.has(def.id)) out.push({ ...def });
   }
   return out;
+}
+
+function normalizeGrokPromptTemplates(raw, legacyPrompt) {
+  const source = Array.isArray(raw) && raw.length
+    ? raw
+    : [{ id: 'default', name: '默认评论', prompt: legacyPrompt || DEFAULT_FEATURES.grokCommentPrompt }];
+  const seen = new Set();
+  const out = [];
+  for (const item of source) {
+    const prompt = String(item?.prompt || '').trim();
+    if (!prompt) continue;
+    const id = String(item?.id || `tpl-${out.length + 1}`).trim() || `tpl-${out.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: String(item?.name || `模板 ${out.length + 1}`).trim() || `模板 ${out.length + 1}`,
+      prompt,
+    });
+  }
+  return out.length ? out : DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
+}
+
+function findGrokPromptPath(obj, path = []) {
+  if (!obj || typeof obj !== 'object') return null;
+  if (typeof obj?.responses?.[0]?.message === 'string' && obj.responses[0].message.trim()) {
+    return ['responses', '0', 'message'];
+  }
+  for (const [key, value] of Object.entries(obj)) {
+    const nextPath = path.concat(key);
+    if (typeof value === 'string' && /^(message|prompt|query|input|text|content)$/i.test(key) && value.trim()) {
+      return nextPath;
+    }
+    if (value && typeof value === 'object') {
+      const nested = findGrokPromptPath(value, nextPath);
+      if (nested) return nested;
+    }
+  }
+  return null;
+}
+
+function normalizeGrokEndpointTemplate(template) {
+  if (!template?.url || !template?.bodyText) return null;
+  if (!/(?:grok\.x\.com\/\d+\/grok\/|\/i\/api\/(?:graphql\/[^/]+\/[^/?]*grok[^/?]*|grok\b))/i.test(template.url)) {
+    return null;
+  }
+  try {
+    const body = JSON.parse(template.bodyText);
+    const promptPath = Array.isArray(template.promptPath) && template.promptPath.length
+      ? template.promptPath
+      : findGrokPromptPath(body);
+    if (!promptPath) return null;
+    let cur = body;
+    for (const key of promptPath) {
+      if (!cur || typeof cur !== 'object') return null;
+      cur = cur[key];
+    }
+    if (typeof cur !== 'string') return null;
+    return { ...template, promptPath };
+  } catch (_) {
+    return null;
+  }
 }
 
 function normalizeThresholds(raw) {
@@ -250,17 +319,79 @@ window.addEventListener('message', (event) => {
     });
     return;
   }
+
+  if (type === 'XVM_GROK_SETTINGS_REQUEST') {
+    safeChromeCall(() => {
+      chrome.storage.sync.get({
+        grokCommentPrompt: DEFAULT_FEATURES.grokCommentPrompt,
+        grokPromptTemplates: DEFAULT_FEATURES.grokPromptTemplates,
+        grokSelectedPromptId: DEFAULT_FEATURES.grokSelectedPromptId,
+      }, (syncItems) => {
+        chrome.storage.local.get({ xvmGrokEndpointTemplate: null }, (localItems) => {
+          const endpointTemplate = normalizeGrokEndpointTemplate(localItems.xvmGrokEndpointTemplate);
+          if (localItems.xvmGrokEndpointTemplate && !endpointTemplate) {
+            chrome.storage.local.remove('xvmGrokEndpointTemplate');
+          }
+          const promptTemplates = normalizeGrokPromptTemplates(syncItems.grokPromptTemplates, syncItems.grokCommentPrompt);
+          window.postMessage({
+            type: 'XVM_GROK_SETTINGS_LOAD',
+            promptTemplate: promptTemplates[0]?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
+            promptTemplates,
+            selectedPromptId: syncItems.grokSelectedPromptId || promptTemplates[0]?.id || 'default',
+            endpointTemplate,
+          }, '*');
+        });
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_GROK_TEMPLATE_CAPTURE' && event.data.template) {
+    const endpointTemplate = normalizeGrokEndpointTemplate(event.data.template);
+    if (!endpointTemplate) return;
+    safeChromeCall(() => {
+      chrome.storage.local.set({
+        xvmGrokEndpointTemplate: {
+          ...endpointTemplate,
+          capturedAt: Date.now(),
+        },
+      });
+    });
+    return;
+  }
 });
 
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.leaderboardCount && !changes.leaderboardColumns) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.grokCommentPrompt && !changes.grokPromptTemplates && !changes.grokSelectedPromptId) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
         pushSettings(items);
       });
+      if (changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokSelectedPromptId) {
+        chrome.storage.sync.get({
+          grokCommentPrompt: DEFAULT_FEATURES.grokCommentPrompt,
+          grokPromptTemplates: DEFAULT_FEATURES.grokPromptTemplates,
+          grokSelectedPromptId: DEFAULT_FEATURES.grokSelectedPromptId,
+        }, (items) => {
+          chrome.storage.local.get({ xvmGrokEndpointTemplate: null }, (localItems) => {
+            const endpointTemplate = normalizeGrokEndpointTemplate(localItems.xvmGrokEndpointTemplate);
+            if (localItems.xvmGrokEndpointTemplate && !endpointTemplate) {
+              chrome.storage.local.remove('xvmGrokEndpointTemplate');
+            }
+            const promptTemplates = normalizeGrokPromptTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
+            window.postMessage({
+              type: 'XVM_GROK_SETTINGS_LOAD',
+              promptTemplate: promptTemplates[0]?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
+              promptTemplates,
+              selectedPromptId: items.grokSelectedPromptId || promptTemplates[0]?.id || 'default',
+              endpointTemplate,
+            }, '*');
+          });
+        });
+      }
     });
   });
 });

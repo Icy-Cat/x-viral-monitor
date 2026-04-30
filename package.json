@@ -4,11 +4,13 @@
   "private": true,
   "type": "module",
   "scripts": {
+    "debug:grok": "node scripts/debug-grok.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },
   "devDependencies": {
-    "vitest": "^1.6.0",
-    "fake-indexeddb": "^5.0.2"
+    "fake-indexeddb": "^5.0.2",
+    "playwright": "^1.59.1",
+    "vitest": "^1.6.0"
   }
 }
