@@ -57,7 +57,6 @@
   line-height: 1.6;
   min-width: 160px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
-  pointer-events: none;
 }
 
 .xvm-lb {
@@ -1112,4 +1111,236 @@ article[data-testid="tweet"].xvm-article-linked {
   font-style: italic;
   text-align: center;
   padding: 20px 0;
+}
+
+/* === Grok reply generation === */
+.xvm-grok-generate-btn {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  height: 32px;
+  margin: 0 8px 0 0;
+  padding: 0 10px;
+  border: 1px solid rgba(207, 217, 222, 0.92);
+  border-radius: 8px;
+  background: rgb(255, 255, 255);
+  color: rgb(15, 20, 25);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 1px 2px rgba(15, 20, 25, 0.06);
+  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+}
+
+.xvm-grok-generate-btn:hover {
+  border-color: rgba(83, 100, 113, 0.35);
+  background: rgb(247, 249, 249);
+  box-shadow: 0 1px 3px rgba(15, 20, 25, 0.1);
+}
+
+.xvm-grok-generate-btn:disabled {
+  opacity: 0.62;
+  cursor: wait;
+}
+
+.xvm-grok-spark {
+  color: rgb(29, 155, 240);
+  font-size: 12px;
+  line-height: 1;
+}
+
+.xvm-grok-generate-btn--loading .xvm-grok-spark {
+  animation: xvm-grok-pulse 0.9s ease-in-out infinite alternate;
+}
+
+.xvm-grok-actions-host {
+  gap: 8px;
+}
+
+@keyframes xvm-grok-pulse {
+  from { opacity: 0.45; transform: scale(0.92); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.xvm-grok-options {
+  position: fixed;
+  /* left/top set in JS to anchor against the AI button */
+  z-index: 2147483647;
+  /* width set in JS based on viewport; capped sensibly */
+  max-height: min(560px, calc(100vh - 36px));
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  color: rgb(15, 20, 25);
+  background: rgba(255, 255, 255, 0.99);
+  border: 1px solid rgba(207, 217, 222, 0.9);
+  border-radius: 12px;
+  font-family: TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  animation: xvm-grok-pop 140ms ease-out;
+  transform-origin: bottom right;
+}
+
+.xvm-grok-options.xvm-grok-options--below {
+  transform-origin: top right;
+}
+
+.xvm-grok-options.xvm-grok-options--right {
+  transform-origin: center left;
+}
+
+.xvm-grok-options.xvm-grok-options--left {
+  transform-origin: center right;
+}
+
+@keyframes xvm-grok-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.xvm-grok-template-menu {
+  position: fixed;
+  z-index: 2147483647;
+  overflow: hidden;
+  color: rgb(15, 20, 25);
+  background: rgba(255, 255, 255, 0.99);
+  border: 1px solid rgba(207, 217, 222, 0.95);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(15, 20, 25, 0.18);
+  font-family: TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+.xvm-grok-template-menu-head {
+  padding: 10px 12px 6px;
+  color: rgb(83, 100, 113);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.xvm-grok-template-menu-list {
+  display: flex;
+  flex-direction: column;
+  padding: 4px;
+}
+
+.xvm-grok-template-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  padding: 9px 10px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: rgb(15, 20, 25);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.xvm-grok-template-item:hover {
+  background: rgb(247, 249, 249);
+}
+
+.xvm-grok-template-item span {
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.xvm-grok-template-item small {
+  overflow: hidden;
+  color: rgb(83, 100, 113);
+  font-size: 12px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.xvm-grok-options-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border-bottom: 1px solid rgba(239, 243, 244, 1);
+  font-size: 15px;
+}
+
+.xvm-grok-options-status {
+  font-size: 12px;
+  color: rgb(83, 100, 113);
+  flex: 1;
+  text-align: right;
+  margin-right: 4px;
+}
+
+.xvm-grok-template-item--selected {
+  outline: 1px solid rgba(29, 155, 240, 0.4);
+  background: rgba(29, 155, 240, 0.06);
+}
+
+.xvm-grok-close {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: rgb(83, 100, 113);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.xvm-grok-close:hover {
+  background: rgba(15, 20, 25, 0.08);
+}
+
+.xvm-grok-options-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  overflow: auto;
+}
+
+.xvm-grok-choice {
+  position: relative;
+  width: 100%;
+  padding: 10px 12px 10px 34px;
+  border: 1px solid rgba(207, 217, 222, 0.85);
+  border-radius: 8px;
+  background: #fff;
+  color: rgb(15, 20, 25);
+  font: inherit;
+  font-size: 14px;
+  line-height: 1.45;
+  text-align: left;
+  cursor: pointer;
+  white-space: pre-wrap;
+}
+
+.xvm-grok-choice::before {
+  content: attr(data-idx);
+  position: absolute;
+  left: 10px;
+  top: 10px;
+  width: 18px;
+  height: 18px;
+  border-radius: 999px;
+  background: rgba(29, 155, 240, 0.12);
+  color: rgb(29, 155, 240);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+.xvm-grok-choice:hover {
+  border-color: rgba(29, 155, 240, 0.45);
+  background: rgba(29, 155, 240, 0.06);
 }

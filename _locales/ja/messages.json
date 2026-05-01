@@ -32,6 +32,12 @@
   "btnReset": {
     "message": "リセット"
   },
+  "btnAdd": {
+    "message": "追加"
+  },
+  "btnDelete": {
+    "message": "削除"
+  },
   "flashSaved": {
     "message": "保存しました ✓"
   },
@@ -154,10 +160,18 @@
       }
     }
   },
-  "contentStarChartMenuLabel": { "message": "サンクス・スターチャート" },
-  "contentStarChartAttribution": { "message": "via X Viral Monitor" },
-  "contentStarChartTitle": { "message": "サンクス・スターチャート" },
-  "contentStarChartLoading": { "message": "サポーターを読み込み中..." },
+  "contentStarChartMenuLabel": {
+    "message": "サンクス・スターチャート"
+  },
+  "contentStarChartAttribution": {
+    "message": "via X Viral Monitor"
+  },
+  "contentStarChartTitle": {
+    "message": "サンクス・スターチャート"
+  },
+  "contentStarChartLoading": {
+    "message": "サポーターを読み込み中..."
+  },
   "contentStarChartProgress": {
     "message": "{{COUNT}} 名読み込み済み"
   },
@@ -173,34 +187,115 @@
   "contentStarChartError": {
     "message": "読み込み失敗：{{REASON}}"
   },
-  "contentStarChartNoTweetFound": { "message": "ツイートを特定できません" },
-  "contentStarChartModuleNotLoaded": { "message": "スターチャートを読み込めません — ページを再読み込みしてください" },
-  "contentStarChartLegendRT": { "message": "リツイート" },
-  "contentStarChartLegendQuote": { "message": "引用" },
-  "contentStarChartLegendBoth": { "message": "両方" },
-  "contentStarChartClose": { "message": "閉じる" },
-  "contentStarChartStatRetweets": { "message": "リツイート" },
-  "contentStarChartStatQuotes": { "message": "引用" },
-  "contentStarChartStatSupporters": { "message": "サポーター" },
-  "contentStarChartStatSpan": { "message": "引用期間" },
-  "contentStarChartSearchPlaceholder": { "message": "名前 / ハンドルで検索..." },
-  "contentStarChartRiverTitle": { "message": "引用ストリーム" },
-  "contentStarChartRiverEmpty": { "message": "引用ツイートはまだありません" },
-  "contentStarChartEmpty": { "message": "このツイートにはまだサポーターがいません" },
-  "contentStarChartReset": { "message": "ビューをリセット" },
-  "popupStarChartLabel": { "message": "サンクス・スターチャート" },
-  "popupStarChartHint": { "message": "ツイートの共有メニューにスターチャート生成項目を追加します。" },
-  "flashStarChartOn": { "message": "スターチャートを有効化" },
-  "flashStarChartOff": { "message": "スターチャートを無効化" },
-  "contentStarChartTitleLabel": { "message": "ベロシティモニター" },
-  "contentStarChartHeroEyebrow": { "message": "この投稿を運んでくれたすべての人へ" },
-  "contentStarChartHeroTitle": { "message": "ひとつひとつの光は、投稿を手渡した手。" },
-  "contentStarChartStatsSectionTitle": { "message": "概要" },
-  "contentStarChartPeopleSectionTitle": { "message": "サポーター" },
-  "contentStarChartFilterAll": { "message": "全て" },
-  "contentStarChartFilterRetweet": { "message": "リツイート" },
-  "contentStarChartFilterQuote": { "message": "引用" },
-  "contentStarChartFilterBoth": { "message": "両方" },
-  "contentStarChartRiverPrev": { "message": "前の引用" },
-  "contentStarChartRiverNext": { "message": "次の引用" }
+  "contentStarChartNoTweetFound": {
+    "message": "ツイートを特定できません"
+  },
+  "contentStarChartModuleNotLoaded": {
+    "message": "スターチャートを読み込めません — ページを再読み込みしてください"
+  },
+  "contentStarChartLegendRT": {
+    "message": "リツイート"
+  },
+  "contentStarChartLegendQuote": {
+    "message": "引用"
+  },
+  "contentStarChartLegendBoth": {
+    "message": "両方"
+  },
+  "contentStarChartClose": {
+    "message": "閉じる"
+  },
+  "contentStarChartStatRetweets": {
+    "message": "リツイート"
+  },
+  "contentStarChartStatQuotes": {
+    "message": "引用"
+  },
+  "contentStarChartStatSupporters": {
+    "message": "サポーター"
+  },
+  "contentStarChartStatSpan": {
+    "message": "引用期間"
+  },
+  "contentStarChartSearchPlaceholder": {
+    "message": "名前 / ハンドルで検索..."
+  },
+  "contentStarChartRiverTitle": {
+    "message": "引用ストリーム"
+  },
+  "contentStarChartRiverEmpty": {
+    "message": "引用ツイートはまだありません"
+  },
+  "contentStarChartEmpty": {
+    "message": "このツイートにはまだサポーターがいません"
+  },
+  "contentStarChartReset": {
+    "message": "ビューをリセット"
+  },
+  "popupStarChartLabel": {
+    "message": "サンクス・スターチャート"
+  },
+  "popupStarChartHint": {
+    "message": "ツイートの共有メニューにスターチャート生成項目を追加します。"
+  },
+  "flashStarChartOn": {
+    "message": "スターチャートを有効化"
+  },
+  "flashStarChartOff": {
+    "message": "スターチャートを無効化"
+  },
+  "contentStarChartTitleLabel": {
+    "message": "ベロシティモニター"
+  },
+  "contentStarChartHeroEyebrow": {
+    "message": "この投稿を運んでくれたすべての人へ"
+  },
+  "contentStarChartHeroTitle": {
+    "message": "ひとつひとつの光は、投稿を手渡した手。"
+  },
+  "contentStarChartStatsSectionTitle": {
+    "message": "概要"
+  },
+  "contentStarChartPeopleSectionTitle": {
+    "message": "サポーター"
+  },
+  "contentStarChartFilterAll": {
+    "message": "全て"
+  },
+  "contentStarChartFilterRetweet": {
+    "message": "リツイート"
+  },
+  "contentStarChartFilterQuote": {
+    "message": "引用"
+  },
+  "contentStarChartFilterBoth": {
+    "message": "両方"
+  },
+  "contentStarChartRiverPrev": {
+    "message": "前の引用"
+  },
+  "contentStarChartRiverNext": {
+    "message": "次の引用"
+  },
+  "popupGrokPromptTitle": {
+    "message": "Grok コメントプロンプト"
+  },
+  "popupGrokPromptHint": {
+    "message": "[推文内容] を元ツイートの挿入位置として使います。返信欄の AI 生成をクリックしてテンプレートを選び、生成後に Options から1件を選んで入力します。"
+  },
+  "popupGrokTempChatLabel": {
+    "message": "一時チャットを使う（Grok 履歴を汚さない）"
+  },
+  "flashGrokTempChatOn": {
+    "message": "一時チャットを有効にしました ✓"
+  },
+  "flashGrokTempChatOff": {
+    "message": "一時チャットを無効にしました"
+  },
+  "flashGrokPromptSaved": {
+    "message": "Grok プロンプトを保存しました ✓"
+  },
+  "flashGrokPromptReset": {
+    "message": "Grok プロンプトをリセットしました ✓"
+  }
 }

@@ -93,6 +93,58 @@ window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
+const DEFAULT_GROK_COMMENT_PROMPT = '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹';
+const DEFAULT_GROK_PROMPT_TEMPLATES = [
+  { id: 'default', name: '默认评论', prompt: DEFAULT_GROK_COMMENT_PROMPT },
+  { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
+  { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
+];
+const DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES = [
+  { id: 'article-default', name: '文章评论', prompt: '以下是一篇 X 长文 / Article：\n\n[推文内容]\n\n为这篇长文生成10条评论。要求：每条评论引用文章中具体的观点或论据进行回应（赞同/质疑/补充），避免笼统的"很有启发"这类空话；语气自然像真人；每条评论用代码块包裹。' },
+  { id: 'article-deep', name: '深度回应', prompt: '以下是一篇长文：\n\n[推文内容]\n\n挑选这篇长文中最值得讨论的3-5个核心论点，针对每个论点给出1-2条有信息密度的评论（提出延伸思考、反例、或个人经验），每条评论用代码块包裹。' },
+];
+// Tweet length threshold separating "short tweet" templates from "long article"
+// templates. X tweets cap at 280 chars by default; longer (long-form posts /
+// articles) get a different prompt set with reasoning suited to long content.
+const ARTICLE_LENGTH_THRESHOLD = 600;
+
+let grokPromptTemplate = DEFAULT_GROK_COMMENT_PROMPT;
+let grokPromptTemplates = DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
+let grokArticlePromptTemplates = DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
+let grokSelectedTemplateId = 'default';
+let grokSelectedArticleTemplateId = 'article-default';
+let grokTemporaryChat = true;
+let grokLastReplyArticle = null;
+
+window.postMessage({ type: 'XVM_GROK_SETTINGS_REQUEST' }, '*');
+
+// Pre-warm tx-id context so the first AI 生成 click is fast.
+window.__xvmXct?.warmup?.();
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type !== 'XVM_GROK_SETTINGS_LOAD') return;
+  if (typeof event.data.promptTemplate === 'string' && event.data.promptTemplate.trim()) {
+    grokPromptTemplate = event.data.promptTemplate;
+  }
+  if (Array.isArray(event.data.promptTemplates) && event.data.promptTemplates.length) {
+    grokPromptTemplates = normalizeGrokPromptTemplates(event.data.promptTemplates);
+  } else if (grokPromptTemplate) {
+    grokPromptTemplates = normalizeGrokPromptTemplates([{ id: 'default', name: '默认评论', prompt: grokPromptTemplate }]);
+  }
+  if (Array.isArray(event.data.articlePromptTemplates) && event.data.articlePromptTemplates.length) {
+    grokArticlePromptTemplates = normalizeGrokPromptTemplates(event.data.articlePromptTemplates);
+  }
+  if (typeof event.data.selectedPromptId === 'string' && event.data.selectedPromptId) {
+    grokSelectedTemplateId = event.data.selectedPromptId;
+  }
+  if (typeof event.data.selectedArticlePromptId === 'string' && event.data.selectedArticlePromptId) {
+    grokSelectedArticleTemplateId = event.data.selectedArticlePromptId;
+  }
+  if (typeof event.data.temporaryChat === 'boolean') {
+    grokTemporaryChat = event.data.temporaryChat;
+  }
+});
 
 // === Star Chart: GraphQL endpoint template capture ===
 // Learns the latest queryId + features blob X is using for known operations,
@@ -111,6 +163,8 @@ function recordStarChartTemplate(url, requestHeaders) {
   // capture it from ANY call (TweetDetail, HomeTimeline, etc.) into a
   // shared `_global` slot. queryId is per-op and only stored for our
   // target ops (Retweeters / SearchTimeline).
+  // Bearer is auto-cached in __xvmNet.getBearer() — we only need to forward
+  // the global capture for star chart's persistent storage.
   const auth = requestHeaders?.authorization || requestHeaders?.Authorization || null;
   if (auth) {
     window.postMessage({
@@ -139,71 +193,46 @@ function recordStarChartTemplate(url, requestHeaders) {
   }, '*');
 }
 
-// Extract and report rate limit headers
-function reportRateLimit(headers) {
-  const remaining = headers.get('x-rate-limit-remaining');
-  const reset = headers.get('x-rate-limit-reset');
-  if (remaining !== null) {
-    window.postMessage({
-      type: 'XVM_RATE_LIMIT',
-      remaining: parseInt(remaining, 10),
-      reset: parseInt(reset, 10),
-    }, '*');
-  }
-}
-
-// Hook fetch
-const originalFetch = window.fetch;
-window.fetch = async function (...args) {
-  const url = typeof args[0] === 'string' ? args[0] : args[0]?.url;
-  // Star chart: capture queryId + auth header from outgoing request
-  if (url && GRAPHQL_RE.test(url)) {
-    const init = args[1] || {};
-    const headers = init.headers instanceof Headers
-      ? Object.fromEntries(init.headers.entries())
-      : (init.headers || (args[0]?.headers ? Object.fromEntries(new Headers(args[0].headers).entries()) : {}));
-    recordStarChartTemplate(url, headers);
-  }
-  const response = await originalFetch.apply(this, args);
-  if (url && GRAPHQL_RE.test(url)) {
-    reportRateLimit(response.headers);
-    const clone = response.clone();
-    clone.json().then(scanForTweets).catch(() => {});
-  }
-  return response;
-};
-
-// Hook XMLHttpRequest — attach listener in open() to avoid X caching send()
-const originalXHROpen = XMLHttpRequest.prototype.open;
-XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-  if (typeof url === 'string' && GRAPHQL_RE.test(url)) {
-    this.addEventListener('load', function () {
-      try {
-        // Report rate limit from XHR headers
-        const remaining = this.getResponseHeader('x-rate-limit-remaining');
-        const reset = this.getResponseHeader('x-rate-limit-reset');
-        if (remaining !== null) {
-          window.postMessage({
-            type: 'XVM_RATE_LIMIT',
-            remaining: parseInt(remaining, 10),
-            reset: parseInt(reset, 10),
-          }, '*');
-        }
-        recordStarChartTemplate(url, { authorization: this.__xvmAuthHeader });
-        scanForTweets(JSON.parse(this.responseText));
-      } catch (e) {}
+function normalizeGrokPromptTemplates(raw) {
+  const seen = new Set();
+  const out = [];
+  for (const item of Array.isArray(raw) ? raw : []) {
+    const prompt = String(item?.prompt || '').trim();
+    if (!prompt) continue;
+    const id = String(item?.id || `tpl-${out.length + 1}`).trim() || `tpl-${out.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: String(item?.name || `模板 ${out.length + 1}`).trim() || `模板 ${out.length + 1}`,
+      prompt,
     });
   }
-  return originalXHROpen.call(this, method, url, ...rest);
-};
+  return out.length ? out : DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
+}
 
-const originalXHRSetHeader = XMLHttpRequest.prototype.setRequestHeader;
-XMLHttpRequest.prototype.setRequestHeader = function (name, value) {
-  if (name && /^authorization$/i.test(name)) {
-    this.__xvmAuthHeader = value;
+function reportRateLimit(remaining, reset) {
+  if (remaining === null || remaining === undefined) return;
+  window.postMessage({
+    type: 'XVM_RATE_LIMIT',
+    remaining: parseInt(remaining, 10),
+    reset: parseInt(reset, 10),
+  }, '*');
+}
+
+// Subscribe to GraphQL traffic for star-chart template capture + tweet scanning.
+window.__xvmNet?.onRequest(GRAPHQL_RE, ({ url, headers }) => {
+  recordStarChartTemplate(url, headers);
+});
+window.__xvmNet?.onResponse(GRAPHQL_RE, async ({ url, response, source }) => {
+  if (source === 'fetch') {
+    reportRateLimit(response.headers.get('x-rate-limit-remaining'), response.headers.get('x-rate-limit-reset'));
+    response.clone().json().then(scanForTweets).catch(() => {});
+  } else {
+    reportRateLimit(response.getHeader('x-rate-limit-remaining'), response.getHeader('x-rate-limit-reset'));
+    try { scanForTweets(response.json()); } catch (_) {}
   }
-  return originalXHRSetHeader.apply(this, arguments);
-};
+});
 
 // === Data Extraction ===
 // Recursively scan any JSON for tweet_results objects
@@ -213,7 +242,10 @@ function scanForTweets(obj) {
 
   if (obj.tweet_results?.result) {
     const data = extractTweetData(obj.tweet_results.result);
-    if (data) { tweetDataStore.set(data.id, data); found = true; }
+    if (data) {
+      tweetDataStore.set(data.id, data);
+      found = true;
+    }
   }
 
   // Recurse into arrays and objects
@@ -227,7 +259,7 @@ function scanForTweets(obj) {
     }
   }
 
-  if (found) renderBadges();
+  if (found) { renderBadges(); }
 }
 
 function extractTweetData(result) {
@@ -454,6 +486,9 @@ function getTooltip() {
   if (!tooltipEl) {
     tooltipEl = document.createElement('div');
     tooltipEl.className = 'xvm-tooltip';
+    tooltipEl.addEventListener('mouseleave', () => {
+      tooltipEl.style.display = 'none';
+    });
     document.body.appendChild(tooltipEl);
   }
   return tooltipEl;
@@ -463,13 +498,12 @@ function getTooltip() {
 function renderBadges() {
   const articles = document.querySelectorAll('article[data-testid="tweet"]');
   for (const article of articles) {
-    if (article.hasAttribute('data-xvm-scored')) continue;
-
     const tweetId = getTweetIdFromArticle(article);
     if (!tweetId) continue;
-
     const data = tweetDataStore.get(tweetId);
     if (!data) continue;
+
+    if (article.hasAttribute('data-xvm-scored')) continue;
 
     // Find header row before marking scored — if DOM isn't ready, skip and retry later
     const caretBtn = article.querySelector('[data-testid="caret"]');
@@ -527,8 +561,10 @@ function renderBadges() {
       tip.style.left = left + 'px';
     });
 
-    badge.addEventListener('mouseleave', () => {
+    badge.addEventListener('mouseleave', (e) => {
       const tip = getTooltip();
+      // Don't hide if mouse is moving into the tooltip itself
+      if (tip.contains(e.relatedTarget)) return;
       tip.style.display = 'none';
     });
 
@@ -1121,20 +1157,51 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 // === MutationObserver ===
+let composerInjectScheduled = false;
+function scheduleComposerInject() {
+  if (composerInjectScheduled) return;
+  composerInjectScheduled = true;
+  // rAF + microtask defer so we re-inject AFTER X finishes its layout pass.
+  // Without this, X's burger-menu open/close (which rebuilds composer DOM
+  // without re-emitting a textarea-added event we recognize) drops our button.
+  requestAnimationFrame(() => {
+    composerInjectScheduled = false;
+    injectGrokReplyButtons();
+  });
+}
+
+const COMPOSER_SEL = '[data-testid="tweetTextarea_0"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]';
+
 const observer = new MutationObserver((mutations) => {
   let hasNewArticles = false;
+  let touchedComposer = false;
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
-      if (node.nodeType === 1 && (node.tagName === 'ARTICLE' || node.querySelector?.('article[data-testid="tweet"]'))) {
+      if (node.nodeType !== 1) continue;
+      if (node.tagName === 'ARTICLE' || node.querySelector?.('article[data-testid="tweet"]')) {
         hasNewArticles = true;
-        break;
+      }
+      if (node.matches?.(COMPOSER_SEL) || node.querySelector?.(COMPOSER_SEL)) {
+        touchedComposer = true;
       }
     }
-    if (hasNewArticles) break;
+    // Detect cases where X tore down a wrapper that contained our button (e.g.
+    // burger menu open/close rebuilds the composer subtree). Re-inject so the
+    // button reappears without requiring an Esc keypress.
+    if (!touchedComposer) {
+      for (const node of mutation.removedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.classList?.contains?.('xvm-grok-generate-btn')
+            || node.querySelector?.('.xvm-grok-generate-btn')) {
+          touchedComposer = true;
+          break;
+        }
+      }
+    }
+    if (hasNewArticles && touchedComposer) break;
   }
-  if (hasNewArticles) {
-    renderBadges();
-  }
+  if (hasNewArticles) renderBadges();
+  if (touchedComposer) scheduleComposerInject();
 });
 
 function startObserver() {
@@ -1144,17 +1211,55 @@ function startObserver() {
   });
 }
 
-if (document.body) {
-  startObserver();
-} else {
-  document.addEventListener('DOMContentLoaded', startObserver);
+function bootGrokInjectorRetries() {
+  // Composer mounts asynchronously after React hydrate. The initial inject at
+  // content.js load fires before React is done, finding nothing. The mutation
+  // observer covers most cases but X sometimes adds the composer in a way our
+  // matcher misses. A handful of retry passes during the first few seconds
+  // ensures the button shows up reliably without spinning forever.
+  let tries = 0;
+  const id = setInterval(() => {
+    injectGrokReplyButtons();
+    if (++tries >= 10) clearInterval(id);
+  }, 400);
 }
 
-// Reset on SPA navigation (URL change)
+// Belt-and-suspenders: a low-frequency keepalive that re-injects whenever a
+// composer is on the page but the AI button isn't. Catches edge cases the
+// mutation observer misses (e.g. X swapping a composer's containing div via
+// a property update that doesn't show as a DOM mutation we recognize, SPA
+// navigations that reuse stale node references, etc.). Cost: one DOM lookup
+// every 2s, no-op when button is already there.
+setInterval(() => {
+  const composer = document.querySelector('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+  if (composer && !document.querySelector('.xvm-grok-generate-btn')) {
+    injectGrokReplyButtons();
+  }
+}, 2000);
+
+if (document.body) {
+  startObserver();
+  injectGrokReplyButtons();
+  bootGrokInjectorRetries();
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    startObserver();
+    injectGrokReplyButtons();
+    bootGrokInjectorRetries();
+  });
+}
+
+// Reset on SPA navigation (URL change). Re-trigger Grok button injection
+// because the composer (and its containing structure) is often rebuilt
+// across SPA routes — particularly /compose/post → /home and back, which
+// X reuses for inline-reply composers when navigating from one tweet to
+// another. The observer's added-node detector doesn't always catch this
+// because some routes reuse the same DOM nodes with different state.
 let lastUrl = location.href;
 new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
+    bootGrokInjectorRetries();
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
@@ -1281,6 +1386,517 @@ function showToast(msg) {
     setTimeout(() => toast.remove(), 250);
   }, 1400);
 }
+
+function isArticleLengthText(text) {
+  return typeof text === 'string' && text.length >= ARTICLE_LENGTH_THRESHOLD;
+}
+
+// Returns the prompt template list relevant to the source content. Articles
+// (long-form posts) get their own template list with reasoning suited to
+// long content; short tweets get the regular list.
+function getGrokTemplatesForKind(kind) {
+  return kind === 'article' ? grokArticlePromptTemplates : grokPromptTemplates;
+}
+
+function getSelectedGrokPromptTemplate(kind = 'tweet') {
+  if (kind === 'article') {
+    return grokArticlePromptTemplates.find((t) => t.id === grokSelectedArticleTemplateId)
+        || grokArticlePromptTemplates[0]
+        || DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES[0];
+  }
+  return grokPromptTemplates.find((t) => t.id === grokSelectedTemplateId)
+      || grokPromptTemplates[0]
+      || DEFAULT_GROK_PROMPT_TEMPLATES[0];
+}
+
+function getTweetTextFromArticle(article) {
+  const statusId = getStatusIdFromLocation();
+  const statusCached = statusId ? tweetDataStore.get(statusId) : null;
+  if (statusCached?.text) return statusCached.text.trim();
+  if (statusCached?.articleMd) return statusCached.articleMd.trim();
+
+  if (!article) return '';
+  const tweetId = getTweetIdFromArticle(article) || statusId;
+  const cached = tweetId ? tweetDataStore.get(tweetId) : null;
+  let text = cached?.text || cached?.articleMd || '';
+  if (!text) {
+    text = Array.from(article.querySelectorAll('[data-testid="tweetText"], div[lang]'))
+      .map((el) => (el.textContent || '').trim())
+      .filter(Boolean)
+      .join('\n');
+  }
+  return text.trim();
+}
+
+function getStatusIdFromLocation() {
+  const match = location.pathname.match(/\/status\/(\d+)/);
+  return match?.[1] || '';
+}
+
+function findArticleForCurrentStatus() {
+  const statusId = getStatusIdFromLocation();
+  const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+  if (!articles.length) return null;
+  if (statusId) {
+    for (const article of articles) {
+      const id = getTweetIdFromArticle(article);
+      if (id === statusId) return article;
+      if (article.querySelector(`a[href*="/status/${statusId}"]`)) return article;
+    }
+  }
+  return articles[0] || null;
+}
+
+function findReplyComposerRoot(editable) {
+  if (!editable) return null;
+  const dialog = editable.closest('[role="dialog"]');
+  if (dialog?.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')) return dialog;
+
+  let node = editable;
+  for (let depth = 0; node && depth < 24; depth++, node = node.parentElement) {
+    if (node.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')) return node;
+    if (node.matches?.('article[data-testid="tweet"]')) break;
+  }
+  return editable.closest('form') || editable.parentElement || null;
+}
+
+function findReplyArticle(composerRoot) {
+  const dialog = composerRoot?.closest?.('[role="dialog"]') || composerRoot;
+  const article = dialog?.querySelector?.('article[data-testid="tweet"]');
+  if (article) return article;
+  if (grokLastReplyArticle?.isConnected) return grokLastReplyArticle;
+  const statusArticle = findArticleForCurrentStatus();
+  if (statusArticle) return statusArticle;
+  return null;
+}
+
+function findReplyEditable(root = document) {
+  return root.querySelector?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+}
+
+function cleanupMisplacedGrokButtons(editable) {
+  const editorShell = editable?.closest?.('[data-testid="tweetTextarea_0RichTextInputContainer"], .DraftEditor-root, .DraftEditor-editorContainer');
+  editorShell?.querySelectorAll?.('.xvm-grok-generate-btn').forEach((btn) => btn.remove());
+}
+
+function insertTextIntoReply(editable, text) {
+  if (!editable) return false;
+  editable.focus();
+  if (editable.tagName === 'TEXTAREA' || editable.tagName === 'INPUT') {
+    const setter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set
+      || Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    if (setter) setter.call(editable, text);
+    else editable.value = text;
+    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
+    editable.dispatchEvent(new Event('change', { bubbles: true }));
+    return true;
+  }
+  // Draft.js editor (X reply box).
+  //
+  // Dispatch a synthetic ClipboardEvent('paste') with a DataTransfer holding
+  // the text. Draft.js's onPaste reads `clipboardData.getData('text/plain')`
+  // and reconciles its internal EditorState — model and DOM stay in sync,
+  // and the reply submit button activates correctly.
+  //
+  // No system clipboard interaction. No execCommand. No selection juggling
+  // either: Draft's paste handler clears whatever is selected (or replaces
+  // current content) by itself, so we don't need to selectAll first.
+  try {
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    dt.setData('text/html', text); // some Draft variants prefer html — harmless when not used
+    editable.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: dt,
+    }));
+    return true;
+  } catch (e) {
+    console.warn('[XVM-GROK] paste-event insert failed:', e);
+    return false;
+  }
+}
+
+function closeGrokOptions() {
+  document.querySelectorAll('.xvm-grok-options').forEach((el) => el.remove());
+}
+
+function closeGrokTemplateMenu() {
+  document.querySelectorAll('.xvm-grok-template-menu').forEach((el) => el.remove());
+}
+
+function showGrokTemplateMenu(anchor, editable, kind = 'tweet') {
+  closeGrokTemplateMenu();
+  const templates = normalizeGrokPromptTemplates(getGrokTemplatesForKind(kind));
+  const selectedId = kind === 'article' ? grokSelectedArticleTemplateId : grokSelectedTemplateId;
+  const menu = document.createElement('div');
+  menu.className = 'xvm-grok-template-menu';
+  menu.innerHTML = `
+    <div class="xvm-grok-template-menu-head">${kind === 'article' ? '文章评论模板' : '推文评论模板'}</div>
+    <div class="xvm-grok-template-menu-list"></div>
+  `;
+  const list = menu.querySelector('.xvm-grok-template-menu-list');
+  templates.forEach((tpl) => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'xvm-grok-template-item';
+    if (tpl.id === selectedId) item.classList.add('xvm-grok-template-item--selected');
+    item.innerHTML = `<span>${tpl.name}</span><small>${tpl.prompt.replace(/\s+/g, ' ').slice(0, 72)}</small>`;
+    item.addEventListener('click', () => {
+      closeGrokTemplateMenu();
+      // Persist selection per-kind so the next plain click reuses it.
+      if (kind === 'article') {
+        grokSelectedArticleTemplateId = tpl.id;
+        try { chrome.storage?.sync?.set?.({ grokSelectedArticlePromptId: tpl.id }); } catch (_) {}
+      } else {
+        grokSelectedTemplateId = tpl.id;
+        try { chrome.storage?.sync?.set?.({ grokSelectedPromptId: tpl.id }); } catch (_) {}
+      }
+      handleGrokGenerate(anchor, editable, tpl);
+    });
+    list.appendChild(item);
+  });
+  document.body.appendChild(menu);
+  const rect = anchor.getBoundingClientRect();
+  const width = Math.min(320, window.innerWidth - 24);
+  menu.style.width = `${width}px`;
+  menu.style.left = `${Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width))}px`;
+  menu.style.top = `${Math.min(window.innerHeight - menu.offsetHeight - 12, rect.bottom + 8)}px`;
+  setTimeout(() => {
+    document.addEventListener('click', closeGrokTemplateMenu, { once: true, capture: true });
+  }, 0);
+}
+
+// Renders or updates the candidate panel as a popover anchored to the AI
+// button — keeps gaze in one place during the click→pick→fill flow. Re-callable
+// during streaming: each call replaces the list contents in place so users can
+// pick a candidate as soon as it appears.
+function showGrokOptions(comments, editable, opts = {}) {
+  let panel = document.querySelector('.xvm-grok-options');
+  const isNew = !panel;
+  if (isNew) {
+    panel = document.createElement('div');
+    panel.className = 'xvm-grok-options';
+    panel.innerHTML = `
+      <div class="xvm-grok-options-head">
+        <strong>Grok 评论候选</strong>
+        <span class="xvm-grok-options-status" aria-live="polite"></span>
+        <button type="button" class="xvm-grok-close" aria-label="Close">×</button>
+      </div>
+      <div class="xvm-grok-options-list"></div>
+    `;
+    panel.querySelector('.xvm-grok-close')?.addEventListener('click', closeGrokOptions);
+    document.body.appendChild(panel);
+  }
+  const status = panel.querySelector('.xvm-grok-options-status');
+  if (status) {
+    status.textContent = opts.streaming
+      ? `生成中 ${comments.length}…`
+      : (comments.length ? `共 ${comments.length} 条` : '');
+  }
+  const list = panel.querySelector('.xvm-grok-options-list');
+  list.innerHTML = '';
+  comments.forEach((comment, idx) => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'xvm-grok-choice';
+    btn.textContent = comment;
+    btn.title = '填充到回复框';
+    btn.addEventListener('click', () => {
+      insertTextIntoReply(editable, comment);
+      closeGrokOptions();
+      showToast('已填充评论');
+    });
+    btn.dataset.idx = String(idx + 1);
+    list.appendChild(btn);
+  });
+
+  // Smart placement.
+  //   - In a reply modal, the AI button sits inside the dialog and there is
+  //     usually empty viewport to either side of the dialog. Anchor the panel
+  //     to the dialog's right edge so it sits beside the modal as a sibling
+  //     surface (preferred) or to its left if the right is cramped.
+  //   - Outside a modal, prefer right-of-button (trends column is typically
+  //     empty), then above (composer is at viewport bottom on status pages),
+  //     then below.
+  const anchor = opts.anchor;
+  if (anchor) {
+    // X's modal scrim ([role="dialog"]) usually spans the full viewport;
+    // the visible modal is a constrained-width child somewhere up the tree.
+    // To anchor beside the *visible* modal we walk up from the button and
+    // take the outermost ancestor whose width fits within the viewport with
+    // breathing room on at least one side.
+    let dialog = null;
+    if (anchor.closest('[role="dialog"]')) {
+      const vw = window.innerWidth;
+      let node = anchor.parentElement;
+      while (node && node !== document.body) {
+        const r = node.getBoundingClientRect();
+        const sideRoom = vw - r.width;
+        if (r.width >= 400 && sideRoom >= 320) {
+          dialog = node; // keep updating; outermost-fitting wins
+        }
+        if (node.matches?.('[role="dialog"]')) break;
+        node = node.parentElement;
+      }
+    }
+    const refRect = (dialog || anchor).getBoundingClientRect();
+    const btnRect = anchor.getBoundingClientRect();
+    const margin = 8;
+    const minW = 320;
+    const maxW = 420;
+    const minH = 240;
+
+    const spaceRight = window.innerWidth - refRect.right - margin;
+    const spaceLeft = refRect.left - margin;
+    const spaceAbove = btnRect.top - margin;
+    const spaceBelow = window.innerHeight - btnRect.bottom - margin;
+    const panelHGuess = Math.max(panel.offsetHeight || 0, minH);
+
+    let placement;
+    if (dialog) {
+      // Modal: pick whichever side of the dialog has more room.
+      placement = spaceRight >= spaceLeft && spaceRight >= minW + 12
+        ? 'right'
+        : (spaceLeft >= minW + 12 ? 'left' : 'above');
+    } else if (spaceRight >= minW + 12) {
+      placement = 'right';
+    } else if (spaceAbove >= panelHGuess || spaceAbove >= spaceBelow) {
+      placement = 'above';
+    } else {
+      placement = 'below';
+    }
+
+    panel.classList.remove(
+      'xvm-grok-options--above',
+      'xvm-grok-options--below',
+      'xvm-grok-options--right',
+      'xvm-grok-options--left',
+    );
+    panel.classList.add(`xvm-grok-options--${placement}`);
+    panel.classList.toggle('xvm-grok-options--in-modal', !!dialog);
+
+    if (placement === 'right' || placement === 'left') {
+      const space = placement === 'right' ? spaceRight : spaceLeft;
+      const width = Math.min(maxW, Math.max(minW, space - 4));
+      panel.style.width = `${width}px`;
+      panel.style.left = placement === 'right'
+        ? `${refRect.right + margin}px`
+        : `${Math.max(12, refRect.left - margin - width)}px`;
+      // Vertically: when anchored to a dialog, hug its top so the two surfaces
+      // align visually. Otherwise center near the button.
+      const panelH = panel.offsetHeight || panelHGuess;
+      const idealTop = dialog
+        ? refRect.top
+        : btnRect.top + btnRect.height / 2 - panelH / 2;
+      const top = Math.max(12, Math.min(window.innerHeight - panelH - 12, idealTop));
+      panel.style.top = `${top}px`;
+    } else {
+      const width = Math.min(maxW, window.innerWidth - 24);
+      panel.style.width = `${width}px`;
+      const left = Math.max(12, Math.min(window.innerWidth - width - 12, btnRect.right - width));
+      panel.style.left = `${left}px`;
+      const panelH = panel.offsetHeight || panelHGuess;
+      if (placement === 'above') {
+        panel.style.top = `${Math.max(12, btnRect.top - panelH - margin)}px`;
+      } else {
+        panel.style.top = `${btnRect.bottom + margin}px`;
+      }
+    }
+    panel.dataset.anchorX = String(btnRect.left + btnRect.width / 2);
+  }
+
+  if (isNew) {
+    // Don't bubble panel clicks/mousedowns to the page or X's modal backdrop —
+    // some X dialog overlays close themselves on backdrop click and would
+    // dismiss our panel as collateral.
+    //
+    // IMPORTANT: stop in the BUBBLE phase, not capture. A capture-phase
+    // stopPropagation here would prevent the event from ever reaching the
+    // inner candidate buttons, breaking their click handlers.
+    panel.addEventListener('mousedown', (e) => e.stopPropagation());
+    panel.addEventListener('click', (e) => e.stopPropagation());
+
+    // Explicit dismissal: Escape key. (Plus the ✕ button, plus picking a
+    // candidate auto-closes via showToast.) Outside-click intentionally does
+    // not dismiss — too easy to lose work-in-progress, especially in modals.
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (!panel.isConnected) { document.removeEventListener('keydown', onKey, true); return; }
+      e.stopPropagation();
+      closeGrokOptions();
+      document.removeEventListener('keydown', onKey, true);
+    };
+    document.addEventListener('keydown', onKey, true);
+
+    // If the panel was anchored beside a reply modal, close the panel when the
+    // modal goes away (X-click, ESC on modal, navigation, …). Otherwise the
+    // candidates orphan-float on top of the next page, looking broken.
+    const anchorEl = anchor;
+    if (anchorEl && anchorEl.closest('[role="dialog"]')) {
+      const checkModalAlive = () => {
+        if (!panel.isConnected) {
+          modalWatch.disconnect();
+          return;
+        }
+        if (!anchorEl.isConnected) {
+          modalWatch.disconnect();
+          closeGrokOptions();
+        }
+      };
+      const modalWatch = new MutationObserver(checkModalAlive);
+      modalWatch.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+}
+
+function setGrokButtonLabel(btn, label = 'AI 生成', loading = false) {
+  btn.classList.toggle('xvm-grok-generate-btn--loading', loading);
+  btn.innerHTML = `<span class="xvm-grok-spark" aria-hidden="true">✦</span><span>${label}</span>`;
+}
+
+async function handleGrokGenerate(btn, editable, promptTemplate = null) {
+  // Synchronous re-entry guard. `btn.disabled = true` later races with rapid
+  // double-clicks; the dataset flag is set before any await so the second
+  // click sees it immediately.
+  if (btn.dataset.xvmBusy === '1') return;
+  btn.dataset.xvmBusy = '1';
+
+  const root = findReplyComposerRoot(editable);
+  const article = findReplyArticle(root);
+  const replyText = getTweetTextFromArticle(article);
+  if (!replyText) {
+    showToast('未找到推文内容');
+    delete btn.dataset.xvmBusy;
+    return;
+  }
+  // If the user clicked reply on a nested reply (article ≠ thread OG),
+  // compose the prompt context as 「原推文 + 回复」 so Grok sees the full
+  // conversation rather than just the tweet being immediately responded to.
+  const ogArticle = grokLastReplyThreadOg && grokLastReplyThreadOg !== article && grokLastReplyThreadOg.isConnected
+    ? grokLastReplyThreadOg
+    : null;
+  const ogText = ogArticle ? getTweetTextFromArticle(ogArticle) : '';
+  const tweetText = (ogText && ogText !== replyText)
+    ? `【原推文】\n${ogText}\n\n【对该推文的回复】\n${replyText}`
+    : replyText;
+  const kind = isArticleLengthText(tweetText) ? 'article' : 'tweet';
+
+  btn.disabled = true;
+  setGrokButtonLabel(btn, '生成中', true);
+  try {
+    if (!window.__xvmGrok) {
+      throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
+    }
+    const tpl = promptTemplate || getSelectedGrokPromptTemplate(kind);
+    showGrokOptions([], editable, { streaming: true, anchor: btn });
+    const comments = await window.__xvmGrok.generate({
+      tweetText,
+      promptTemplate: tpl?.prompt || tpl,
+      temporaryChat: grokTemporaryChat,
+      onProgress: (running) => {
+        showGrokOptions(running, editable, { streaming: true, anchor: btn });
+      },
+    });
+    showGrokOptions(comments, editable, { streaming: false, anchor: btn });
+  } catch (err) {
+    console.debug('[XVM-GROK] generation failed', err);
+    closeGrokOptions();
+    showToast(err?.message || 'Grok 生成失败');
+  } finally {
+    btn.disabled = false;
+    setGrokButtonLabel(btn);
+    delete btn.dataset.xvmBusy;
+  }
+}
+
+function injectGrokReplyButtons(root = document) {
+  // X's reply textarea: the [data-testid="tweetTextarea_0"] element IS the
+  // contenteditable directly (not a parent of it). Plain `textarea[…]`
+  // matchers cover the rare non-Draft fallback inputs (e.g. settings forms
+  // that share our injection path).
+  const editors = root.querySelectorAll?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || [];
+  for (const editable of editors) {
+    cleanupMisplacedGrokButtons(editable);
+    const composerRoot = findReplyComposerRoot(editable);
+    if (!composerRoot || composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
+    // Single gate: there must be a source tweet to reference. findReplyArticle
+    // covers all the surfaces the user might be replying from — modal, inline,
+    // /compose/post fullpage, status page — by walking the dialog, the click-
+    // captured grokLastReplyArticle, and the current status id in turn. The
+    // earlier dialog/article/status URL pre-check was redundant and broken on
+    // /compose/post (X navigates there from timeline-reply clicks; URL has no
+    // status id and the textarea is in the primary column, not a dialog).
+    if (!findReplyArticle(composerRoot)) continue;
+
+    const scope = composerRoot.closest('[role="dialog"]') || editable.closest('article[data-testid="tweet"]') || editable.closest('form') || composerRoot.parentElement;
+    const submitBtn = scope?.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]');
+    const host = submitBtn?.parentElement
+      || scope?.querySelector?.('[data-testid="toolBar"]')?.parentElement
+      || editable.closest('form')?.querySelector?.('[role="group"]')?.parentElement
+      || editable.parentElement;
+    if (!host) continue;
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'xvm-grok-generate-btn';
+    setGrokButtonLabel(btn);
+    btn.title = '使用提示词模板生成评论';
+    btn.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      // Detect content kind at click-time (not inject-time) — the source tweet
+      // text may load lazily, and the user might reuse the same composer for
+      // different threads via SPA navigation.
+      const refArticle = findReplyArticle(findReplyComposerRoot(editable));
+      const refText = getTweetTextFromArticle(refArticle) || '';
+      const kind = isArticleLengthText(refText) ? 'article' : 'tweet';
+      const list = getGrokTemplatesForKind(kind);
+      if (list.length > 1) {
+        showGrokTemplateMenu(btn, editable, kind);
+      } else {
+        handleGrokGenerate(btn, editable);
+      }
+    });
+    if (submitBtn?.parentElement) {
+      submitBtn.parentElement.classList.add('xvm-grok-actions-host');
+      submitBtn.parentElement.insertBefore(btn, submitBtn);
+    } else {
+      host.appendChild(btn);
+    }
+  }
+}
+
+// Tracks the conversation the user is replying into. Two pieces:
+//   - grokLastReplyArticle    → the specific tweet the user clicked reply on
+//   - grokLastReplyThreadOg   → the conversation root (OG tweet) at click time
+//                                — captured BEFORE navigation, while the
+//                                  status URL still tells us which article
+//                                  is the conversation root. Lets us include
+//                                  OG context in the prompt when commenting
+//                                  on a nested reply.
+let grokLastReplyThreadOg = null;
+document.addEventListener('click', (e) => {
+  const replyBtn = e.target.closest?.('[data-testid="reply"]');
+  if (!replyBtn) return;
+  const article = replyBtn.closest('article[data-testid="tweet"]');
+  if (article) grokLastReplyArticle = article;
+  // Find the conversation root at click-time. On a status page X renders the
+  // OG tweet as the article matching the URL's status id; on the timeline
+  // there is no page-wide root so OG defaults to the same article.
+  const statusId = getStatusIdFromLocation();
+  if (statusId) {
+    const all = document.querySelectorAll('article[data-testid="tweet"]');
+    let og = null;
+    for (const a of all) {
+      const id = getTweetIdFromArticle(a);
+      if (id === statusId || a.querySelector(`a[href*="/status/${statusId}"]`)) { og = a; break; }
+    }
+    grokLastReplyThreadOg = og || article || null;
+  } else {
+    grokLastReplyThreadOg = article || null;
+  }
+}, true);
 
 function closeOpenMenus() {
   // X's dropdown listens for outside pointerdown/mousedown on document to

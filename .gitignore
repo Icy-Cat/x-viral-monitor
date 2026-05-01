@@ -3,3 +3,4 @@ dist/
 *.png.bak
 node_modules/
 .superpowers/
+.playwright-mcp/

@@ -22,6 +22,19 @@ const DEFAULT_FEATURES = {
   featureStarChart: true,
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
+  grokCommentPrompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹',
+  grokPromptTemplates: [
+    { id: 'default', name: '默认评论', prompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹' },
+    { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
+    { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
+  ],
+  grokArticlePromptTemplates: [
+    { id: 'article-default', name: '文章评论', prompt: '以下是一篇 X 长文 / Article：\n\n[推文内容]\n\n为这篇长文生成10条评论。要求：每条评论引用文章中具体的观点或论据进行回应（赞同/质疑/补充），避免笼统的"很有启发"这类空话；语气自然像真人；每条评论用代码块包裹。' },
+    { id: 'article-deep', name: '深度回应', prompt: '以下是一篇长文：\n\n[推文内容]\n\n挑选这篇长文中最值得讨论的3-5个核心论点，针对每个论点给出1-2条有信息密度的评论（提出延伸思考、反例、或个人经验），每条评论用代码块包裹。' },
+  ],
+  grokSelectedPromptId: 'default',
+  grokSelectedArticlePromptId: 'article-default',
+  grokTemporaryChat: true,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 
@@ -69,8 +82,28 @@ const copyMdToggle = document.getElementById('feat-copy-md');
 const starChartToggle = document.getElementById('feat-starchart');
 const leaderboardCountInput = document.getElementById('lb-count');
 const colListEl = document.getElementById('lb-col-list');
+const grokTemplateSelect = document.getElementById('grok-template-select');
+const grokTemplateNameInput = document.getElementById('grok-template-name');
+const grokPromptInput = document.getElementById('grok-prompt');
+const grokPromptSaveBtn = document.getElementById('grok-prompt-save');
+const grokPromptResetBtn = document.getElementById('grok-prompt-reset');
+const grokPromptAddBtn = document.getElementById('grok-prompt-add');
+const grokPromptDeleteBtn = document.getElementById('grok-prompt-delete');
+const grokTempChatToggle = document.getElementById('grok-temp-chat');
+// Parallel set for article-length sources.
+const grokArticleTemplateSelect = document.getElementById('grok-article-template-select');
+const grokArticleTemplateNameInput = document.getElementById('grok-article-template-name');
+const grokArticlePromptInput = document.getElementById('grok-article-prompt');
+const grokArticlePromptSaveBtn = document.getElementById('grok-article-prompt-save');
+const grokArticlePromptResetBtn = document.getElementById('grok-article-prompt-reset');
+const grokArticlePromptAddBtn = document.getElementById('grok-article-prompt-add');
+const grokArticlePromptDeleteBtn = document.getElementById('grok-article-prompt-delete');
 
 let columnsState = normalizeColumns(null);
+let grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
+let grokSelectedTemplateId = DEFAULT_FEATURES.grokSelectedPromptId;
+let grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((tpl) => ({ ...tpl }));
+let grokSelectedArticleTemplateId = DEFAULT_FEATURES.grokSelectedArticlePromptId;
 
 function normalizeCount(v) {
   const n = parseInt(v, 10);
@@ -87,6 +120,27 @@ function normalize(raw) {
   };
   if (next.viral <= next.trending) next.viral = next.trending + 1;
   return next;
+}
+
+function normalizeGrokTemplates(raw, legacyPrompt) {
+  const source = Array.isArray(raw) && raw.length
+    ? raw
+    : [{ id: 'default', name: '默认评论', prompt: legacyPrompt || DEFAULT_FEATURES.grokCommentPrompt }];
+  const seen = new Set();
+  const out = [];
+  for (const item of source) {
+    const prompt = String(item?.prompt || '').trim();
+    if (!prompt) continue;
+    const id = String(item?.id || `tpl-${out.length + 1}`).trim() || `tpl-${out.length + 1}`;
+    if (seen.has(id)) continue;
+    seen.add(id);
+    out.push({
+      id,
+      name: String(item?.name || `模板 ${out.length + 1}`).trim() || `模板 ${out.length + 1}`,
+      prompt,
+    });
+  }
+  return out.length ? out : DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
 }
 
 function fmtNum(n) { return n >= 1000 ? (n / 1000).toFixed(0) + 'k' : n.toString(); }
@@ -115,9 +169,82 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   copyMdToggle.checked = items.featureCopyAsMarkdown !== false;
   starChartToggle.checked = items.featureStarChart !== false;
   leaderboardCountInput.value = normalizeCount(items.leaderboardCount);
+  grokTemplatesState = normalizeGrokTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
+  grokSelectedTemplateId = items.grokSelectedPromptId || grokTemplatesState[0]?.id || 'default';
+  if (!grokTemplatesState.some((tpl) => tpl.id === grokSelectedTemplateId)) {
+    grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
+  }
+  grokArticleTemplatesState = normalizeGrokTemplates(items.grokArticlePromptTemplates);
+  if (!grokArticleTemplatesState.length) {
+    grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((t) => ({ ...t }));
+  }
+  grokSelectedArticleTemplateId = items.grokSelectedArticlePromptId || grokArticleTemplatesState[0]?.id || 'article-default';
+  if (!grokArticleTemplatesState.some((tpl) => tpl.id === grokSelectedArticleTemplateId)) {
+    grokSelectedArticleTemplateId = grokArticleTemplatesState[0]?.id || 'article-default';
+  }
+  if (grokTempChatToggle) grokTempChatToggle.checked = items.grokTemporaryChat !== false;
+  renderGrokTemplateEditor();
+  renderGrokArticleTemplateEditor();
   columnsState = normalizeColumns(items.leaderboardColumns);
   renderColList();
 });
+
+function renderGrokTemplateEditor() {
+  if (!grokTemplateSelect || !grokPromptInput || !grokTemplateNameInput) return;
+  grokTemplateSelect.innerHTML = '';
+  grokTemplatesState.forEach((tpl) => {
+    const option = document.createElement('option');
+    option.value = tpl.id;
+    option.textContent = tpl.name;
+    option.selected = tpl.id === grokSelectedTemplateId;
+    grokTemplateSelect.appendChild(option);
+  });
+  const active = grokTemplatesState.find((tpl) => tpl.id === grokSelectedTemplateId) || grokTemplatesState[0];
+  if (active) {
+    grokSelectedTemplateId = active.id;
+    grokTemplateSelect.value = active.id;
+    grokTemplateNameInput.value = active.name;
+    grokPromptInput.value = active.prompt;
+  }
+  if (grokPromptDeleteBtn) grokPromptDeleteBtn.disabled = grokTemplatesState.length <= 1;
+}
+
+function persistGrokTemplates(messageKey = 'flashGrokPromptSaved') {
+  const active = grokTemplatesState.find((tpl) => tpl.id === grokSelectedTemplateId) || grokTemplatesState[0];
+  chrome.storage.sync.set({
+    grokCommentPrompt: active?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
+    grokPromptTemplates: grokTemplatesState,
+    grokSelectedPromptId: active?.id || 'default',
+  }, () => flash(tr(messageKey)));
+}
+
+function renderGrokArticleTemplateEditor() {
+  if (!grokArticleTemplateSelect || !grokArticlePromptInput || !grokArticleTemplateNameInput) return;
+  grokArticleTemplateSelect.innerHTML = '';
+  grokArticleTemplatesState.forEach((tpl) => {
+    const option = document.createElement('option');
+    option.value = tpl.id;
+    option.textContent = tpl.name;
+    option.selected = tpl.id === grokSelectedArticleTemplateId;
+    grokArticleTemplateSelect.appendChild(option);
+  });
+  const active = grokArticleTemplatesState.find((tpl) => tpl.id === grokSelectedArticleTemplateId) || grokArticleTemplatesState[0];
+  if (active) {
+    grokSelectedArticleTemplateId = active.id;
+    grokArticleTemplateSelect.value = active.id;
+    grokArticleTemplateNameInput.value = active.name;
+    grokArticlePromptInput.value = active.prompt;
+  }
+  if (grokArticlePromptDeleteBtn) grokArticlePromptDeleteBtn.disabled = grokArticleTemplatesState.length <= 1;
+}
+
+function persistGrokArticleTemplates(messageKey = 'flashGrokPromptSaved') {
+  const active = grokArticleTemplatesState.find((tpl) => tpl.id === grokSelectedArticleTemplateId) || grokArticleTemplatesState[0];
+  chrome.storage.sync.set({
+    grokArticlePromptTemplates: grokArticleTemplatesState,
+    grokSelectedArticlePromptId: active?.id || 'article-default',
+  }, () => flash(tr(messageKey)));
+}
 
 function renderColList() {
   colListEl.innerHTML = '';
@@ -206,6 +333,104 @@ starChartToggle.addEventListener('change', () => {
   });
 });
 
+grokTempChatToggle?.addEventListener('change', () => {
+  chrome.storage.sync.set({ grokTemporaryChat: grokTempChatToggle.checked }, () => {
+    flash(tr(grokTempChatToggle.checked ? 'flashGrokTempChatOn' : 'flashGrokTempChatOff'));
+  });
+});
+
+grokPromptSaveBtn?.addEventListener('click', () => {
+  const active = grokTemplatesState.find((tpl) => tpl.id === grokSelectedTemplateId);
+  const prompt = (grokPromptInput.value || '').trim() || DEFAULT_FEATURES.grokCommentPrompt;
+  if (active) {
+    active.name = (grokTemplateNameInput.value || '').trim() || active.name || '模板';
+    active.prompt = prompt;
+  }
+  grokPromptInput.value = prompt;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+grokPromptResetBtn?.addEventListener('click', () => {
+  grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
+  grokSelectedTemplateId = DEFAULT_FEATURES.grokSelectedPromptId;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptReset');
+});
+
+grokTemplateSelect?.addEventListener('change', () => {
+  grokSelectedTemplateId = grokTemplateSelect.value;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+grokPromptAddBtn?.addEventListener('click', () => {
+  const id = `custom-${Date.now()}`;
+  grokTemplatesState.push({
+    id,
+    name: `模板 ${grokTemplatesState.length + 1}`,
+    prompt: DEFAULT_FEATURES.grokCommentPrompt,
+  });
+  grokSelectedTemplateId = id;
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+grokPromptDeleteBtn?.addEventListener('click', () => {
+  if (grokTemplatesState.length <= 1) return;
+  grokTemplatesState = grokTemplatesState.filter((tpl) => tpl.id !== grokSelectedTemplateId);
+  grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
+  renderGrokTemplateEditor();
+  persistGrokTemplates('flashGrokPromptSaved');
+});
+
+// Article-template handlers — parallel to the tweet-template handlers above.
+grokArticlePromptSaveBtn?.addEventListener('click', () => {
+  const active = grokArticleTemplatesState.find((tpl) => tpl.id === grokSelectedArticleTemplateId);
+  const prompt = (grokArticlePromptInput.value || '').trim()
+              || DEFAULT_FEATURES.grokArticlePromptTemplates[0].prompt;
+  if (active) {
+    active.name = (grokArticleTemplateNameInput.value || '').trim() || active.name || '文章模板';
+    active.prompt = prompt;
+  }
+  grokArticlePromptInput.value = prompt;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
+grokArticlePromptResetBtn?.addEventListener('click', () => {
+  grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((tpl) => ({ ...tpl }));
+  grokSelectedArticleTemplateId = DEFAULT_FEATURES.grokSelectedArticlePromptId;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptReset');
+});
+
+grokArticleTemplateSelect?.addEventListener('change', () => {
+  grokSelectedArticleTemplateId = grokArticleTemplateSelect.value;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
+grokArticlePromptAddBtn?.addEventListener('click', () => {
+  const id = `article-custom-${Date.now()}`;
+  grokArticleTemplatesState.push({
+    id,
+    name: `文章模板 ${grokArticleTemplatesState.length + 1}`,
+    prompt: DEFAULT_FEATURES.grokArticlePromptTemplates[0].prompt,
+  });
+  grokSelectedArticleTemplateId = id;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
+grokArticlePromptDeleteBtn?.addEventListener('click', () => {
+  if (grokArticleTemplatesState.length <= 1) return;
+  grokArticleTemplatesState = grokArticleTemplatesState.filter((tpl) => tpl.id !== grokSelectedArticleTemplateId);
+  grokSelectedArticleTemplateId = grokArticleTemplatesState[0]?.id || 'article-default';
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
 leaderboardCountInput.addEventListener('change', () => {
   const n = normalizeCount(leaderboardCountInput.value);
   leaderboardCountInput.value = n;
@@ -223,3 +448,4 @@ resetBtn.addEventListener('click', () => {
   fill(DEFAULT_THRESHOLDS);
   chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash(tr('flashReset')));
 });
+
