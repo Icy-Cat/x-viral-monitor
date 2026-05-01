@@ -1387,6 +1387,19 @@ function bootGrokInjectorRetries() {
   }, 400);
 }
 
+// Belt-and-suspenders: a low-frequency keepalive that re-injects whenever a
+// composer is on the page but the AI button isn't. Catches edge cases the
+// mutation observer misses (e.g. X swapping a composer's containing div via
+// a property update that doesn't show as a DOM mutation we recognize, SPA
+// navigations that reuse stale node references, etc.). Cost: one DOM lookup
+// every 2s, no-op when button is already there.
+setInterval(() => {
+  const composer = document.querySelector('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+  if (composer && !document.querySelector('.xvm-grok-generate-btn')) {
+    injectGrokReplyButtons();
+  }
+}, 2000);
+
 if (document.body) {
   startObserver();
   injectGrokReplyButtons();
@@ -1399,11 +1412,17 @@ if (document.body) {
   });
 }
 
-// Reset on SPA navigation (URL change)
+// Reset on SPA navigation (URL change). Re-trigger Grok button injection
+// because the composer (and its containing structure) is often rebuilt
+// across SPA routes — particularly /compose/post → /home and back, which
+// X reuses for inline-reply composers when navigating from one tweet to
+// another. The observer's added-node detector doesn't always catch this
+// because some routes reuse the same DOM nodes with different state.
 let lastUrl = location.href;
 new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
+    bootGrokInjectorRetries();
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
@@ -1909,7 +1928,13 @@ function injectGrokReplyButtons(root = document) {
     cleanupMisplacedGrokButtons(editable);
     const composerRoot = findReplyComposerRoot(editable);
     if (!composerRoot || composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
-    if (!composerRoot.closest('[role="dialog"]') && !editable.closest('article[data-testid="tweet"]') && !getStatusIdFromLocation()) continue;
+    // Single gate: there must be a source tweet to reference. findReplyArticle
+    // covers all the surfaces the user might be replying from — modal, inline,
+    // /compose/post fullpage, status page — by walking the dialog, the click-
+    // captured grokLastReplyArticle, and the current status id in turn. The
+    // earlier dialog/article/status URL pre-check was redundant and broken on
+    // /compose/post (X navigates there from timeline-reply clicks; URL has no
+    // status id and the textarea is in the primary column, not a dialog).
     if (!findReplyArticle(composerRoot)) continue;
 
     const scope = composerRoot.closest('[role="dialog"]') || editable.closest('article[data-testid="tweet"]') || editable.closest('form') || composerRoot.parentElement;
