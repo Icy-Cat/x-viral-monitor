@@ -1597,7 +1597,7 @@ function findReplyArticle(composerRoot) {
 }
 
 function findReplyEditable(root = document) {
-  return root.querySelector?.('[data-testid="tweetTextarea_0"] [contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+  return root.querySelector?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
 }
 
 function cleanupMisplacedGrokButtons(editable) {
@@ -1900,7 +1900,11 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
 }
 
 function injectGrokReplyButtons(root = document) {
-  const editors = root.querySelectorAll?.('[data-testid="tweetTextarea_0"] [contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || [];
+  // X's reply textarea: the [data-testid="tweetTextarea_0"] element IS the
+  // contenteditable directly (not a parent of it). Plain `textarea[…]`
+  // matchers cover the rare non-Draft fallback inputs (e.g. settings forms
+  // that share our injection path).
+  const editors = root.querySelectorAll?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || [];
   for (const editable of editors) {
     cleanupMisplacedGrokButtons(editable);
     const composerRoot = findReplyComposerRoot(editable);

@@ -115,6 +115,22 @@ describe('extractComments', () => {
     expect(api.extractComments('')).toEqual([]);
     expect(api.extractComments(null)).toEqual([]);
   });
+
+  it('falls back to paragraph split when no code blocks or list markers (≥3 lines)', () => {
+    const stream = ndjsonOf('真不错\n学到了\n这就是高手\nhope helps');
+    // 4 lines, last "hope helps" is short tail (≤12) so dropped.
+    expect(api.extractComments(stream)).toEqual(['真不错', '学到了', '这就是高手']);
+  });
+
+  it('paragraph fallback skips short final lines (sign-offs)', () => {
+    const stream = ndjsonOf('first long enough\nsecond long enough\nthird long enough\nthx');
+    expect(api.extractComments(stream)).toEqual(['first long enough', 'second long enough', 'third long enough']);
+  });
+
+  it('does not emit fallback when fewer than 3 candidates', () => {
+    const stream = ndjsonOf('only one\nshort');
+    expect(api.extractComments(stream)).toEqual([]);
+  });
 });
 
 describe('extractFinalText', () => {
