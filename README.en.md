@@ -13,8 +13,10 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 - Color-coded badges indicate traffic levels at a glance
 - Hover tooltip with detailed metrics (views, likes, retweets, replies, bookmarks, viral score)
 - Works across all timeline tabs (For You, Following, Lists, etc.)
+- Floating **velocity leaderboard** — draggable panel ranking visible tweets by velocity (toggle in popup, off by default; columns are user-configurable)
 - Copy any tweet as Markdown from the share menu
 - Generate a Thank-You Star Chart for any tweet — animated visualization of every retweeter and quoter
+- **AI reply generator** in the reply composer — invokes X's built-in Grok directly (no API key needed). 4 default prompt templates (default / short Chinese / sharp opinion / Tieba veteran tone); long-form posts auto-switch to a deeper-reasoning template set
 - Supports English, Chinese, and Japanese
 
 ### Velocity Tiers
@@ -24,6 +26,20 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 | 🌱 | Green | < 1,000/h | Normal |
 | 🚀 | Orange | 1,000 - 10,000/h | Trending |
 | 🔥 | Red | ≥ 10,000/h | Viral |
+
+### AI reply generation (Grok)
+
+A **✦ AI 生成** button appears in every reply composer. Click it to:
+
+1. Pick a prompt template (tweets vs long-form articles auto-detected; ≥600 chars routes to the article template set)
+2. Watch candidate replies stream in (you can pick the first one as soon as it appears, no need to wait for all 10)
+3. Click any candidate → it's inserted into X's reply editor and the submit button activates
+
+**No API key or third-party login required.** The extension piggybacks on the Grok session already in your X tab (`x.com/i/grok`); the entire request runs locally in your browser, no external service in the path.
+
+Nested-reply aware: when replying to a comment underneath someone else's tweet, the prompt context is composed as 「original tweet + the reply being responded to」 so Grok sees the full conversation, not just an isolated comment.
+
+Templates can be edited in the extension popup. **Tweet templates** and **article templates** are stored separately. The `[推文内容]` placeholder gets replaced with the source text; if your custom prompt has no placeholder, the source is prepended automatically.
 
 ## Install
 
