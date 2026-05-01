@@ -1727,27 +1727,55 @@ function showGrokOptions(comments, editable, opts = {}) {
     list.appendChild(btn);
   });
 
-  // Smart placement: prefer the side with the most usable space, in this
-  // order — right (when there's a clear column to the side, e.g. the reply
-  // modal scenario where the trends column is empty), above (typical timeline
-  // / status page where the composer sits low in the viewport), below
-  // (when both above and right are cramped).
+  // Smart placement.
+  //   - In a reply modal, the AI button sits inside the dialog and there is
+  //     usually empty viewport to either side of the dialog. Anchor the panel
+  //     to the dialog's right edge so it sits beside the modal as a sibling
+  //     surface (preferred) or to its left if the right is cramped.
+  //   - Outside a modal, prefer right-of-button (trends column is typically
+  //     empty), then above (composer is at viewport bottom on status pages),
+  //     then below.
   const anchor = opts.anchor;
   if (anchor) {
-    const rect = anchor.getBoundingClientRect();
+    // X's modal scrim ([role="dialog"]) usually spans the full viewport;
+    // the visible modal is a constrained-width child somewhere up the tree.
+    // To anchor beside the *visible* modal we walk up from the button and
+    // take the outermost ancestor whose width fits within the viewport with
+    // breathing room on at least one side.
+    let dialog = null;
+    if (anchor.closest('[role="dialog"]')) {
+      const vw = window.innerWidth;
+      let node = anchor.parentElement;
+      while (node && node !== document.body) {
+        const r = node.getBoundingClientRect();
+        const sideRoom = vw - r.width;
+        if (r.width >= 400 && sideRoom >= 320) {
+          dialog = node; // keep updating; outermost-fitting wins
+        }
+        if (node.matches?.('[role="dialog"]')) break;
+        node = node.parentElement;
+      }
+    }
+    const refRect = (dialog || anchor).getBoundingClientRect();
+    const btnRect = anchor.getBoundingClientRect();
     const margin = 8;
     const minW = 320;
     const maxW = 420;
     const minH = 240;
 
-    const spaceRight = window.innerWidth - rect.right - margin;
-    const spaceAbove = rect.top - margin;
-    const spaceBelow = window.innerHeight - rect.bottom - margin;
-
+    const spaceRight = window.innerWidth - refRect.right - margin;
+    const spaceLeft = refRect.left - margin;
+    const spaceAbove = btnRect.top - margin;
+    const spaceBelow = window.innerHeight - btnRect.bottom - margin;
     const panelHGuess = Math.max(panel.offsetHeight || 0, minH);
 
     let placement;
-    if (spaceRight >= minW + 12) {
+    if (dialog) {
+      // Modal: pick whichever side of the dialog has more room.
+      placement = spaceRight >= spaceLeft && spaceRight >= minW + 12
+        ? 'right'
+        : (spaceLeft >= minW + 12 ? 'left' : 'above');
+    } else if (spaceRight >= minW + 12) {
       placement = 'right';
     } else if (spaceAbove >= panelHGuess || spaceAbove >= spaceBelow) {
       placement = 'above';
@@ -1755,47 +1783,63 @@ function showGrokOptions(comments, editable, opts = {}) {
       placement = 'below';
     }
 
-    panel.classList.remove('xvm-grok-options--above', 'xvm-grok-options--below', 'xvm-grok-options--right');
+    panel.classList.remove(
+      'xvm-grok-options--above',
+      'xvm-grok-options--below',
+      'xvm-grok-options--right',
+      'xvm-grok-options--left',
+    );
     panel.classList.add(`xvm-grok-options--${placement}`);
+    panel.classList.toggle('xvm-grok-options--in-modal', !!dialog);
 
-    if (placement === 'right') {
-      const width = Math.min(maxW, Math.max(minW, spaceRight - 4));
+    if (placement === 'right' || placement === 'left') {
+      const space = placement === 'right' ? spaceRight : spaceLeft;
+      const width = Math.min(maxW, Math.max(minW, space - 4));
       panel.style.width = `${width}px`;
-      panel.style.left = `${rect.right + margin}px`;
-      // Align the panel's vertical center loosely with the anchor's, but
-      // clamp to viewport.
+      panel.style.left = placement === 'right'
+        ? `${refRect.right + margin}px`
+        : `${Math.max(12, refRect.left - margin - width)}px`;
+      // Vertically: when anchored to a dialog, hug its top so the two surfaces
+      // align visually. Otherwise center near the button.
       const panelH = panel.offsetHeight || panelHGuess;
-      const idealTop = rect.top + rect.height / 2 - panelH / 2;
+      const idealTop = dialog
+        ? refRect.top
+        : btnRect.top + btnRect.height / 2 - panelH / 2;
       const top = Math.max(12, Math.min(window.innerHeight - panelH - 12, idealTop));
       panel.style.top = `${top}px`;
     } else {
       const width = Math.min(maxW, window.innerWidth - 24);
       panel.style.width = `${width}px`;
-      // Hug the anchor's right edge so the panel sits in the same column.
-      const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width));
+      const left = Math.max(12, Math.min(window.innerWidth - width - 12, btnRect.right - width));
       panel.style.left = `${left}px`;
       const panelH = panel.offsetHeight || panelHGuess;
       if (placement === 'above') {
-        panel.style.top = `${Math.max(12, rect.top - panelH - margin)}px`;
+        panel.style.top = `${Math.max(12, btnRect.top - panelH - margin)}px`;
       } else {
-        panel.style.top = `${rect.bottom + margin}px`;
+        panel.style.top = `${btnRect.bottom + margin}px`;
       }
     }
-    panel.dataset.anchorX = String(rect.left + rect.width / 2);
+    panel.dataset.anchorX = String(btnRect.left + btnRect.width / 2);
   }
 
-  // Outside-click dismissal — registered once per panel lifetime.
   if (isNew) {
-    setTimeout(() => {
-      const onDocClick = (e) => {
-        if (!panel.isConnected) { document.removeEventListener('mousedown', onDocClick, true); return; }
-        if (panel.contains(e.target)) return;
-        if (anchor && anchor.contains(e.target)) return;
-        closeGrokOptions();
-        document.removeEventListener('mousedown', onDocClick, true);
-      };
-      document.addEventListener('mousedown', onDocClick, true);
-    }, 0);
+    // Don't bubble panel clicks/mousedowns to the page or X's modal backdrop —
+    // some X dialog overlays close themselves on backdrop click and would
+    // dismiss our panel as collateral.
+    panel.addEventListener('mousedown', (e) => e.stopPropagation(), true);
+    panel.addEventListener('click', (e) => e.stopPropagation(), true);
+
+    // Explicit dismissal: Escape key. (Plus the ✕ button, plus picking a
+    // candidate auto-closes via showToast.) Outside-click intentionally does
+    // not dismiss — too easy to lose work-in-progress, especially in modals.
+    const onKey = (e) => {
+      if (e.key !== 'Escape') return;
+      if (!panel.isConnected) { document.removeEventListener('keydown', onKey, true); return; }
+      e.stopPropagation();
+      closeGrokOptions();
+      document.removeEventListener('keydown', onKey, true);
+    };
+    document.addEventListener('keydown', onKey, true);
   }
 }
 

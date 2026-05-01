@@ -1233,6 +1233,16 @@ article[data-testid="tweet"].xvm-article-linked {
   transform-origin: center left;
 }
 
+.xvm-grok-options.xvm-grok-options--left {
+  transform-origin: center right;
+}
+
+/* When anchored beside a modal, lift the panel above X's modal scrim and
+   give it a subtle outline so it reads as a sibling surface, not a tooltip. */
+.xvm-grok-options.xvm-grok-options--in-modal {
+  box-shadow: 0 18px 48px rgba(15, 20, 25, 0.32), 0 4px 10px rgba(15, 20, 25, 0.12);
+}
+
 @keyframes xvm-grok-pop {
   from { opacity: 0; transform: scale(0.96) translateY(4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
