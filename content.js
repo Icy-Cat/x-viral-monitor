@@ -1944,12 +1944,22 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
 
   const root = findReplyComposerRoot(editable);
   const article = findReplyArticle(root);
-  const tweetText = getTweetTextFromArticle(article);
-  if (!tweetText) {
+  const replyText = getTweetTextFromArticle(article);
+  if (!replyText) {
     showToast('未找到推文内容');
     delete btn.dataset.xvmBusy;
     return;
   }
+  // If the user clicked reply on a nested reply (article ≠ thread OG),
+  // compose the prompt context as 「原推文 + 回复」 so Grok sees the full
+  // conversation rather than just the tweet being immediately responded to.
+  const ogArticle = grokLastReplyThreadOg && grokLastReplyThreadOg !== article && grokLastReplyThreadOg.isConnected
+    ? grokLastReplyThreadOg
+    : null;
+  const ogText = ogArticle ? getTweetTextFromArticle(ogArticle) : '';
+  const tweetText = (ogText && ogText !== replyText)
+    ? `【原推文】\n${ogText}\n\n【对该推文的回复】\n${replyText}`
+    : replyText;
   const kind = isArticleLengthText(tweetText) ? 'article' : 'tweet';
 
   btn.disabled = true;
@@ -2037,11 +2047,35 @@ function injectGrokReplyButtons(root = document) {
   }
 }
 
+// Tracks the conversation the user is replying into. Two pieces:
+//   - grokLastReplyArticle    → the specific tweet the user clicked reply on
+//   - grokLastReplyThreadOg   → the conversation root (OG tweet) at click time
+//                                — captured BEFORE navigation, while the
+//                                  status URL still tells us which article
+//                                  is the conversation root. Lets us include
+//                                  OG context in the prompt when commenting
+//                                  on a nested reply.
+let grokLastReplyThreadOg = null;
 document.addEventListener('click', (e) => {
   const replyBtn = e.target.closest?.('[data-testid="reply"]');
   if (!replyBtn) return;
   const article = replyBtn.closest('article[data-testid="tweet"]');
   if (article) grokLastReplyArticle = article;
+  // Find the conversation root at click-time. On a status page X renders the
+  // OG tweet as the article matching the URL's status id; on the timeline
+  // there is no page-wide root so OG defaults to the same article.
+  const statusId = getStatusIdFromLocation();
+  if (statusId) {
+    const all = document.querySelectorAll('article[data-testid="tweet"]');
+    let og = null;
+    for (const a of all) {
+      const id = getTweetIdFromArticle(a);
+      if (id === statusId || a.querySelector(`a[href*="/status/${statusId}"]`)) { og = a; break; }
+    }
+    grokLastReplyThreadOg = og || article || null;
+  } else {
+    grokLastReplyThreadOg = article || null;
+  }
 }, true);
 
 function closeOpenMenus() {
