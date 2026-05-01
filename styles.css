@@ -1208,20 +1208,30 @@ article[data-testid="tweet"].xvm-article-linked {
 
 .xvm-grok-options {
   position: fixed;
-  right: 18px;
-  bottom: 18px;
+  /* left/top set in JS to anchor against the AI button */
   z-index: 2147483647;
-  width: min(420px, calc(100vw - 36px));
-  max-height: min(620px, calc(100vh - 36px));
+  /* width set in JS based on viewport; capped sensibly */
+  max-height: min(560px, calc(100vh - 36px));
   display: flex;
   flex-direction: column;
   overflow: hidden;
   color: rgb(15, 20, 25);
-  background: rgba(255, 255, 255, 0.98);
+  background: rgba(255, 255, 255, 0.99);
   border: 1px solid rgba(207, 217, 222, 0.9);
   border-radius: 12px;
-  box-shadow: 0 10px 35px rgba(15, 20, 25, 0.24);
+  box-shadow: 0 12px 36px rgba(15, 20, 25, 0.22), 0 2px 6px rgba(15, 20, 25, 0.08);
   font-family: TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  animation: xvm-grok-pop 140ms ease-out;
+  transform-origin: bottom right;
+}
+
+.xvm-grok-options.xvm-grok-options--below {
+  transform-origin: top right;
+}
+
+@keyframes xvm-grok-pop {
+  from { opacity: 0; transform: scale(0.96) translateY(4px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
 
 .xvm-grok-template-menu {

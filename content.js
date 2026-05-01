@@ -1643,13 +1643,14 @@ function showGrokTemplateMenu(anchor, editable) {
   }, 0);
 }
 
-// Renders or updates the candidate panel. Designed to be called repeatedly
-// during streaming — each call replaces the list contents in place so users
-// can pick a candidate as soon as it appears, without waiting for the stream
-// to finish.
+// Renders or updates the candidate panel as a popover anchored to the AI
+// button — keeps gaze in one place during the click→pick→fill flow. Re-callable
+// during streaming: each call replaces the list contents in place so users can
+// pick a candidate as soon as it appears.
 function showGrokOptions(comments, editable, opts = {}) {
   let panel = document.querySelector('.xvm-grok-options');
-  if (!panel) {
+  const isNew = !panel;
+  if (isNew) {
     panel = document.createElement('div');
     panel.className = 'xvm-grok-options';
     panel.innerHTML = `
@@ -1685,6 +1686,51 @@ function showGrokOptions(comments, editable, opts = {}) {
     btn.dataset.idx = String(idx + 1);
     list.appendChild(btn);
   });
+
+  // Anchor near the AI button. Prefer above (composer is usually at the bottom
+  // of the viewport, so upward space is bigger and we don't cover the submit
+  // button row). Fall back to below when there's not enough room above.
+  const anchor = opts.anchor;
+  if (anchor) {
+    const rect = anchor.getBoundingClientRect();
+    const margin = 8;
+    const width = Math.min(380, window.innerWidth - 24);
+    panel.style.width = `${width}px`;
+    // Position horizontally aligned to the anchor's right edge so the panel
+    // hugs the same column as the button (which sits at the right of the
+    // composer), spilling leftward if needed.
+    const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width));
+    panel.style.left = `${left}px`;
+    // Vertical: try above first.
+    const panelH = panel.offsetHeight || 320;
+    const spaceAbove = rect.top - margin;
+    const spaceBelow = window.innerHeight - rect.bottom - margin;
+    const goAbove = spaceAbove >= panelH || spaceAbove > spaceBelow;
+    if (goAbove) {
+      panel.style.top = `${Math.max(12, rect.top - panelH - margin)}px`;
+      panel.classList.add('xvm-grok-options--above');
+      panel.classList.remove('xvm-grok-options--below');
+    } else {
+      panel.style.top = `${rect.bottom + margin}px`;
+      panel.classList.add('xvm-grok-options--below');
+      panel.classList.remove('xvm-grok-options--above');
+    }
+    panel.dataset.anchorX = String(rect.left + rect.width / 2);
+  }
+
+  // Outside-click dismissal — registered once per panel lifetime.
+  if (isNew) {
+    setTimeout(() => {
+      const onDocClick = (e) => {
+        if (!panel.isConnected) { document.removeEventListener('mousedown', onDocClick, true); return; }
+        if (panel.contains(e.target)) return;
+        if (anchor && anchor.contains(e.target)) return;
+        closeGrokOptions();
+        document.removeEventListener('mousedown', onDocClick, true);
+      };
+      document.addEventListener('mousedown', onDocClick, true);
+    }, 0);
+  }
 }
 
 function setGrokButtonLabel(btn, label = 'AI 生成', loading = false) {
@@ -1715,16 +1761,16 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
       throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
     }
     const tpl = promptTemplate || getSelectedGrokPromptTemplate();
-    showGrokOptions([], editable, { streaming: true });
+    showGrokOptions([], editable, { streaming: true, anchor: btn });
     const comments = await window.__xvmGrok.generate({
       tweetText,
       promptTemplate: tpl?.prompt || tpl,
       temporaryChat: grokTemporaryChat,
       onProgress: (running) => {
-        showGrokOptions(running, editable, { streaming: true });
+        showGrokOptions(running, editable, { streaming: true, anchor: btn });
       },
     });
-    showGrokOptions(comments, editable, { streaming: false });
+    showGrokOptions(comments, editable, { streaming: false, anchor: btn });
   } catch (err) {
     console.debug('[XVM-GROK] generation failed', err);
     closeGrokOptions();
@@ -1757,21 +1803,15 @@ function injectGrokReplyButtons(root = document) {
     btn.type = 'button';
     btn.className = 'xvm-grok-generate-btn';
     setGrokButtonLabel(btn);
-    btn.title = '点击：用当前模板生成 / Shift + 点击 或 右键：选择其他模板';
+    btn.title = '使用提示词模板生成评论';
     btn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      if (ev.shiftKey && grokPromptTemplates.length > 1) {
+      if (grokPromptTemplates.length > 1) {
         showGrokTemplateMenu(btn, editable);
       } else {
         handleGrokGenerate(btn, editable);
       }
-    });
-    btn.addEventListener('contextmenu', (ev) => {
-      if (grokPromptTemplates.length <= 1) return;
-      ev.preventDefault();
-      ev.stopPropagation();
-      showGrokTemplateMenu(btn, editable);
     });
     if (submitBtn?.parentElement) {
       submitBtn.parentElement.classList.add('xvm-grok-actions-host');
