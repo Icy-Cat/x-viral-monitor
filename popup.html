@@ -367,7 +367,7 @@
           <input id="grok-template-name" type="text" aria-label="Grok prompt template name">
         </div>
         <label class="field" for="grok-prompt">
-          <span data-i18n="popupGrokPromptTitle">Grok comment prompt</span>
+          <span>推文模板（短推文，&lt;600 字）</span>
           <textarea id="grok-prompt" spellcheck="false"></textarea>
         </label>
         <div class="ft-desc" data-i18n="popupGrokPromptHint">Use [推文内容] where the source tweet should be inserted. Click AI 生成 in a reply box, choose a template, then pick one generated option to fill the reply.</div>
@@ -380,6 +380,26 @@
           <button type="button" id="grok-prompt-save" data-i18n="btnSave">Save</button>
           <button type="button" id="grok-prompt-delete" data-i18n="btnDelete">Delete</button>
           <button type="button" id="grok-prompt-reset" data-i18n="btnReset">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-row grok-template">
+      <div class="ft-body">
+        <div class="grok-template-grid">
+          <select id="grok-article-template-select" aria-label="Grok article prompt template"></select>
+          <input id="grok-article-template-name" type="text" aria-label="Grok article template name">
+        </div>
+        <label class="field" for="grok-article-prompt">
+          <span>文章模板（X Article / 长文，≥600 字时使用）</span>
+          <textarea id="grok-article-prompt" spellcheck="false"></textarea>
+        </label>
+        <div class="ft-desc">回复 X 上的长文 / Article 时自动使用这组模板。同样支持 [推文内容] 占位符。</div>
+        <div class="actions compact">
+          <button type="button" id="grok-article-prompt-add" data-i18n="btnAdd">Add</button>
+          <button type="button" id="grok-article-prompt-save" data-i18n="btnSave">Save</button>
+          <button type="button" id="grok-article-prompt-delete" data-i18n="btnDelete">Delete</button>
+          <button type="button" id="grok-article-prompt-reset" data-i18n="btnReset">Reset</button>
         </div>
       </div>
     </div>

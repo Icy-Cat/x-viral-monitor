@@ -28,7 +28,12 @@ const DEFAULT_FEATURES = {
     { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
     { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
   ],
+  grokArticlePromptTemplates: [
+    { id: 'article-default', name: '文章评论', prompt: '以下是一篇 X 长文 / Article：\n\n[推文内容]\n\n为这篇长文生成10条评论。要求：每条评论引用文章中具体的观点或论据进行回应（赞同/质疑/补充），避免笼统的"很有启发"这类空话；语气自然像真人；每条评论用代码块包裹。' },
+    { id: 'article-deep', name: '深度回应', prompt: '以下是一篇长文：\n\n[推文内容]\n\n挑选这篇长文中最值得讨论的3-5个核心论点，针对每个论点给出1-2条有信息密度的评论（提出延伸思考、反例、或个人经验），每条评论用代码块包裹。' },
+  ],
   grokSelectedPromptId: 'default',
+  grokSelectedArticlePromptId: 'article-default',
   grokTemporaryChat: true,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
@@ -85,10 +90,20 @@ const grokPromptResetBtn = document.getElementById('grok-prompt-reset');
 const grokPromptAddBtn = document.getElementById('grok-prompt-add');
 const grokPromptDeleteBtn = document.getElementById('grok-prompt-delete');
 const grokTempChatToggle = document.getElementById('grok-temp-chat');
+// Parallel set for article-length sources.
+const grokArticleTemplateSelect = document.getElementById('grok-article-template-select');
+const grokArticleTemplateNameInput = document.getElementById('grok-article-template-name');
+const grokArticlePromptInput = document.getElementById('grok-article-prompt');
+const grokArticlePromptSaveBtn = document.getElementById('grok-article-prompt-save');
+const grokArticlePromptResetBtn = document.getElementById('grok-article-prompt-reset');
+const grokArticlePromptAddBtn = document.getElementById('grok-article-prompt-add');
+const grokArticlePromptDeleteBtn = document.getElementById('grok-article-prompt-delete');
 
 let columnsState = normalizeColumns(null);
 let grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
 let grokSelectedTemplateId = DEFAULT_FEATURES.grokSelectedPromptId;
+let grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((tpl) => ({ ...tpl }));
+let grokSelectedArticleTemplateId = DEFAULT_FEATURES.grokSelectedArticlePromptId;
 
 function normalizeCount(v) {
   const n = parseInt(v, 10);
@@ -159,8 +174,17 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   if (!grokTemplatesState.some((tpl) => tpl.id === grokSelectedTemplateId)) {
     grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
   }
+  grokArticleTemplatesState = normalizeGrokTemplates(items.grokArticlePromptTemplates);
+  if (!grokArticleTemplatesState.length) {
+    grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((t) => ({ ...t }));
+  }
+  grokSelectedArticleTemplateId = items.grokSelectedArticlePromptId || grokArticleTemplatesState[0]?.id || 'article-default';
+  if (!grokArticleTemplatesState.some((tpl) => tpl.id === grokSelectedArticleTemplateId)) {
+    grokSelectedArticleTemplateId = grokArticleTemplatesState[0]?.id || 'article-default';
+  }
   if (grokTempChatToggle) grokTempChatToggle.checked = items.grokTemporaryChat !== false;
   renderGrokTemplateEditor();
+  renderGrokArticleTemplateEditor();
   columnsState = normalizeColumns(items.leaderboardColumns);
   renderColList();
 });
@@ -191,6 +215,34 @@ function persistGrokTemplates(messageKey = 'flashGrokPromptSaved') {
     grokCommentPrompt: active?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
     grokPromptTemplates: grokTemplatesState,
     grokSelectedPromptId: active?.id || 'default',
+  }, () => flash(tr(messageKey)));
+}
+
+function renderGrokArticleTemplateEditor() {
+  if (!grokArticleTemplateSelect || !grokArticlePromptInput || !grokArticleTemplateNameInput) return;
+  grokArticleTemplateSelect.innerHTML = '';
+  grokArticleTemplatesState.forEach((tpl) => {
+    const option = document.createElement('option');
+    option.value = tpl.id;
+    option.textContent = tpl.name;
+    option.selected = tpl.id === grokSelectedArticleTemplateId;
+    grokArticleTemplateSelect.appendChild(option);
+  });
+  const active = grokArticleTemplatesState.find((tpl) => tpl.id === grokSelectedArticleTemplateId) || grokArticleTemplatesState[0];
+  if (active) {
+    grokSelectedArticleTemplateId = active.id;
+    grokArticleTemplateSelect.value = active.id;
+    grokArticleTemplateNameInput.value = active.name;
+    grokArticlePromptInput.value = active.prompt;
+  }
+  if (grokArticlePromptDeleteBtn) grokArticlePromptDeleteBtn.disabled = grokArticleTemplatesState.length <= 1;
+}
+
+function persistGrokArticleTemplates(messageKey = 'flashGrokPromptSaved') {
+  const active = grokArticleTemplatesState.find((tpl) => tpl.id === grokSelectedArticleTemplateId) || grokArticleTemplatesState[0];
+  chrome.storage.sync.set({
+    grokArticlePromptTemplates: grokArticleTemplatesState,
+    grokSelectedArticlePromptId: active?.id || 'article-default',
   }, () => flash(tr(messageKey)));
 }
 
@@ -330,6 +382,53 @@ grokPromptDeleteBtn?.addEventListener('click', () => {
   grokSelectedTemplateId = grokTemplatesState[0]?.id || 'default';
   renderGrokTemplateEditor();
   persistGrokTemplates('flashGrokPromptSaved');
+});
+
+// Article-template handlers — parallel to the tweet-template handlers above.
+grokArticlePromptSaveBtn?.addEventListener('click', () => {
+  const active = grokArticleTemplatesState.find((tpl) => tpl.id === grokSelectedArticleTemplateId);
+  const prompt = (grokArticlePromptInput.value || '').trim()
+              || DEFAULT_FEATURES.grokArticlePromptTemplates[0].prompt;
+  if (active) {
+    active.name = (grokArticleTemplateNameInput.value || '').trim() || active.name || '文章模板';
+    active.prompt = prompt;
+  }
+  grokArticlePromptInput.value = prompt;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
+grokArticlePromptResetBtn?.addEventListener('click', () => {
+  grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((tpl) => ({ ...tpl }));
+  grokSelectedArticleTemplateId = DEFAULT_FEATURES.grokSelectedArticlePromptId;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptReset');
+});
+
+grokArticleTemplateSelect?.addEventListener('change', () => {
+  grokSelectedArticleTemplateId = grokArticleTemplateSelect.value;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
+grokArticlePromptAddBtn?.addEventListener('click', () => {
+  const id = `article-custom-${Date.now()}`;
+  grokArticleTemplatesState.push({
+    id,
+    name: `文章模板 ${grokArticleTemplatesState.length + 1}`,
+    prompt: DEFAULT_FEATURES.grokArticlePromptTemplates[0].prompt,
+  });
+  grokSelectedArticleTemplateId = id;
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
+});
+
+grokArticlePromptDeleteBtn?.addEventListener('click', () => {
+  if (grokArticleTemplatesState.length <= 1) return;
+  grokArticleTemplatesState = grokArticleTemplatesState.filter((tpl) => tpl.id !== grokSelectedArticleTemplateId);
+  grokSelectedArticleTemplateId = grokArticleTemplatesState[0]?.id || 'article-default';
+  renderGrokArticleTemplateEditor();
+  persistGrokArticleTemplates('flashGrokPromptSaved');
 });
 
 leaderboardCountInput.addEventListener('change', () => {

@@ -159,9 +159,20 @@ const DEFAULT_GROK_PROMPT_TEMPLATES = [
   { id: 'short-cn', name: '中文短评', prompt: '[推文内容]\n\n为该推文生成10条自然、简短、像真人回复的中文评论,每条评论用代码块包裹' },
   { id: 'sharp', name: '犀利观点', prompt: '[推文内容]\n\n为该推文生成10条有观点、有信息密度、但不人身攻击的评论,每条评论用代码块包裹' },
 ];
+const DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES = [
+  { id: 'article-default', name: '文章评论', prompt: '以下是一篇 X 长文 / Article：\n\n[推文内容]\n\n为这篇长文生成10条评论。要求：每条评论引用文章中具体的观点或论据进行回应（赞同/质疑/补充），避免笼统的"很有启发"这类空话；语气自然像真人；每条评论用代码块包裹。' },
+  { id: 'article-deep', name: '深度回应', prompt: '以下是一篇长文：\n\n[推文内容]\n\n挑选这篇长文中最值得讨论的3-5个核心论点，针对每个论点给出1-2条有信息密度的评论（提出延伸思考、反例、或个人经验），每条评论用代码块包裹。' },
+];
+// Tweet length threshold separating "short tweet" templates from "long article"
+// templates. X tweets cap at 280 chars by default; longer (long-form posts /
+// articles) get a different prompt set with reasoning suited to long content.
+const ARTICLE_LENGTH_THRESHOLD = 600;
+
 let grokPromptTemplate = DEFAULT_GROK_COMMENT_PROMPT;
 let grokPromptTemplates = DEFAULT_GROK_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
+let grokArticlePromptTemplates = DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES.map((tpl) => ({ ...tpl }));
 let grokSelectedTemplateId = 'default';
+let grokSelectedArticleTemplateId = 'article-default';
 let grokTemporaryChat = true;
 let grokLastReplyArticle = null;
 
@@ -181,8 +192,14 @@ window.addEventListener('message', (event) => {
   } else if (grokPromptTemplate) {
     grokPromptTemplates = normalizeGrokPromptTemplates([{ id: 'default', name: '默认评论', prompt: grokPromptTemplate }]);
   }
+  if (Array.isArray(event.data.articlePromptTemplates) && event.data.articlePromptTemplates.length) {
+    grokArticlePromptTemplates = normalizeGrokPromptTemplates(event.data.articlePromptTemplates);
+  }
   if (typeof event.data.selectedPromptId === 'string' && event.data.selectedPromptId) {
     grokSelectedTemplateId = event.data.selectedPromptId;
+  }
+  if (typeof event.data.selectedArticlePromptId === 'string' && event.data.selectedArticlePromptId) {
+    grokSelectedArticleTemplateId = event.data.selectedArticlePromptId;
   }
   if (typeof event.data.temporaryChat === 'boolean') {
     grokTemporaryChat = event.data.temporaryChat;
@@ -1550,8 +1567,26 @@ function showToast(msg) {
   }, 1400);
 }
 
-function getSelectedGrokPromptTemplate() {
-  return grokPromptTemplates.find((tpl) => tpl.id === grokSelectedTemplateId) || grokPromptTemplates[0] || DEFAULT_GROK_PROMPT_TEMPLATES[0];
+function isArticleLengthText(text) {
+  return typeof text === 'string' && text.length >= ARTICLE_LENGTH_THRESHOLD;
+}
+
+// Returns the prompt template list relevant to the source content. Articles
+// (long-form posts) get their own template list with reasoning suited to
+// long content; short tweets get the regular list.
+function getGrokTemplatesForKind(kind) {
+  return kind === 'article' ? grokArticlePromptTemplates : grokPromptTemplates;
+}
+
+function getSelectedGrokPromptTemplate(kind = 'tweet') {
+  if (kind === 'article') {
+    return grokArticlePromptTemplates.find((t) => t.id === grokSelectedArticleTemplateId)
+        || grokArticlePromptTemplates[0]
+        || DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES[0];
+  }
+  return grokPromptTemplates.find((t) => t.id === grokSelectedTemplateId)
+      || grokPromptTemplates[0]
+      || DEFAULT_GROK_PROMPT_TEMPLATES[0];
 }
 
 function getTweetTextFromArticle(article) {
@@ -1670,26 +1705,33 @@ function closeGrokTemplateMenu() {
   document.querySelectorAll('.xvm-grok-template-menu').forEach((el) => el.remove());
 }
 
-function showGrokTemplateMenu(anchor, editable) {
+function showGrokTemplateMenu(anchor, editable, kind = 'tweet') {
   closeGrokTemplateMenu();
+  const templates = normalizeGrokPromptTemplates(getGrokTemplatesForKind(kind));
+  const selectedId = kind === 'article' ? grokSelectedArticleTemplateId : grokSelectedTemplateId;
   const menu = document.createElement('div');
   menu.className = 'xvm-grok-template-menu';
   menu.innerHTML = `
-    <div class="xvm-grok-template-menu-head">选择提示词模板</div>
+    <div class="xvm-grok-template-menu-head">${kind === 'article' ? '文章评论模板' : '推文评论模板'}</div>
     <div class="xvm-grok-template-menu-list"></div>
   `;
   const list = menu.querySelector('.xvm-grok-template-menu-list');
-  normalizeGrokPromptTemplates(grokPromptTemplates).forEach((tpl) => {
+  templates.forEach((tpl) => {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'xvm-grok-template-item';
-    if (tpl.id === grokSelectedTemplateId) item.classList.add('xvm-grok-template-item--selected');
+    if (tpl.id === selectedId) item.classList.add('xvm-grok-template-item--selected');
     item.innerHTML = `<span>${tpl.name}</span><small>${tpl.prompt.replace(/\s+/g, ' ').slice(0, 72)}</small>`;
     item.addEventListener('click', () => {
       closeGrokTemplateMenu();
-      // Persist selection so the next plain click reuses it.
-      grokSelectedTemplateId = tpl.id;
-      try { chrome.storage?.sync?.set?.({ grokSelectedPromptId: tpl.id }); } catch (_) {}
+      // Persist selection per-kind so the next plain click reuses it.
+      if (kind === 'article') {
+        grokSelectedArticleTemplateId = tpl.id;
+        try { chrome.storage?.sync?.set?.({ grokSelectedArticlePromptId: tpl.id }); } catch (_) {}
+      } else {
+        grokSelectedTemplateId = tpl.id;
+        try { chrome.storage?.sync?.set?.({ grokSelectedPromptId: tpl.id }); } catch (_) {}
+      }
       handleGrokGenerate(anchor, editable, tpl);
     });
     list.appendChild(item);
@@ -1866,6 +1908,25 @@ function showGrokOptions(comments, editable, opts = {}) {
       document.removeEventListener('keydown', onKey, true);
     };
     document.addEventListener('keydown', onKey, true);
+
+    // If the panel was anchored beside a reply modal, close the panel when the
+    // modal goes away (X-click, ESC on modal, navigation, …). Otherwise the
+    // candidates orphan-float on top of the next page, looking broken.
+    const anchorEl = anchor;
+    if (anchorEl && anchorEl.closest('[role="dialog"]')) {
+      const checkModalAlive = () => {
+        if (!panel.isConnected) {
+          modalWatch.disconnect();
+          return;
+        }
+        if (!anchorEl.isConnected) {
+          modalWatch.disconnect();
+          closeGrokOptions();
+        }
+      };
+      const modalWatch = new MutationObserver(checkModalAlive);
+      modalWatch.observe(document.body, { childList: true, subtree: true });
+    }
   }
 }
 
@@ -1889,6 +1950,7 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
     delete btn.dataset.xvmBusy;
     return;
   }
+  const kind = isArticleLengthText(tweetText) ? 'article' : 'tweet';
 
   btn.disabled = true;
   setGrokButtonLabel(btn, '生成中', true);
@@ -1896,7 +1958,7 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
     if (!window.__xvmGrok) {
       throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
     }
-    const tpl = promptTemplate || getSelectedGrokPromptTemplate();
+    const tpl = promptTemplate || getSelectedGrokPromptTemplate(kind);
     showGrokOptions([], editable, { streaming: true, anchor: btn });
     const comments = await window.__xvmGrok.generate({
       tweetText,
@@ -1953,8 +2015,15 @@ function injectGrokReplyButtons(root = document) {
     btn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      if (grokPromptTemplates.length > 1) {
-        showGrokTemplateMenu(btn, editable);
+      // Detect content kind at click-time (not inject-time) — the source tweet
+      // text may load lazily, and the user might reuse the same composer for
+      // different threads via SPA navigation.
+      const refArticle = findReplyArticle(findReplyComposerRoot(editable));
+      const refText = getTweetTextFromArticle(refArticle) || '';
+      const kind = isArticleLengthText(refText) ? 'article' : 'tweet';
+      const list = getGrokTemplatesForKind(kind);
+      if (list.length > 1) {
+        showGrokTemplateMenu(btn, editable, kind);
       } else {
         handleGrokGenerate(btn, editable);
       }
