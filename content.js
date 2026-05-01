@@ -1320,27 +1320,51 @@ window.addEventListener('scroll', () => {
 }, { passive: true });
 
 // === MutationObserver ===
+let composerInjectScheduled = false;
+function scheduleComposerInject() {
+  if (composerInjectScheduled) return;
+  composerInjectScheduled = true;
+  // rAF + microtask defer so we re-inject AFTER X finishes its layout pass.
+  // Without this, X's burger-menu open/close (which rebuilds composer DOM
+  // without re-emitting a textarea-added event we recognize) drops our button.
+  requestAnimationFrame(() => {
+    composerInjectScheduled = false;
+    injectGrokReplyButtons();
+  });
+}
+
+const COMPOSER_SEL = '[data-testid="tweetTextarea_0"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]';
+
 const observer = new MutationObserver((mutations) => {
   let hasNewArticles = false;
-  let hasNewComposer = false;
+  let touchedComposer = false;
   for (const mutation of mutations) {
     for (const node of mutation.addedNodes) {
-      if (node.nodeType === 1 && (node.tagName === 'ARTICLE' || node.querySelector?.('article[data-testid="tweet"]'))) {
+      if (node.nodeType !== 1) continue;
+      if (node.tagName === 'ARTICLE' || node.querySelector?.('article[data-testid="tweet"]')) {
         hasNewArticles = true;
       }
-      if (node.nodeType === 1 && (node.matches?.('[data-testid="tweetTextarea_0"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || node.querySelector?.('[data-testid="tweetTextarea_0"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]'))) {
-        hasNewComposer = true;
+      if (node.matches?.(COMPOSER_SEL) || node.querySelector?.(COMPOSER_SEL)) {
+        touchedComposer = true;
       }
-      if (hasNewArticles && hasNewComposer) break;
     }
-    if (hasNewArticles && hasNewComposer) break;
+    // Detect cases where X tore down a wrapper that contained our button (e.g.
+    // burger menu open/close rebuilds the composer subtree). Re-inject so the
+    // button reappears without requiring an Esc keypress.
+    if (!touchedComposer) {
+      for (const node of mutation.removedNodes) {
+        if (node.nodeType !== 1) continue;
+        if (node.classList?.contains?.('xvm-grok-generate-btn')
+            || node.querySelector?.('.xvm-grok-generate-btn')) {
+          touchedComposer = true;
+          break;
+        }
+      }
+    }
+    if (hasNewArticles && touchedComposer) break;
   }
-  if (hasNewArticles) {
-    renderBadges();
-  }
-  if (hasNewComposer) {
-    injectGrokReplyButtons();
-  }
+  if (hasNewArticles) renderBadges();
+  if (touchedComposer) scheduleComposerInject();
 });
 
 function startObserver() {
@@ -1350,13 +1374,28 @@ function startObserver() {
   });
 }
 
+function bootGrokInjectorRetries() {
+  // Composer mounts asynchronously after React hydrate. The initial inject at
+  // content.js load fires before React is done, finding nothing. The mutation
+  // observer covers most cases but X sometimes adds the composer in a way our
+  // matcher misses. A handful of retry passes during the first few seconds
+  // ensures the button shows up reliably without spinning forever.
+  let tries = 0;
+  const id = setInterval(() => {
+    injectGrokReplyButtons();
+    if (++tries >= 10) clearInterval(id);
+  }, 400);
+}
+
 if (document.body) {
   startObserver();
   injectGrokReplyButtons();
+  bootGrokInjectorRetries();
 } else {
   document.addEventListener('DOMContentLoaded', () => {
     startObserver();
     injectGrokReplyButtons();
+    bootGrokInjectorRetries();
   });
 }
 
@@ -1580,12 +1619,14 @@ function insertTextIntoReply(editable, text) {
   }
   // Draft.js editor (X reply box). Select-all + insertText is the path X's own
   // paste handling uses; Draft will reconcile its model from the resulting
-  // beforeinput/input events.
+  // beforeinput/input events that execCommand fires internally.
   //
-  // Important: do NOT fall back to `editable.textContent = text`. Draft renders
-  // emoji as a background-image span whose textContent often differs from the
-  // source string, so any equality check after execCommand is unreliable; the
-  // fallback would write plain text on top of Draft's model → duplicate text.
+  // Important:
+  //  - Do NOT fall back to `editable.textContent = text` — Draft reconciles
+  //    differently and the displayed text would diverge from the model.
+  //  - Do NOT dispatch a synthetic InputEvent after execCommand. execCommand
+  //    already fires its own input event; an extra one makes Draft insert
+  //    the text twice (visible duplication, fixed before the user can submit).
   try {
     const selection = window.getSelection();
     const range = document.createRange();
@@ -1593,7 +1634,6 @@ function insertTextIntoReply(editable, text) {
     selection.removeAllRanges();
     selection.addRange(range);
     document.execCommand('insertText', false, text);
-    editable.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: text }));
     return true;
   } catch (_) {
     return false;
@@ -1687,33 +1727,59 @@ function showGrokOptions(comments, editable, opts = {}) {
     list.appendChild(btn);
   });
 
-  // Anchor near the AI button. Prefer above (composer is usually at the bottom
-  // of the viewport, so upward space is bigger and we don't cover the submit
-  // button row). Fall back to below when there's not enough room above.
+  // Smart placement: prefer the side with the most usable space, in this
+  // order — right (when there's a clear column to the side, e.g. the reply
+  // modal scenario where the trends column is empty), above (typical timeline
+  // / status page where the composer sits low in the viewport), below
+  // (when both above and right are cramped).
   const anchor = opts.anchor;
   if (anchor) {
     const rect = anchor.getBoundingClientRect();
     const margin = 8;
-    const width = Math.min(380, window.innerWidth - 24);
-    panel.style.width = `${width}px`;
-    // Position horizontally aligned to the anchor's right edge so the panel
-    // hugs the same column as the button (which sits at the right of the
-    // composer), spilling leftward if needed.
-    const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width));
-    panel.style.left = `${left}px`;
-    // Vertical: try above first.
-    const panelH = panel.offsetHeight || 320;
+    const minW = 320;
+    const maxW = 420;
+    const minH = 240;
+
+    const spaceRight = window.innerWidth - rect.right - margin;
     const spaceAbove = rect.top - margin;
     const spaceBelow = window.innerHeight - rect.bottom - margin;
-    const goAbove = spaceAbove >= panelH || spaceAbove > spaceBelow;
-    if (goAbove) {
-      panel.style.top = `${Math.max(12, rect.top - panelH - margin)}px`;
-      panel.classList.add('xvm-grok-options--above');
-      panel.classList.remove('xvm-grok-options--below');
+
+    const panelHGuess = Math.max(panel.offsetHeight || 0, minH);
+
+    let placement;
+    if (spaceRight >= minW + 12) {
+      placement = 'right';
+    } else if (spaceAbove >= panelHGuess || spaceAbove >= spaceBelow) {
+      placement = 'above';
     } else {
-      panel.style.top = `${rect.bottom + margin}px`;
-      panel.classList.add('xvm-grok-options--below');
-      panel.classList.remove('xvm-grok-options--above');
+      placement = 'below';
+    }
+
+    panel.classList.remove('xvm-grok-options--above', 'xvm-grok-options--below', 'xvm-grok-options--right');
+    panel.classList.add(`xvm-grok-options--${placement}`);
+
+    if (placement === 'right') {
+      const width = Math.min(maxW, Math.max(minW, spaceRight - 4));
+      panel.style.width = `${width}px`;
+      panel.style.left = `${rect.right + margin}px`;
+      // Align the panel's vertical center loosely with the anchor's, but
+      // clamp to viewport.
+      const panelH = panel.offsetHeight || panelHGuess;
+      const idealTop = rect.top + rect.height / 2 - panelH / 2;
+      const top = Math.max(12, Math.min(window.innerHeight - panelH - 12, idealTop));
+      panel.style.top = `${top}px`;
+    } else {
+      const width = Math.min(maxW, window.innerWidth - 24);
+      panel.style.width = `${width}px`;
+      // Hug the anchor's right edge so the panel sits in the same column.
+      const left = Math.max(12, Math.min(window.innerWidth - width - 12, rect.right - width));
+      panel.style.left = `${left}px`;
+      const panelH = panel.offsetHeight || panelHGuess;
+      if (placement === 'above') {
+        panel.style.top = `${Math.max(12, rect.top - panelH - margin)}px`;
+      } else {
+        panel.style.top = `${rect.bottom + margin}px`;
+      }
     }
     panel.dataset.anchorX = String(rect.left + rect.width / 2);
   }

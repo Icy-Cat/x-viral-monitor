@@ -1229,6 +1229,10 @@ article[data-testid="tweet"].xvm-article-linked {
   transform-origin: top right;
 }
 
+.xvm-grok-options.xvm-grok-options--right {
+  transform-origin: center left;
+}
+
 @keyframes xvm-grok-pop {
   from { opacity: 0; transform: scale(0.96) translateY(4px); }
   to   { opacity: 1; transform: scale(1) translateY(0); }
