@@ -288,16 +288,37 @@ window.addEventListener('message', (event) => {
         grokSelectedPromptId: DEFAULT_FEATURES.grokSelectedPromptId,
         grokTemporaryChat: DEFAULT_FEATURES.grokTemporaryChat,
       }, (syncItems) => {
-        const promptTemplates = normalizeGrokPromptTemplates(syncItems.grokPromptTemplates, syncItems.grokCommentPrompt);
-        window.postMessage({
-          type: 'XVM_GROK_SETTINGS_LOAD',
-          promptTemplate: promptTemplates[0]?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
-          promptTemplates,
-          selectedPromptId: syncItems.grokSelectedPromptId || promptTemplates[0]?.id || 'default',
-          temporaryChat: syncItems.grokTemporaryChat !== false,
-        }, '*');
+        chrome.storage.local.get({ xvmGrokCapturedTxId: null }, (localItems) => {
+          const promptTemplates = normalizeGrokPromptTemplates(syncItems.grokPromptTemplates, syncItems.grokCommentPrompt);
+          window.postMessage({
+            type: 'XVM_GROK_SETTINGS_LOAD',
+            promptTemplate: promptTemplates[0]?.prompt || DEFAULT_FEATURES.grokCommentPrompt,
+            promptTemplates,
+            selectedPromptId: syncItems.grokSelectedPromptId || promptTemplates[0]?.id || 'default',
+            temporaryChat: syncItems.grokTemporaryChat !== false,
+            capturedTxId: localItems.xvmGrokCapturedTxId,
+          }, '*');
+        });
       });
     });
+    return;
+  }
+
+  // Persist a tx-id observed on a real X-UI add_response.json POST.
+  // Stored as { txId, capturedAt } in chrome.storage.local. Used as fallback
+  // when self-generated tx-ids fail signature validation (e.g. after X
+  // redeploys their bundle and our algorithm port is briefly out of date).
+  if (type === 'XVM_GROK_CAPTURE_SET' && typeof event.data.txId === 'string' && event.data.txId.length > 16) {
+    safeChromeCall(() => {
+      chrome.storage.local.set({
+        xvmGrokCapturedTxId: { txId: event.data.txId, capturedAt: Date.now() },
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_GROK_CAPTURE_CLEAR') {
+    safeChromeCall(() => chrome.storage.local.remove('xvmGrokCapturedTxId'));
     return;
   }
 });

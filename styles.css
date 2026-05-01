@@ -1292,6 +1292,19 @@ article[data-testid="tweet"].xvm-article-linked {
   font-size: 15px;
 }
 
+.xvm-grok-options-status {
+  font-size: 12px;
+  color: rgb(83, 100, 113);
+  flex: 1;
+  text-align: right;
+  margin-right: 4px;
+}
+
+.xvm-grok-template-item--selected {
+  outline: 1px solid rgba(29, 155, 240, 0.4);
+  background: rgba(29, 155, 240, 0.06);
+}
+
 .xvm-grok-close {
   width: 28px;
   height: 28px;

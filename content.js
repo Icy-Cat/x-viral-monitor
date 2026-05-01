@@ -1621,9 +1621,13 @@ function showGrokTemplateMenu(anchor, editable) {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'xvm-grok-template-item';
+    if (tpl.id === grokSelectedTemplateId) item.classList.add('xvm-grok-template-item--selected');
     item.innerHTML = `<span>${tpl.name}</span><small>${tpl.prompt.replace(/\s+/g, ' ').slice(0, 72)}</small>`;
     item.addEventListener('click', () => {
       closeGrokTemplateMenu();
+      // Persist selection so the next plain click reuses it.
+      grokSelectedTemplateId = tpl.id;
+      try { chrome.storage?.sync?.set?.({ grokSelectedPromptId: tpl.id }); } catch (_) {}
       handleGrokGenerate(anchor, editable, tpl);
     });
     list.appendChild(item);
@@ -1639,18 +1643,34 @@ function showGrokTemplateMenu(anchor, editable) {
   }, 0);
 }
 
-function showGrokOptions(comments, editable) {
-  closeGrokOptions();
-  const panel = document.createElement('div');
-  panel.className = 'xvm-grok-options';
-  panel.innerHTML = `
-    <div class="xvm-grok-options-head">
-      <strong>Grok 评论候选</strong>
-      <button type="button" class="xvm-grok-close" aria-label="Close">×</button>
-    </div>
-    <div class="xvm-grok-options-list"></div>
-  `;
+// Renders or updates the candidate panel. Designed to be called repeatedly
+// during streaming — each call replaces the list contents in place so users
+// can pick a candidate as soon as it appears, without waiting for the stream
+// to finish.
+function showGrokOptions(comments, editable, opts = {}) {
+  let panel = document.querySelector('.xvm-grok-options');
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'xvm-grok-options';
+    panel.innerHTML = `
+      <div class="xvm-grok-options-head">
+        <strong>Grok 评论候选</strong>
+        <span class="xvm-grok-options-status" aria-live="polite"></span>
+        <button type="button" class="xvm-grok-close" aria-label="Close">×</button>
+      </div>
+      <div class="xvm-grok-options-list"></div>
+    `;
+    panel.querySelector('.xvm-grok-close')?.addEventListener('click', closeGrokOptions);
+    document.body.appendChild(panel);
+  }
+  const status = panel.querySelector('.xvm-grok-options-status');
+  if (status) {
+    status.textContent = opts.streaming
+      ? `生成中 ${comments.length}…`
+      : (comments.length ? `共 ${comments.length} 条` : '');
+  }
   const list = panel.querySelector('.xvm-grok-options-list');
+  list.innerHTML = '';
   comments.forEach((comment, idx) => {
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -1665,8 +1685,6 @@ function showGrokOptions(comments, editable) {
     btn.dataset.idx = String(idx + 1);
     list.appendChild(btn);
   });
-  panel.querySelector('.xvm-grok-close')?.addEventListener('click', closeGrokOptions);
-  document.body.appendChild(panel);
 }
 
 function setGrokButtonLabel(btn, label = 'AI 生成', loading = false) {
@@ -1675,15 +1693,18 @@ function setGrokButtonLabel(btn, label = 'AI 生成', loading = false) {
 }
 
 async function handleGrokGenerate(btn, editable, promptTemplate = null) {
-  if (!promptTemplate && grokPromptTemplates.length > 1) {
-    showGrokTemplateMenu(btn, editable);
-    return;
-  }
+  // Synchronous re-entry guard. `btn.disabled = true` later races with rapid
+  // double-clicks; the dataset flag is set before any await so the second
+  // click sees it immediately.
+  if (btn.dataset.xvmBusy === '1') return;
+  btn.dataset.xvmBusy = '1';
+
   const root = findReplyComposerRoot(editable);
   const article = findReplyArticle(root);
   const tweetText = getTweetTextFromArticle(article);
   if (!tweetText) {
     showToast('未找到推文内容');
+    delete btn.dataset.xvmBusy;
     return;
   }
 
@@ -1694,18 +1715,24 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
       throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
     }
     const tpl = promptTemplate || getSelectedGrokPromptTemplate();
+    showGrokOptions([], editable, { streaming: true });
     const comments = await window.__xvmGrok.generate({
       tweetText,
       promptTemplate: tpl?.prompt || tpl,
       temporaryChat: grokTemporaryChat,
+      onProgress: (running) => {
+        showGrokOptions(running, editable, { streaming: true });
+      },
     });
-    showGrokOptions(comments, editable);
+    showGrokOptions(comments, editable, { streaming: false });
   } catch (err) {
     console.debug('[XVM-GROK] generation failed', err);
+    closeGrokOptions();
     showToast(err?.message || 'Grok 生成失败');
   } finally {
     btn.disabled = false;
     setGrokButtonLabel(btn);
+    delete btn.dataset.xvmBusy;
   }
 }
 
@@ -1730,11 +1757,21 @@ function injectGrokReplyButtons(root = document) {
     btn.type = 'button';
     btn.className = 'xvm-grok-generate-btn';
     setGrokButtonLabel(btn);
-    btn.title = '使用自定义提示词模板生成评论';
+    btn.title = '点击：用当前模板生成 / Shift + 点击 或 右键：选择其他模板';
     btn.addEventListener('click', (ev) => {
       ev.preventDefault();
       ev.stopPropagation();
-      handleGrokGenerate(btn, editable);
+      if (ev.shiftKey && grokPromptTemplates.length > 1) {
+        showGrokTemplateMenu(btn, editable);
+      } else {
+        handleGrokGenerate(btn, editable);
+      }
+    });
+    btn.addEventListener('contextmenu', (ev) => {
+      if (grokPromptTemplates.length <= 1) return;
+      ev.preventDefault();
+      ev.stopPropagation();
+      showGrokTemplateMenu(btn, editable);
     });
     if (submitBtn?.parentElement) {
       submitBtn.parentElement.classList.add('xvm-grok-actions-host');

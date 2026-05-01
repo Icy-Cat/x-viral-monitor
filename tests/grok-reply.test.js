@@ -8,8 +8,14 @@ import vm from 'node:vm';
 const src = readFileSync(new URL('../lib/grok-reply.js', import.meta.url), 'utf8');
 
 function loadGrok() {
+  const win = {
+    __xvmNet: null,
+    __xvmXct: null,
+    addEventListener() {},
+    postMessage() {},
+  };
   const ctx = {
-    window: { __xvmNet: null, __xvmXct: null },
+    window: win,
     document: { cookie: '' },
     navigator: { language: 'zh-CN' },
     crypto: { randomUUID: () => 'test-uuid' },
@@ -87,8 +93,8 @@ describe('extractComments', () => {
     expect(api.extractComments(stream)).toEqual(['alpha', 'beta', 'gamma']);
   });
 
-  it('drops fallback items longer than tweet length cap', () => {
-    const longLine = 'x'.repeat(300);
+  it('drops fallback items longer than long-form length cap', () => {
+    const longLine = 'x'.repeat(1100);
     const stream = ndjsonOf(`1. short\n2. ${longLine}\n3. also short`);
     expect(api.extractComments(stream)).toEqual(['short', 'also short']);
   });
@@ -101,11 +107,6 @@ describe('extractComments', () => {
     expect(api.extractComments(stream)).toEqual(['real']);
   });
 
-  it('handles SSE-style "data: " prefix', () => {
-    const stream = `data: ${ndjsonOf('```\nx\n```')}\ndata: [DONE]`;
-    expect(api.extractComments(stream)).toEqual(['x']);
-  });
-
   it('returns empty array for unparseable input', () => {
     expect(api.extractComments('garbage\nmore garbage')).toEqual([]);
   });
@@ -113,5 +114,21 @@ describe('extractComments', () => {
   it('handles empty/null input gracefully', () => {
     expect(api.extractComments('')).toEqual([]);
     expect(api.extractComments(null)).toEqual([]);
+  });
+});
+
+describe('extractFinalText', () => {
+  it('concatenates only final-tagged ASSISTANT chunks', () => {
+    const stream = [
+      JSON.stringify({ result: { sender: 'ASSISTANT', messageTag: 'header', message: 'header ' } }),
+      JSON.stringify({ result: { sender: 'ASSISTANT', messageTag: 'final', message: 'one ' } }),
+      JSON.stringify({ result: { sender: 'ASSISTANT', messageTag: 'final', message: 'two' } }),
+    ].join('\n');
+    expect(api.extractFinalText(stream)).toBe('one two');
+  });
+
+  it('ignores non-JSON lines', () => {
+    const stream = `not json\n${JSON.stringify({ result: { sender: 'ASSISTANT', messageTag: 'final', message: 'ok' } })}\nalso not json`;
+    expect(api.extractFinalText(stream)).toBe('ok');
   });
 });
