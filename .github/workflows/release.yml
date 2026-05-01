@@ -19,7 +19,7 @@ jobs:
           mkdir -p dist
           zip -r dist/x-viral-monitor-${{ github.ref_name }}.zip \
             manifest.json content.js bridge.js starchart.js popup.html popup.js styles.css \
-            _locales/ icons/
+            _locales/ icons/ lib/
 
       - name: Create Release
         uses: softprops/action-gh-release@v3
