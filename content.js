@@ -1617,29 +1617,28 @@ function insertTextIntoReply(editable, text) {
     editable.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   }
-  // Draft.js editor (X reply box). Two-step replace:
-  //   1. selectAll + delete  — fully clears Draft's internal model, including
-  //      emoji entities. A single insertText with selection covering the
-  //      content tends to leave entity nodes behind because Draft replaces
-  //      only the text run, not the entity spans, → visible duplication.
-  //   2. insertText           — inserts the new text into the now-empty model.
+  // Draft.js editor (X reply box).
   //
-  // Important:
-  //  - Do NOT fall back to `editable.textContent = text` — Draft reconciles
-  //    differently and the displayed text would diverge from the model.
-  //  - Do NOT dispatch a synthetic InputEvent after execCommand. execCommand
-  //    already fires its own input event; an extra one makes Draft insert
-  //    the text twice.
+  // Dispatch a synthetic ClipboardEvent('paste') with a DataTransfer holding
+  // the text. Draft.js's onPaste reads `clipboardData.getData('text/plain')`
+  // and reconciles its internal EditorState — model and DOM stay in sync,
+  // and the reply submit button activates correctly.
+  //
+  // No system clipboard interaction. No execCommand. No selection juggling
+  // either: Draft's paste handler clears whatever is selected (or replaces
+  // current content) by itself, so we don't need to selectAll first.
   try {
-    const selection = window.getSelection();
-    const range = document.createRange();
-    range.selectNodeContents(editable);
-    selection.removeAllRanges();
-    selection.addRange(range);
-    document.execCommand('delete');
-    document.execCommand('insertText', false, text);
+    const dt = new DataTransfer();
+    dt.setData('text/plain', text);
+    dt.setData('text/html', text); // some Draft variants prefer html — harmless when not used
+    editable.dispatchEvent(new ClipboardEvent('paste', {
+      bubbles: true,
+      cancelable: true,
+      clipboardData: dt,
+    }));
     return true;
-  } catch (_) {
+  } catch (e) {
+    console.warn('[XVM-GROK] paste-event insert failed:', e);
     return false;
   }
 }
