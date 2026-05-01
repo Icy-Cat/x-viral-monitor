@@ -1617,22 +1617,26 @@ function insertTextIntoReply(editable, text) {
     editable.dispatchEvent(new Event('change', { bubbles: true }));
     return true;
   }
-  // Draft.js editor (X reply box). Select-all + insertText is the path X's own
-  // paste handling uses; Draft will reconcile its model from the resulting
-  // beforeinput/input events that execCommand fires internally.
+  // Draft.js editor (X reply box). Two-step replace:
+  //   1. selectAll + delete  — fully clears Draft's internal model, including
+  //      emoji entities. A single insertText with selection covering the
+  //      content tends to leave entity nodes behind because Draft replaces
+  //      only the text run, not the entity spans, → visible duplication.
+  //   2. insertText           — inserts the new text into the now-empty model.
   //
   // Important:
   //  - Do NOT fall back to `editable.textContent = text` — Draft reconciles
   //    differently and the displayed text would diverge from the model.
   //  - Do NOT dispatch a synthetic InputEvent after execCommand. execCommand
   //    already fires its own input event; an extra one makes Draft insert
-  //    the text twice (visible duplication, fixed before the user can submit).
+  //    the text twice.
   try {
     const selection = window.getSelection();
     const range = document.createRange();
     range.selectNodeContents(editable);
     selection.removeAllRanges();
     selection.addRange(range);
+    document.execCommand('delete');
     document.execCommand('insertText', false, text);
     return true;
   } catch (_) {
