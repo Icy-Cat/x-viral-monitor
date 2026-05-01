@@ -1219,7 +1219,6 @@ article[data-testid="tweet"].xvm-article-linked {
   background: rgba(255, 255, 255, 0.99);
   border: 1px solid rgba(207, 217, 222, 0.9);
   border-radius: 12px;
-  box-shadow: 0 12px 36px rgba(15, 20, 25, 0.22), 0 2px 6px rgba(15, 20, 25, 0.08);
   font-family: TwitterChirp, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   animation: xvm-grok-pop 140ms ease-out;
   transform-origin: bottom right;
@@ -1235,12 +1234,6 @@ article[data-testid="tweet"].xvm-article-linked {
 
 .xvm-grok-options.xvm-grok-options--left {
   transform-origin: center right;
-}
-
-/* When anchored beside a modal, lift the panel above X's modal scrim and
-   give it a subtle outline so it reads as a sibling surface, not a tooltip. */
-.xvm-grok-options.xvm-grok-options--in-modal {
-  box-shadow: 0 18px 48px rgba(15, 20, 25, 0.32), 0 4px 10px rgba(15, 20, 25, 0.12);
 }
 
 @keyframes xvm-grok-pop {
