@@ -1826,8 +1826,12 @@ function showGrokOptions(comments, editable, opts = {}) {
     // Don't bubble panel clicks/mousedowns to the page or X's modal backdrop —
     // some X dialog overlays close themselves on backdrop click and would
     // dismiss our panel as collateral.
-    panel.addEventListener('mousedown', (e) => e.stopPropagation(), true);
-    panel.addEventListener('click', (e) => e.stopPropagation(), true);
+    //
+    // IMPORTANT: stop in the BUBBLE phase, not capture. A capture-phase
+    // stopPropagation here would prevent the event from ever reaching the
+    // inner candidate buttons, breaking their click handlers.
+    panel.addEventListener('mousedown', (e) => e.stopPropagation());
+    panel.addEventListener('click', (e) => e.stopPropagation());
 
     // Explicit dismissal: Escape key. (Plus the ✕ button, plus picking a
     // candidate auto-closes via showToast.) Outside-click intentionally does
