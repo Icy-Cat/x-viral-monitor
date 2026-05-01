@@ -34,6 +34,12 @@
   "btnReset": {
     "message": "Reset"
   },
+  "btnAdd": {
+    "message": "Add"
+  },
+  "btnDelete": {
+    "message": "Delete"
+  },
   "flashSaved": {
     "message": "Saved ✓"
   },
@@ -201,32 +207,97 @@
   "contentStarChartClose": {
     "message": "Close"
   },
-  "contentStarChartStatRetweets": { "message": "Retweets" },
-  "contentStarChartStatQuotes": { "message": "Quotes" },
-  "contentStarChartStatSupporters": { "message": "Supporters" },
-  "contentStarChartStatSpan": { "message": "Quote span" },
-  "contentStarChartSearchPlaceholder": { "message": "Search name or handle..." },
-  "contentStarChartRiverTitle": { "message": "Quote River" },
-  "contentStarChartRiverEmpty": { "message": "No quotes yet" },
-  "contentStarChartEmpty": { "message": "No supporters found for this tweet" },
-  "contentStarChartReset": { "message": "Reset view" },
+  "contentStarChartStatRetweets": {
+    "message": "Retweets"
+  },
+  "contentStarChartStatQuotes": {
+    "message": "Quotes"
+  },
+  "contentStarChartStatSupporters": {
+    "message": "Supporters"
+  },
+  "contentStarChartStatSpan": {
+    "message": "Quote span"
+  },
+  "contentStarChartSearchPlaceholder": {
+    "message": "Search name or handle..."
+  },
+  "contentStarChartRiverTitle": {
+    "message": "Quote River"
+  },
+  "contentStarChartRiverEmpty": {
+    "message": "No quotes yet"
+  },
+  "contentStarChartEmpty": {
+    "message": "No supporters found for this tweet"
+  },
+  "contentStarChartReset": {
+    "message": "Reset view"
+  },
   "popupStarChartLabel": {
     "message": "Thank-You Star Chart"
   },
   "popupStarChartHint": {
     "message": "Adds a star-chart option to the share menu of any tweet."
   },
-  "flashStarChartOn": { "message": "Star chart enabled" },
-  "flashStarChartOff": { "message": "Star chart disabled" },
-  "contentStarChartTitleLabel": { "message": "VELOCITY MONITOR" },
-  "contentStarChartHeroEyebrow": { "message": "THANK YOU FOR CARRYING THIS POST FURTHER" },
-  "contentStarChartHeroTitle": { "message": "Every light is a hand passing the post along." },
-  "contentStarChartStatsSectionTitle": { "message": "Overview" },
-  "contentStarChartPeopleSectionTitle": { "message": "Supporters" },
-  "contentStarChartFilterAll": { "message": "All" },
-  "contentStarChartFilterRetweet": { "message": "Retweet" },
-  "contentStarChartFilterQuote": { "message": "Quote" },
-  "contentStarChartFilterBoth": { "message": "Both" },
-  "contentStarChartRiverPrev": { "message": "Previous quote" },
-  "contentStarChartRiverNext": { "message": "Next quote" }
+  "flashStarChartOn": {
+    "message": "Star chart enabled"
+  },
+  "flashStarChartOff": {
+    "message": "Star chart disabled"
+  },
+  "contentStarChartTitleLabel": {
+    "message": "VELOCITY MONITOR"
+  },
+  "contentStarChartHeroEyebrow": {
+    "message": "THANK YOU FOR CARRYING THIS POST FURTHER"
+  },
+  "contentStarChartHeroTitle": {
+    "message": "Every light is a hand passing the post along."
+  },
+  "contentStarChartStatsSectionTitle": {
+    "message": "Overview"
+  },
+  "contentStarChartPeopleSectionTitle": {
+    "message": "Supporters"
+  },
+  "contentStarChartFilterAll": {
+    "message": "All"
+  },
+  "contentStarChartFilterRetweet": {
+    "message": "Retweet"
+  },
+  "contentStarChartFilterQuote": {
+    "message": "Quote"
+  },
+  "contentStarChartFilterBoth": {
+    "message": "Both"
+  },
+  "contentStarChartRiverPrev": {
+    "message": "Previous quote"
+  },
+  "contentStarChartRiverNext": {
+    "message": "Next quote"
+  },
+  "popupGrokPromptTitle": {
+    "message": "Grok comment prompt"
+  },
+  "popupGrokPromptHint": {
+    "message": "Use [推文内容] where the source tweet should be inserted. Click AI Generate in a reply box, choose a template, then pick one generated option to fill the reply."
+  },
+  "popupGrokTempChatLabel": {
+    "message": "Use temporary chat (don't pollute Grok history)"
+  },
+  "flashGrokTempChatOn": {
+    "message": "Temporary chat enabled ✓"
+  },
+  "flashGrokTempChatOff": {
+    "message": "Temporary chat disabled"
+  },
+  "flashGrokPromptSaved": {
+    "message": "Grok prompt saved ✓"
+  },
+  "flashGrokPromptReset": {
+    "message": "Grok prompt reset ✓"
+  }
 }

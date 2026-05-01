@@ -78,6 +78,23 @@
       outline: none;
       border-color: var(--accent);
     }
+    .field textarea {
+      width: 100%;
+      min-width: 0;
+      min-height: 96px;
+      resize: vertical;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font: inherit;
+      line-height: 1.5;
+      color: var(--text);
+      background: rgba(255,255,255,0.85);
+    }
+    .field textarea:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
     .row { display: flex; gap: 8px; }
     .row .field {
       flex: 1 1 0;
@@ -85,6 +102,11 @@
     }
 
     .actions { display: flex; gap: 8px; margin-top: 6px; }
+    .actions.compact button {
+      padding: 7px 0;
+      font-size: 12px;
+      border-radius: 8px;
+    }
     button {
       flex: 1;
       padding: 8px 0;
@@ -100,6 +122,12 @@
     button#reset {
       color: var(--text);
       background: rgba(36, 24, 15, 0.08);
+    }
+    button#reset,
+    button#grok-prompt-reset {
+      color: var(--text);
+      background: rgba(255, 255, 255, 0.72);
+      border: 1px solid var(--line);
     }
     .status-msg {
       font-size: 11px;
@@ -138,6 +166,49 @@
     }
     .feature-row .ft-body { flex: 1; min-width: 0; }
     .feature-row label { cursor: pointer; display: block; }
+    .feature-row.grok-template {
+      border-radius: 10px;
+      background: rgba(255, 255, 255, 0.78);
+    }
+    .feature-row.grok-template .field textarea {
+      border-radius: 8px;
+      background: #fff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+      font-size: 12px;
+    }
+    .feature-row.grok-template .inline-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin: 8px 0;
+      cursor: pointer;
+      font-size: 13px;
+      color: var(--text);
+    }
+    .feature-row.grok-template .inline-toggle input { margin: 0; }
+    .grok-template-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+    .grok-template-grid select,
+    .grok-template-grid input {
+      width: 100%;
+      min-width: 0;
+      padding: 7px 8px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font: inherit;
+      font-size: 12px;
+      color: var(--text);
+      background: #fff;
+    }
+    .grok-template-grid select:focus,
+    .grok-template-grid input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
     .ft-lb-count {
       display: flex;
       align-items: center;
@@ -269,6 +340,50 @@
           <div class="ft-title" data-i18n="popupStarChartLabel">⭐ Thank-You Star Chart</div>
           <div class="ft-desc" data-i18n="popupStarChartHint">Adds a star-chart option to the share menu of any tweet.</div>
         </label>
+      </div>
+    </div>
+
+    <div class="feature-row grok-template">
+      <div class="ft-body">
+        <div class="grok-template-grid">
+          <select id="grok-template-select" aria-label="Grok prompt template"></select>
+          <input id="grok-template-name" type="text" aria-label="Grok prompt template name">
+        </div>
+        <label class="field" for="grok-prompt">
+          <span>推文模板（短推文，&lt;600 字）</span>
+          <textarea id="grok-prompt" spellcheck="false"></textarea>
+        </label>
+        <div class="ft-desc" data-i18n="popupGrokPromptHint">Use [推文内容] where the source tweet should be inserted. Click AI 生成 in a reply box, choose a template, then pick one generated option to fill the reply.</div>
+        <label class="inline-toggle" for="grok-temp-chat">
+          <input id="grok-temp-chat" type="checkbox">
+          <span data-i18n="popupGrokTempChatLabel">Use temporary chat (don't pollute Grok history)</span>
+        </label>
+        <div class="actions compact">
+          <button type="button" id="grok-prompt-add" data-i18n="btnAdd">Add</button>
+          <button type="button" id="grok-prompt-save" data-i18n="btnSave">Save</button>
+          <button type="button" id="grok-prompt-delete" data-i18n="btnDelete">Delete</button>
+          <button type="button" id="grok-prompt-reset" data-i18n="btnReset">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="feature-row grok-template">
+      <div class="ft-body">
+        <div class="grok-template-grid">
+          <select id="grok-article-template-select" aria-label="Grok article prompt template"></select>
+          <input id="grok-article-template-name" type="text" aria-label="Grok article template name">
+        </div>
+        <label class="field" for="grok-article-prompt">
+          <span>文章模板（X Article / 长文，≥600 字时使用）</span>
+          <textarea id="grok-article-prompt" spellcheck="false"></textarea>
+        </label>
+        <div class="ft-desc">回复 X 上的长文 / Article 时自动使用这组模板。同样支持 [推文内容] 占位符。</div>
+        <div class="actions compact">
+          <button type="button" id="grok-article-prompt-add" data-i18n="btnAdd">Add</button>
+          <button type="button" id="grok-article-prompt-save" data-i18n="btnSave">Save</button>
+          <button type="button" id="grok-article-prompt-delete" data-i18n="btnDelete">Delete</button>
+          <button type="button" id="grok-article-prompt-reset" data-i18n="btnReset">Reset</button>
+        </div>
       </div>
     </div>
 

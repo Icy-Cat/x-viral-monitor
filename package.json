@@ -1,0 +1,15 @@
+{
+  "name": "x-viral-monitor",
+  "version": "1.5.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "debug:grok": "node scripts/debug-grok.mjs",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "devDependencies": {
+    "playwright": "^1.59.1",
+    "vitest": "^1.6.0"
+  }
+}
