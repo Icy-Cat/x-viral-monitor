@@ -72,7 +72,7 @@
   position: fixed;
   right: 16px;
   top: 72px;
-  width: 300px;
+  width: 280px;
   max-width: calc(100vw - 32px);
   background: #fffcf6;
   color: #24180f;
@@ -111,6 +111,25 @@
   color: #9b877a;
   font-variant-numeric: tabular-nums;
 }
+.xvm-lb-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #bf5a2a;
+  cursor: pointer;
+  transition: background 0.12s, color 0.12s;
+}
+.xvm-lb-back:hover {
+  background: rgba(191, 90, 42, 0.14);
+  color: #8f3d17;
+}
+.xvm-lb-back[hidden] { display: none; }
 .xvm-lb-list {
   list-style: none;
   margin: 0;
@@ -127,7 +146,7 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  height: 30px;
+  height: 28px;
   padding: 5px 12px;
   font-size: 12px;
   cursor: pointer;
@@ -140,6 +159,7 @@
   box-shadow: inset 0 0 0 1.5px #bf5a2a;
   border-radius: 6px;
 }
+.xvm-lb-item-selected:hover { background: rgba(191, 90, 42, 0.18); }
 .xvm-lb-rank {
   width: 16px;
   text-align: center;
@@ -180,7 +200,25 @@
 article[data-testid="tweet"].xvm-article-linked {
   outline: 2px solid #bf5a2a;
   outline-offset: -1px;
-  transition: outline-color 0.2s;
+  border-radius: 12px;
+  transition: outline-color 0.18s;
+}
+.xvm-lb-link-path {
+  stroke: #bf5a2a;
+  stroke-width: 2;
+  stroke-linecap: round;
+  filter: drop-shadow(0 2px 4px rgba(191, 90, 42, 0.35));
+}
+.xvm-lb-link-dot {
+  fill: #fff8f1;
+  stroke: #bf5a2a;
+  stroke-width: 2;
+  filter: drop-shadow(0 1px 3px rgba(191, 90, 42, 0.4));
+}
+.xvm-lb-link-start { animation: xvm-lb-pulse 1.8s ease-in-out infinite; }
+@keyframes xvm-lb-pulse {
+  0%, 100% { r: 5; }
+  50% { r: 7; }
 }
 .xvm-tooltip {
   position: fixed;
@@ -368,6 +406,10 @@ article[data-testid="tweet"].xvm-article-linked {
   let selectedLeaderboardId = '';
   let leaderboardHtml = '';
   let leaderboardDragInstalled = false;
+  let savedScrollY = null;
+  let linkState = null;
+  let linkUpdateRaf = 0;
+  const SVG_NS = 'http://www.w3.org/2000/svg';
 
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, (c) => ({
@@ -406,12 +448,41 @@ article[data-testid="tweet"].xvm-article-linked {
       <div class="xvm-lb-head">
         <span class="xvm-lb-title">🔥 Velocity Monitor</span>
         <span class="xvm-lb-count">0</span>
+        <button class="xvm-lb-back" type="button" title="Back to previous position" aria-label="Back to previous position" hidden>
+          <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M4 16 L12.5 16 Q16 16 16 12.5 L16 8.5 Q16 5 12.5 5 L5 5"></path>
+            <path d="M8 2 L5 5 L8 8"></path>
+          </svg>
+        </button>
       </div>
       <ul class="xvm-lb-list"></ul>
     `;
     document.body.appendChild(leaderboardEl);
     installLeaderboardDrag();
+    installLeaderboardBackButton();
     return leaderboardEl;
+  }
+
+  function setBackButtonVisible(visible) {
+    const btn = leaderboardEl?.querySelector('.xvm-lb-back');
+    if (!btn) return;
+    if (visible) btn.removeAttribute('hidden');
+    else btn.setAttribute('hidden', '');
+  }
+
+  function installLeaderboardBackButton() {
+    const btn = leaderboardEl?.querySelector('.xvm-lb-back');
+    if (!btn) return;
+    btn.addEventListener('mousedown', (event) => event.stopPropagation());
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      if (savedScrollY === null) return;
+      const target = savedScrollY;
+      clearLink();
+      window.scrollTo({ top: target, behavior: 'smooth' });
+      savedScrollY = null;
+      setBackButtonVisible(false);
+    });
   }
 
   function clampLeaderboardToViewport(left, top) {
@@ -477,40 +548,118 @@ article[data-testid="tweet"].xvm-article-linked {
   }
 
   function collectLeaderboardItems() {
-    return Array.from(tweetDataStore.values())
-      .map((data) => {
-        const { velocity } = computeScore(data);
-        return {
-          ...data,
-          velocity,
-          tier: tierForVelocity(velocity),
-          article: getArticleByTweetId(data.id),
-        };
-      })
+    const seen = new Set();
+    const items = [];
+    const articles = document.querySelectorAll('article[data-testid="tweet"]');
+    for (const article of articles) {
+      const id = getTweetIdFromArticle(article);
+      if (!id || seen.has(id)) continue;
+      const data = tweetDataStore.get(id);
+      if (!data) continue;
+      seen.add(id);
+      const { velocity } = computeScore(data);
+      items.push({
+        ...data,
+        velocity,
+        tier: tierForVelocity(velocity),
+        article,
+      });
+    }
+    return items
       .sort((a, b) => b.velocity - a.velocity)
       .slice(0, 10);
   }
 
-  function openTweetFallback(data) {
-    const handle = (data.authorScreenName || '').replace(/^@/, '');
-    const path = handle ? `/${handle}/status/${data.id}` : `/i/status/${data.id}`;
-    window.location.assign(path);
+  function ensureLinkSvg() {
+    const svg = document.createElementNS(SVG_NS, 'svg');
+    svg.setAttribute('class', 'xvm-lb-link');
+    svg.style.position = 'fixed';
+    svg.style.left = '0';
+    svg.style.top = '0';
+    svg.style.width = '100vw';
+    svg.style.height = '100vh';
+    svg.style.pointerEvents = 'none';
+    svg.style.zIndex = '2147483645';
+    svg.innerHTML = `
+      <path class="xvm-lb-link-path" fill="none" />
+      <circle class="xvm-lb-link-dot xvm-lb-link-start" r="5" />
+      <circle class="xvm-lb-link-dot xvm-lb-link-end" r="5" />
+    `;
+    document.body.appendChild(svg);
+    return svg;
   }
 
-  function focusLeaderboardTweet(data) {
-    document.querySelectorAll('.xvm-lb-item-selected').forEach((el) => el.classList.remove('xvm-lb-item-selected'));
-    document.querySelectorAll('article[data-testid="tweet"].xvm-article-linked').forEach((el) => el.classList.remove('xvm-article-linked'));
-    selectedLeaderboardId = data.id;
-
-    const article = getArticleByTweetId(data.id);
-    if (!article) {
-      openTweetFallback(data);
+  function updateLinkGeometry() {
+    if (!linkState) return;
+    const { tweetId, itemEl, svg } = linkState;
+    let article = linkState.article;
+    if (!article || !article.isConnected) {
+      article = getArticleByTweetId(tweetId);
+      linkState.article = article;
+    }
+    if (!itemEl.isConnected || !article) {
+      if (!article) svg.style.display = 'none';
       return;
     }
+    svg.style.display = '';
+    if (!article.classList.contains('xvm-article-linked')) article.classList.add('xvm-article-linked');
+
+    const itemRect = itemEl.getBoundingClientRect();
+    const articleRect = article.getBoundingClientRect();
+    const itemCx = itemRect.left + itemRect.width / 2;
+    const articleCx = articleRect.left + articleRect.width / 2;
+    const startOnRight = articleCx >= itemCx;
+    const startX = startOnRight ? itemRect.right : itemRect.left;
+    const startY = itemRect.top + itemRect.height / 2;
+    const articleVisibleTop = Math.max(articleRect.top, 8);
+    const articleVisibleBottom = Math.min(articleRect.bottom, window.innerHeight - 8);
+    const endY = Math.max(articleVisibleTop, Math.min(startY, articleVisibleBottom));
+    const endX = startOnRight ? articleRect.left : articleRect.right;
+    const dx = Math.abs(endX - startX);
+    const handle = Math.max(60, dx * 0.4);
+    const c1x = startX + (startOnRight ? handle : -handle);
+    const c2x = endX - (startOnRight ? handle : -handle);
+
+    svg.querySelector('.xvm-lb-link-path')?.setAttribute('d', `M ${startX},${startY} C ${c1x},${startY} ${c2x},${endY} ${endX},${endY}`);
+    const start = svg.querySelector('.xvm-lb-link-start');
+    start?.setAttribute('cx', startX);
+    start?.setAttribute('cy', startY);
+    const end = svg.querySelector('.xvm-lb-link-end');
+    end?.setAttribute('cx', endX);
+    end?.setAttribute('cy', endY);
+  }
+
+  function scheduleLinkUpdate() {
+    if (!linkState || linkUpdateRaf) return;
+    linkUpdateRaf = requestAnimationFrame(() => {
+      linkUpdateRaf = 0;
+      updateLinkGeometry();
+    });
+  }
+
+  function setLink(tweetId, itemEl, article) {
+    clearLink();
+    const svg = ensureLinkSvg();
+    selectedLeaderboardId = tweetId;
+    itemEl.classList.add('xvm-lb-item-selected');
     article.classList.add('xvm-article-linked');
-    article.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    const row = leaderboardEl?.querySelector(`[data-id="${data.id}"]`);
-    if (row) row.classList.add('xvm-lb-item-selected');
+    linkState = { tweetId, itemEl, article, svg };
+    updateLinkGeometry();
+  }
+
+  function clearLink() {
+    if (!linkState) return;
+    linkState.itemEl?.classList.remove('xvm-lb-item-selected');
+    linkState.article?.classList.remove('xvm-article-linked');
+    const stale = getArticleByTweetId(linkState.tweetId);
+    stale?.classList.remove('xvm-article-linked');
+    linkState.svg?.remove();
+    selectedLeaderboardId = '';
+    linkState = null;
+    if (linkUpdateRaf) {
+      cancelAnimationFrame(linkUpdateRaf);
+      linkUpdateRaf = 0;
+    }
   }
 
   function renderLeaderboard() {
@@ -538,8 +687,8 @@ article[data-testid="tweet"].xvm-article-linked {
         <li class="xvm-lb-item xvm-lb-${item.tier}${selected}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(text || handle)}">
           <span class="xvm-lb-rank">${index + 1}</span>
           <span class="xvm-lb-icon">${iconForTier(item.tier)}</span>
-          <span class="xvm-lb-handle">${escapeHtml(handle)}</span>
           <span class="xvm-lb-preview">${escapeHtml(text)}</span>
+          <span class="xvm-lb-views">👁 ${formatViews(item.views)}</span>
           <span class="xvm-lb-vel">${formatVelocity(item.velocity)}/h</span>
         </li>
       `;
@@ -549,9 +698,20 @@ article[data-testid="tweet"].xvm-article-linked {
     leaderboardHtml = nextHtml;
     list.innerHTML = nextHtml;
     list.querySelectorAll('.xvm-lb-item').forEach((row) => {
-      row.addEventListener('click', () => {
+      row.addEventListener('click', (event) => {
+        event.stopPropagation();
         const item = items.find((candidate) => candidate.id === row.dataset.id);
-        if (item) focusLeaderboardTweet(item);
+        if (!item?.article?.isConnected) return;
+        if (linkState && linkState.tweetId === item.id) {
+          clearLink();
+          return;
+        }
+        if (savedScrollY === null) {
+          savedScrollY = window.scrollY;
+          setBackButtonVisible(true);
+        }
+        item.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        setLink(item.id, row, item.article);
       });
     });
   }
@@ -619,6 +779,19 @@ article[data-testid="tweet"].xvm-article-linked {
       renderLeaderboard();
     });
   }
+
+  window.addEventListener('scroll', scheduleLinkUpdate, { capture: true, passive: true });
+  window.addEventListener('resize', scheduleLinkUpdate, { passive: true });
+  document.addEventListener('click', (event) => {
+    if (!linkState) return;
+    const insideItem = linkState.itemEl && linkState.itemEl.contains(event.target);
+    const insideArticle = linkState.article && linkState.article.contains(event.target);
+    const insidePanel = leaderboardEl && leaderboardEl.contains(event.target);
+    if (!insideItem && !insideArticle && !insidePanel) clearLink();
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && linkState) clearLink();
+  });
 
   const seenGraphqlMessages = new Set();
 
