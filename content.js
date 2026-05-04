@@ -47,8 +47,13 @@ const DEFAULT_LB_COLUMNS = [
   { id: 'velocity', visible: true  },
 ];
 let leaderboardColumns = DEFAULT_LB_COLUMNS.map((c) => ({ ...c }));
+let badgeStyle = 'pill-solid';
 let copyAsMarkdownEnabled = true;
 let starChartEnabled = true;
+
+function applyBadgeStyle() {
+  document.documentElement.dataset.xvmBadgeStyle = badgeStyle;
+}
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
@@ -57,6 +62,8 @@ window.addEventListener('message', (event) => {
   localizedStrings = event.data.messages || localizedStrings;
   applyLocalizedUi();
   velocityThresholds = normalizeThresholds(event.data.thresholds);
+  badgeStyle = event.data.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid';
+  applyBadgeStyle();
   document.querySelectorAll('article[data-xvm-scored]').forEach((article) => {
     article.removeAttribute('data-xvm-scored');
   });

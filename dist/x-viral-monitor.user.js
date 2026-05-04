@@ -7,6 +7,7 @@
 // @match        https://pro.x.com/*
 // @run-at       document-start
 // @grant        unsafeWindow
+// @grant        GM_registerMenuCommand
 // ==/UserScript==
 
 (() => {
@@ -23,31 +24,139 @@
     { id: 'views', visible: true },
     { id: 'velocity', visible: true },
   ];
+  const I18N = {
+    en: {
+      colRank: 'Rank',
+      colIcon: 'Icon',
+      colHandle: 'Handle',
+      colPreview: 'Preview',
+      colViews: 'Views',
+      colVelocity: 'Velocity',
+      contentViews: 'Views',
+      contentLikes: 'Likes',
+      contentRetweets: 'Retweets',
+      contentReplies: 'Replies',
+      contentBookmarks: 'Bookmarks',
+      contentVelocity: 'Velocity',
+      contentViralScore: 'Viral Score',
+      contentPosted: 'Posted',
+      contentFallbackTweetLabel: 'Tweet',
+      contentLeaderboardTitle: 'Velocity Monitor',
+      contentLeaderboardDragToMove: 'Drag to move',
+      contentLeaderboardSettings: 'Settings',
+      contentLeaderboardBackToPrevious: 'Back to previous position',
+      contentLeaderboardTotalViews: 'Total views',
+      settingBadgeStyle: 'Badge style',
+      settingBadgePillSolid: 'Pill solid',
+      settingBadgeInlineClassic: 'Inline classic',
+      settingTrending: 'Trending /h',
+      settingViral: 'Viral /h',
+      settingRows: 'Rows',
+      settingColumns: 'Columns',
+      settingLeaderboardEnabled: 'Floating leaderboard',
+      settingSave: 'Save',
+    },
+    zh: {
+      colRank: '排名',
+      colIcon: '等级图标',
+      colHandle: '用户名',
+      colPreview: '推文预览',
+      colViews: '浏览量',
+      colVelocity: '流速',
+      contentViews: '浏览量',
+      contentLikes: '点赞',
+      contentRetweets: '转发',
+      contentReplies: '回复',
+      contentBookmarks: '收藏',
+      contentVelocity: '流速',
+      contentViralScore: '爆帖指数',
+      contentPosted: '发布时间',
+      contentFallbackTweetLabel: '推文',
+      contentLeaderboardTitle: '本页热点',
+      contentLeaderboardDragToMove: '拖动以移动',
+      contentLeaderboardSettings: '设置',
+      contentLeaderboardBackToPrevious: '返回之前的滚动位置',
+      contentLeaderboardTotalViews: '总浏览量',
+      settingBadgeStyle: '徽章样式',
+      settingBadgePillSolid: '胶囊实底',
+      settingBadgeInlineClassic: '经典行内',
+      settingTrending: '蹿升阈值 /h',
+      settingViral: '爆款阈值 /h',
+      settingRows: '显示行数',
+      settingColumns: '显示字段',
+      settingLeaderboardEnabled: '悬浮榜',
+      settingSave: '保存',
+    },
+    ja: {
+      colRank: '順位',
+      colIcon: 'ティアアイコン',
+      colHandle: 'ユーザー名',
+      colPreview: '投稿プレビュー',
+      colViews: '表示回数',
+      colVelocity: '流速',
+      contentViews: '表示回数',
+      contentLikes: 'いいね',
+      contentRetweets: 'リポスト',
+      contentReplies: '返信',
+      contentBookmarks: 'ブックマーク',
+      contentVelocity: '流速',
+      contentViralScore: 'バズ指数',
+      contentPosted: '投稿日時',
+      contentFallbackTweetLabel: '投稿',
+      contentLeaderboardTitle: 'このページの注目投稿',
+      contentLeaderboardDragToMove: 'ドラッグして移動',
+      contentLeaderboardSettings: '設定',
+      contentLeaderboardBackToPrevious: '前のスクロール位置に戻る',
+      contentLeaderboardTotalViews: '総表示回数',
+      settingBadgeStyle: 'バッジスタイル',
+      settingBadgePillSolid: 'ソリッドピル',
+      settingBadgeInlineClassic: 'クラシックインライン',
+      settingTrending: '上昇中のしきい値 /h',
+      settingViral: 'バズのしきい値 /h',
+      settingRows: '表示件数',
+      settingColumns: '表示項目',
+      settingLeaderboardEnabled: 'フローティングリーダーボード',
+      settingSave: '保存',
+    },
+  };
+
+  function detectLanguage() {
+    const candidates = Array.isArray(navigator.languages) && navigator.languages.length
+      ? navigator.languages
+      : [navigator.language || 'en'];
+    for (const lang of candidates) {
+      const normalized = String(lang || '').toLowerCase();
+      if (normalized.startsWith('zh')) return 'zh';
+      if (normalized.startsWith('ja')) return 'ja';
+      if (normalized.startsWith('en')) return 'en';
+    }
+    return 'en';
+  }
+
+  const currentLanguage = detectLanguage();
+  const currentLocale = currentLanguage === 'zh' ? 'zh-CN' : currentLanguage === 'ja' ? 'ja-JP' : 'en-US';
+
+  function t(key) {
+    return I18N[currentLanguage]?.[key] || I18N.en[key] || key;
+  }
+
   const COLUMN_LABELS = {
-    rank: 'Rank',
-    icon: 'Icon',
-    handle: 'Handle',
-    preview: 'Preview',
-    views: 'Views',
-    velocity: 'Velocity',
+    rank: 'colRank',
+    icon: 'colIcon',
+    handle: 'colHandle',
+    preview: 'colPreview',
+    views: 'colViews',
+    velocity: 'colVelocity',
   };
   const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((column) => column.id);
   const settings = loadSettings();
   velocityThresholds.trending = settings.trending;
   velocityThresholds.viral = Math.max(settings.viral, settings.trending + 1);
-  const labels = {
-    views: 'Views',
-    likes: 'Likes',
-    retweets: 'Retweets',
-    replies: 'Replies',
-    bookmarks: 'Bookmarks',
-    velocity: 'Velocity',
-    score: 'Score',
-    posted: 'Posted',
-  };
   const debugWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
 
   const debugState = {
+    language: currentLanguage,
+    locale: currentLocale,
     capturedGraphql: 0,
     extractedTweets: 0,
     leaderboardItems: 0,
@@ -70,18 +179,21 @@
       const viral = Number.parseInt(parsed.viral, 10);
       const leaderboardCount = Number.parseInt(parsed.leaderboardCount, 10);
       const leaderboardWidth = Number.parseInt(parsed.leaderboardWidth, 10);
+      const leaderboardHeight = Number.parseInt(parsed.leaderboardHeight, 10);
       const pos = parsed.leaderboardPos;
       return {
         trending: Number.isFinite(trending) && trending > 0 ? trending : 1000,
         viral: Number.isFinite(viral) && viral > 0 ? viral : 10000,
+        leaderboardEnabled: parsed.leaderboardEnabled !== false,
         leaderboardCount: Number.isFinite(leaderboardCount) ? Math.max(1, Math.min(50, leaderboardCount)) : 10,
         leaderboardWidth: Number.isFinite(leaderboardWidth) ? Math.max(240, Math.min(640, leaderboardWidth)) : 280,
+        leaderboardHeight: Number.isFinite(leaderboardHeight) ? Math.max(120, Math.min(800, leaderboardHeight)) : 300,
         leaderboardPos: pos && Number.isFinite(pos.left) && Number.isFinite(pos.top) ? { left: pos.left, top: pos.top } : null,
         leaderboardColumns: normalizeColumns(parsed.leaderboardColumns),
         badgeStyle: parsed.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid',
       };
     } catch (_) {
-      return { trending: 1000, viral: 10000, leaderboardCount: 10, leaderboardWidth: 280, leaderboardPos: null, leaderboardColumns: normalizeColumns(null), badgeStyle: 'pill-solid' };
+      return { trending: 1000, viral: 10000, leaderboardEnabled: true, leaderboardCount: 10, leaderboardWidth: 280, leaderboardHeight: 300, leaderboardPos: null, leaderboardColumns: normalizeColumns(null), badgeStyle: 'pill-solid' };
     }
   }
 
@@ -112,6 +224,7 @@
     document.querySelectorAll('article[data-xvm-tm-scored]').forEach((article) => article.removeAttribute('data-xvm-tm-scored'));
     document.querySelectorAll('.xvm-badge').forEach((badge) => badge.remove());
     leaderboardHtml = '';
+    if (!settings.leaderboardEnabled) hideLeaderboard();
     scheduleRender();
   }
 
@@ -160,9 +273,9 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge::before {
 }
 html[data-xvm-badge-style="inline-classic"] .xvm-badge::after { content: ""; }
 html[data-xvm-badge-style="inline-classic"] .xvm-badge:hover { color: rgb(29, 155, 240); }
-html[data-xvm-badge-style="inline-classic"] .xvm-badge--green { color: #4caf50; }
-html[data-xvm-badge-style="inline-classic"] .xvm-badge--orange { color: #ff9800; }
-html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge--green { color: #4caf50; background: transparent; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge--orange { color: #ff9800; background: transparent; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; background: transparent; }
 .xvm-lb {
   display: none;
   position: fixed;
@@ -278,6 +391,30 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
 .xvm-lb.xvm-lb-resizing .xvm-lb-resize::before {
   background: rgba(191, 90, 42, 0.35);
 }
+.xvm-lb-resize-v {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  height: 12px;
+  cursor: ns-resize;
+}
+.xvm-lb-resize-v::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  bottom: 3px;
+  width: 28px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(110, 91, 77, 0.22);
+  transform: translateX(-50%);
+  transition: background 0.12s;
+}
+.xvm-lb:hover .xvm-lb-resize-v::before,
+.xvm-lb.xvm-lb-resizing .xvm-lb-resize-v::before {
+  background: rgba(191, 90, 42, 0.35);
+}
 .xvm-settings {
   display: none;
   padding: 9px 10px 10px;
@@ -304,6 +441,11 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
   background: #fff;
   color: #24180f;
   font: 11px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.xvm-setting-row input[type="checkbox"] {
+  width: auto;
+  min-width: 0;
+  justify-self: start;
 }
 .xvm-setting-columns {
   display: grid;
@@ -368,23 +510,22 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
 }
 .xvm-lb-item-selected:hover { background: rgba(191, 90, 42, 0.18); }
 .xvm-lb-rank {
-  width: 16px;
+  width: 14px;
   text-align: center;
   color: #9b877a;
   font-variant-numeric: tabular-nums;
   font-size: 11px;
   font-weight: 600;
-  flex-shrink: 0;
 }
 .xvm-lb-icon { flex-shrink: 0; }
 .xvm-lb-handle {
-  flex: 0 1 auto;
-  max-width: 110px;
+  flex: 0 0 auto;
+  max-width: 180px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   color: #24180f;
-  font-weight: 600;
+  font-weight: 500;
 }
 .xvm-lb-preview {
   flex: 1 1 0;
@@ -395,10 +536,16 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
   color: #3a2b1f;
   font-size: 11.5px;
 }
+.xvm-lb-views {
+  font-variant-numeric: tabular-nums;
+  font-size: 10px;
+  color: #6e5b4d;
+  flex-shrink: 0;
+}
 .xvm-lb-vel {
   font-variant-numeric: tabular-nums;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 700;
   flex-shrink: 0;
 }
 .xvm-lb-green .xvm-lb-vel { color: #3b8a3f; }
@@ -609,11 +756,28 @@ article[data-testid="tweet"].xvm-article-linked {
     return match ? match[1] : null;
   }
 
+  function getAuthorInfo(article) {
+    const nameBlock = article.querySelector('[data-testid="User-Name"]');
+    let displayName = '';
+    let handle = '';
+    if (nameBlock) {
+      const spans = nameBlock.querySelectorAll('span');
+      for (const span of spans) {
+        const text = (span.textContent || '').trim();
+        if (!handle && text.startsWith('@')) handle = text;
+        else if (!displayName && text && !text.startsWith('@') && text !== '·') displayName = text;
+        if (displayName && handle) break;
+      }
+    }
+    return { displayName, handle };
+  }
+
   let leaderboardEl = null;
   let selectedLeaderboardId = '';
   let leaderboardHtml = '';
   let leaderboardDragInstalled = false;
   let leaderboardResizeInstalled = false;
+  let leaderboardResizeHeightInstalled = false;
   let savedScrollY = null;
   let linkState = null;
   let linkUpdateRaf = 0;
@@ -639,6 +803,12 @@ article[data-testid="tweet"].xvm-article-linked {
     return String(n);
   }
 
+  function formatPostedDate(date, fallback) {
+    if (Number.isNaN(date.getTime())) return fallback || '';
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${date.getFullYear()}:${pad(date.getMonth() + 1)}:${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
+  }
+
   function tierForVelocity(velocity) {
     if (velocity >= velocityThresholds.viral) return 'red';
     if (velocity >= velocityThresholds.trending) return 'orange';
@@ -655,14 +825,14 @@ article[data-testid="tweet"].xvm-article-linked {
     rank: (_item, index) => `<span class="xvm-lb-rank">${index + 1}</span>`,
     icon: (item) => `<span class="xvm-lb-icon">${iconForTier(item.tier)}</span>`,
     handle: (item) => {
-      const handle = item.authorScreenName ? `@${item.authorScreenName}` : item.authorName || 'Tweet';
+      const handle = (item.handle || '').trim() || item.authorName || t('contentFallbackTweetLabel');
       return `<span class="xvm-lb-handle" title="${escapeHtml(handle)}">${escapeHtml(handle)}</span>`;
     },
     preview: (item) => {
       const text = (item.text || '').replace(/\s+/g, ' ').trim();
       return `<span class="xvm-lb-preview" title="${escapeHtml(text.slice(0, 280))}">${escapeHtml(text)}</span>`;
     },
-    views: (item) => `<span class="xvm-lb-views">👁 ${formatViews(item.views)}</span>`,
+    views: (item) => `<span class="xvm-lb-views" title="${escapeHtml(t('contentLeaderboardTotalViews'))}">👁 ${formatViews(item.views)}</span>`,
     velocity: (item) => `<span class="xvm-lb-vel">${formatVelocity(item.velocity)}/h</span>`,
   };
 
@@ -671,12 +841,12 @@ article[data-testid="tweet"].xvm-article-linked {
     leaderboardEl = document.createElement('div');
     leaderboardEl.className = 'xvm-lb';
     leaderboardEl.innerHTML = `
-      <div class="xvm-lb-head">
+      <div class="xvm-lb-head" title="${escapeHtml(t('contentLeaderboardDragToMove'))}">
         <span class="xvm-lb-grip">⋮⋮</span>
-        <span class="xvm-lb-title">🔥 Velocity Monitor</span>
-        <button class="xvm-lb-settings-btn" type="button" title="Settings" aria-label="Settings">⚙</button>
+        <span class="xvm-lb-title">🔥 ${escapeHtml(t('contentLeaderboardTitle'))}</span>
+        <button class="xvm-lb-settings-btn" type="button" title="${escapeHtml(t('contentLeaderboardSettings'))}" aria-label="${escapeHtml(t('contentLeaderboardSettings'))}">⚙</button>
         <span class="xvm-lb-count">0</span>
-        <button class="xvm-lb-back" type="button" title="Back to previous position" aria-label="Back to previous position" hidden>
+        <button class="xvm-lb-back" type="button" title="${escapeHtml(t('contentLeaderboardBackToPrevious'))}" aria-label="${escapeHtml(t('contentLeaderboardBackToPrevious'))}" hidden>
           <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 16 L12.5 16 Q16 16 16 12.5 L16 8.5 Q16 5 12.5 5 L5 5"></path>
             <path d="M8 2 L5 5 L8 8"></path>
@@ -685,40 +855,47 @@ article[data-testid="tweet"].xvm-article-linked {
       </div>
       <div class="xvm-settings">
         <label class="xvm-setting-row">
-          <span>Badge style</span>
+          <span>${escapeHtml(t('settingLeaderboardEnabled'))}</span>
+          <input class="xvm-setting-enabled" type="checkbox">
+        </label>
+        <label class="xvm-setting-row">
+          <span>${escapeHtml(t('settingBadgeStyle'))}</span>
           <select class="xvm-setting-badge-style">
-            <option value="pill-solid">Pill solid</option>
-            <option value="inline-classic">Inline classic</option>
+            <option value="pill-solid">${escapeHtml(t('settingBadgePillSolid'))}</option>
+            <option value="inline-classic">${escapeHtml(t('settingBadgeInlineClassic'))}</option>
           </select>
         </label>
         <label class="xvm-setting-row">
-          <span>Trending /h</span>
+          <span>${escapeHtml(t('settingTrending'))}</span>
           <input class="xvm-setting-trending" type="number" min="1" step="1">
         </label>
         <label class="xvm-setting-row">
-          <span>Viral /h</span>
+          <span>${escapeHtml(t('settingViral'))}</span>
           <input class="xvm-setting-viral" type="number" min="2" step="1">
         </label>
         <label class="xvm-setting-row">
-          <span>Rows</span>
+          <span>${escapeHtml(t('settingRows'))}</span>
           <input class="xvm-setting-count" type="number" min="1" max="50" step="1">
         </label>
         <div class="xvm-setting-row">
-          <span>Columns</span>
+          <span>${escapeHtml(t('settingColumns'))}</span>
           <div class="xvm-setting-columns"></div>
         </div>
         <div class="xvm-settings-actions">
-          <button class="xvm-settings-save" type="button">Save</button>
+          <button class="xvm-settings-save" type="button">${escapeHtml(t('settingSave'))}</button>
         </div>
       </div>
       <ul class="xvm-lb-list"></ul>
       <div class="xvm-lb-resize" aria-hidden="true"></div>
+      <div class="xvm-lb-resize-v" aria-hidden="true"></div>
     `;
     document.body.appendChild(leaderboardEl);
     applyLeaderboardWidth();
+    applyLeaderboardHeight();
     applyLeaderboardPosition();
     installLeaderboardDrag();
     installLeaderboardResize();
+    installLeaderboardResizeHeight();
     installLeaderboardBackButton();
     installSettingsPanel();
     return leaderboardEl;
@@ -726,10 +903,12 @@ article[data-testid="tweet"].xvm-article-linked {
 
   function syncSettingsForm() {
     if (!leaderboardEl) return;
+    const enabled = leaderboardEl.querySelector('.xvm-setting-enabled');
     const badgeStyle = leaderboardEl.querySelector('.xvm-setting-badge-style');
     const trending = leaderboardEl.querySelector('.xvm-setting-trending');
     const viral = leaderboardEl.querySelector('.xvm-setting-viral');
     const count = leaderboardEl.querySelector('.xvm-setting-count');
+    if (enabled) enabled.checked = settings.leaderboardEnabled !== false;
     if (badgeStyle) badgeStyle.value = settings.badgeStyle;
     if (trending) trending.value = String(settings.trending);
     if (viral) viral.value = String(settings.viral);
@@ -743,7 +922,7 @@ article[data-testid="tweet"].xvm-article-linked {
     root.innerHTML = settings.leaderboardColumns.map((column) => `
       <label class="xvm-setting-col">
         <input type="checkbox" data-column-id="${escapeHtml(column.id)}" ${column.visible ? 'checked' : ''}>
-        <span>${escapeHtml(COLUMN_LABELS[column.id] || column.id)}</span>
+        <span>${escapeHtml(t(COLUMN_LABELS[column.id]) || column.id)}</span>
       </label>
     `).join('');
   }
@@ -768,6 +947,7 @@ article[data-testid="tweet"].xvm-article-linked {
       const nextViral = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-viral')?.value, 10);
       const nextCount = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-count')?.value, 10);
       const nextStyle = leaderboardEl.querySelector('.xvm-setting-badge-style')?.value;
+      const nextEnabled = leaderboardEl.querySelector('.xvm-setting-enabled')?.checked;
       const nextColumns = settings.leaderboardColumns.map((column) => {
         const checkbox = leaderboardEl.querySelector(`.xvm-setting-columns input[data-column-id="${column.id}"]`);
         return { id: column.id, visible: checkbox ? checkbox.checked : column.visible };
@@ -777,6 +957,7 @@ article[data-testid="tweet"].xvm-article-linked {
       settings.leaderboardCount = Number.isFinite(nextCount) ? Math.max(1, Math.min(50, nextCount)) : 10;
       settings.leaderboardColumns = normalizeColumns(nextColumns);
       settings.badgeStyle = nextStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid';
+      settings.leaderboardEnabled = nextEnabled !== false;
       saveSettings();
       applySettings();
       syncSettingsForm();
@@ -822,9 +1003,27 @@ article[data-testid="tweet"].xvm-article-linked {
     leaderboardEl.style.width = `${settings.leaderboardWidth}px`;
   }
 
+  function clampLeaderboardHeight(height) {
+    const safeHeight = Number.isFinite(height) ? height : 300;
+    const maxByViewport = Math.max(120, Math.min(800, window.innerHeight - 80));
+    const top = settings.leaderboardPos?.top;
+    const maxByPosition = Number.isFinite(top)
+      ? Math.max(120, Math.min(maxByViewport, window.innerHeight - top - 16))
+      : maxByViewport;
+    return Math.max(120, Math.min(safeHeight, maxByPosition));
+  }
+
+  function applyLeaderboardHeight() {
+    if (!leaderboardEl) return;
+    settings.leaderboardHeight = clampLeaderboardHeight(settings.leaderboardHeight);
+    const list = leaderboardEl.querySelector('.xvm-lb-list');
+    if (list) list.style.maxHeight = `${settings.leaderboardHeight}px`;
+  }
+
   function applyLeaderboardPosition() {
     if (!leaderboardEl) return;
     applyLeaderboardWidth();
+    applyLeaderboardHeight();
     const pos = settings.leaderboardPos;
     if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
       const clamped = clampLeaderboardToViewport(pos.left, pos.top);
@@ -939,6 +1138,52 @@ article[data-testid="tweet"].xvm-article-linked {
     });
   }
 
+  function installLeaderboardResizeHeight() {
+    if (!leaderboardEl || leaderboardResizeHeightInstalled) return;
+    leaderboardResizeHeightInstalled = true;
+    const handle = leaderboardEl.querySelector('.xvm-lb-resize-v');
+    if (!handle) return;
+    let resizeState = null;
+    let resizeRaf = 0;
+    let pendingY = 0;
+
+    const flush = () => {
+      resizeRaf = 0;
+      if (!resizeState) return;
+      settings.leaderboardHeight = clampLeaderboardHeight(resizeState.startHeight + (pendingY - resizeState.startY));
+      applyLeaderboardHeight();
+      updateLinkGeometry();
+    };
+
+    handle.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      const list = leaderboardEl.querySelector('.xvm-lb-list');
+      resizeState = {
+        startHeight: list ? list.getBoundingClientRect().height : settings.leaderboardHeight,
+        startY: event.clientY,
+      };
+      leaderboardEl.classList.add('xvm-lb-resizing');
+      event.stopPropagation();
+      event.preventDefault();
+    });
+    window.addEventListener('mousemove', (event) => {
+      if (!resizeState) return;
+      pendingY = event.clientY;
+      if (!resizeRaf) resizeRaf = requestAnimationFrame(flush);
+    }, { passive: true });
+    window.addEventListener('mouseup', () => {
+      if (!resizeState) return;
+      resizeState = null;
+      leaderboardEl.classList.remove('xvm-lb-resizing');
+      if (resizeRaf) {
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = 0;
+      }
+      saveSettings();
+      updateLinkGeometry();
+    });
+  }
+
   function getArticleByTweetId(id) {
     const articles = document.querySelectorAll('article[data-testid="tweet"]');
     for (const article of articles) {
@@ -952,10 +1197,12 @@ article[data-testid="tweet"].xvm-article-linked {
     const data = tweetDataStore.get(id);
     if (!article || !data) return null;
     const { velocity } = computeScore(data);
+    const { displayName, handle: domHandle } = getAuthorInfo(article);
     return {
       ...data,
       velocity,
       tier: tierForVelocity(velocity),
+      handle: displayName || domHandle || (data.authorScreenName ? `@${data.authorScreenName}` : '') || data.authorName || '',
       article,
     };
   }
@@ -971,10 +1218,12 @@ article[data-testid="tweet"].xvm-article-linked {
       if (!data) continue;
       seen.add(id);
       const { velocity } = computeScore(data);
+      const { displayName, handle: domHandle } = getAuthorInfo(article);
       items.push({
         ...data,
         velocity,
         tier: tierForVelocity(velocity),
+        handle: displayName || domHandle || (data.authorScreenName ? `@${data.authorScreenName}` : '') || data.authorName || '',
         article,
       });
     }
@@ -1113,8 +1362,17 @@ article[data-testid="tweet"].xvm-article-linked {
     });
   }
 
+  function hideLeaderboard() {
+    if (leaderboardEl) leaderboardEl.style.display = 'none';
+    clearLink();
+  }
+
   function renderLeaderboard() {
     if (!document.body) return;
+    if (!settings.leaderboardEnabled) {
+      hideLeaderboard();
+      return;
+    }
     const items = collectLeaderboardItems();
     debugState.leaderboardItems = items.length;
     const el = ensureLeaderboard();
@@ -1126,6 +1384,7 @@ article[data-testid="tweet"].xvm-article-linked {
       list.innerHTML = '';
       count.textContent = '0';
       leaderboardHtml = '';
+      clearLink();
       return;
     }
 
@@ -1133,7 +1392,7 @@ article[data-testid="tweet"].xvm-article-linked {
     count.textContent = String(items.length);
     const visibleColumns = settings.leaderboardColumns.filter((column) => column.visible && leaderboardColumnRenderers[column.id]);
     const nextHtml = items.map((item, index) => {
-      const handle = item.authorScreenName ? `@${item.authorScreenName}` : item.authorName || 'Tweet';
+      const handle = (item.handle || '').trim() || item.authorName || t('contentFallbackTweetLabel');
       const text = (item.text || '').replace(/\s+/g, ' ').trim();
       const selected = item.id === selectedLeaderboardId ? ' xvm-lb-item-selected' : '';
       const cells = visibleColumns.map((column) => leaderboardColumnRenderers[column.id](item, index)).join('');
@@ -1185,15 +1444,15 @@ article[data-testid="tweet"].xvm-article-linked {
 
       const posted = new Date(data.createdAt);
       const tooltipText = [
-        `${labels.views}: ${data.views.toLocaleString()}`,
-        `${labels.likes}: ${data.likes.toLocaleString()}`,
-        `${labels.retweets}: ${data.retweets.toLocaleString()}`,
-        `${labels.replies}: ${data.replies.toLocaleString()}`,
-        `${labels.bookmarks}: ${data.bookmarks.toLocaleString()}`,
-        `${labels.velocity}: ${formatVelocity(velocity)}/h`,
-        `${labels.score}: ${score}/100`,
-        `${labels.posted}: ${Number.isNaN(posted.getTime()) ? data.createdAt : posted.toLocaleString()}`,
-      ].join('\\n');
+        `${t('contentViews')}: ${data.views.toLocaleString(currentLocale)}`,
+        `${t('contentLikes')}: ${data.likes.toLocaleString(currentLocale)}`,
+        `${t('contentRetweets')}: ${data.retweets.toLocaleString(currentLocale)}`,
+        `${t('contentReplies')}: ${data.replies.toLocaleString(currentLocale)}`,
+        `${t('contentBookmarks')}: ${data.bookmarks.toLocaleString(currentLocale)}`,
+        `${t('contentVelocity')}: ${formatVelocity(velocity)}/h`,
+        `${t('contentViralScore')}: ${score}/100`,
+        `${t('contentPosted')}: ${formatPostedDate(posted, data.createdAt)}`,
+      ].join('\n');
 
       badge.addEventListener('mouseenter', () => {
         const tip = getTooltip();
@@ -1219,7 +1478,8 @@ article[data-testid="tweet"].xvm-article-linked {
     scheduleRender.raf = requestAnimationFrame(() => {
       scheduleRender.raf = 0;
       renderBadges();
-      renderLeaderboard();
+      if (settings.leaderboardEnabled) renderLeaderboard();
+      else hideLeaderboard();
     });
   }
 
@@ -1229,11 +1489,12 @@ article[data-testid="tweet"].xvm-article-linked {
     lbScrollTick = true;
     setTimeout(() => {
       lbScrollTick = false;
-      renderLeaderboard();
+      if (settings.leaderboardEnabled) renderLeaderboard();
     }, 250);
   }, { passive: true });
   window.addEventListener('resize', () => {
     applyLeaderboardWidth();
+    applyLeaderboardHeight();
     applyLeaderboardPosition();
     scheduleLinkUpdate();
   }, { passive: true });
@@ -1289,6 +1550,21 @@ article[data-testid="tweet"].xvm-article-linked {
     observer.observe(document.documentElement, { childList: true, subtree: true });
     setInterval(scheduleRender, 2000);
     scheduleRender();
+  }
+
+  function openSettingsPanel() {
+    settings.leaderboardEnabled = true;
+    saveSettings();
+    const el = ensureLeaderboard();
+    el.style.display = 'block';
+    const panel = el.querySelector('.xvm-settings');
+    if (panel) panel.classList.add('xvm-settings-open');
+    syncSettingsForm();
+    scheduleRender();
+  }
+
+  if (typeof GM_registerMenuCommand === 'function') {
+    GM_registerMenuCommand(t('contentLeaderboardSettings') || 'Settings', openSettingsPanel);
   }
 
   injectPageHook();

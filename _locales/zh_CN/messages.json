@@ -297,5 +297,17 @@
   },
   "flashGrokPromptReset": {
     "message": "Grok 提示词已重置 ✓"
+  },
+  "badgeStyleLabel": {
+    "message": "🏷️ 徽章样式"
+  },
+  "badgeStylePillSolid": {
+    "message": "胶囊实底"
+  },
+  "badgeStyleInlineClassic": {
+    "message": "经典行内"
+  },
+  "flashBadgeStyleSaved": {
+    "message": "徽章样式已保存 ✓"
   }
 }

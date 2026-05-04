@@ -20,6 +20,7 @@ const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   featureCopyAsMarkdown: true,
   featureStarChart: true,
+  badgeStyle: 'pill-solid',
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
   grokCommentPrompt: '[推文内容]\n\n为我生成针对该推文的10条评论,每条评论用代码块包裹',
@@ -82,6 +83,7 @@ const leaderboardToggle = document.getElementById('feat-leaderboard');
 const copyMdToggle = document.getElementById('feat-copy-md');
 const starChartToggle = document.getElementById('feat-starchart');
 const leaderboardCountInput = document.getElementById('lb-count');
+const badgeStyleSelect = document.getElementById('badge-style');
 const colListEl = document.getElementById('lb-col-list');
 const grokTemplateSelect = document.getElementById('grok-template-select');
 const grokTemplateNameInput = document.getElementById('grok-template-name');
@@ -170,6 +172,7 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   copyMdToggle.checked = items.featureCopyAsMarkdown !== false;
   starChartToggle.checked = items.featureStarChart !== false;
   leaderboardCountInput.value = normalizeCount(items.leaderboardCount);
+  badgeStyleSelect.value = items.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid';
   grokTemplatesState = normalizeGrokTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
   grokSelectedTemplateId = items.grokSelectedPromptId || grokTemplatesState[0]?.id || 'default';
   if (!grokTemplatesState.some((tpl) => tpl.id === grokSelectedTemplateId)) {
@@ -438,15 +441,22 @@ leaderboardCountInput.addEventListener('change', () => {
   chrome.storage.sync.set({ leaderboardCount: n }, () => flash(tr('flashShowingTop', [String(n)])));
 });
 
+badgeStyleSelect.addEventListener('change', () => {
+  const style = badgeStyleSelect.value === 'inline-classic' ? 'inline-classic' : 'pill-solid';
+  chrome.storage.sync.set({ badgeStyle: style }, () => flash(tr('flashBadgeStyleSaved')));
+});
+
 form.addEventListener('submit', (e) => {
   e.preventDefault();
   const v = normalize({ trending: trendingInput.value, viral: viralInput.value });
+  const style = badgeStyleSelect.value === 'inline-classic' ? 'inline-classic' : 'pill-solid';
   fill(v);
-  chrome.storage.sync.set(v, () => flash(tr('flashSaved')));
+  chrome.storage.sync.set({ ...v, badgeStyle: style }, () => flash(tr('flashSaved')));
 });
 
 resetBtn.addEventListener('click', () => {
   fill(DEFAULT_THRESHOLDS);
-  chrome.storage.sync.set(DEFAULT_THRESHOLDS, () => flash(tr('flashReset')));
+  badgeStyleSelect.value = 'pill-solid';
+  chrome.storage.sync.set({ ...DEFAULT_THRESHOLDS, badgeStyle: 'pill-solid' }, () => flash(tr('flashReset')));
 });
 

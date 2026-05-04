@@ -299,5 +299,17 @@
   },
   "flashGrokPromptReset": {
     "message": "Grok prompt reset ✓"
+  },
+  "badgeStyleLabel": {
+    "message": "🏷️ Badge style"
+  },
+  "badgeStylePillSolid": {
+    "message": "Pill solid"
+  },
+  "badgeStyleInlineClassic": {
+    "message": "Inline classic"
+  },
+  "flashBadgeStyleSaved": {
+    "message": "Badge style saved ✓"
   }
 }

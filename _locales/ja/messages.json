@@ -297,5 +297,17 @@
   },
   "flashGrokPromptReset": {
     "message": "Grok プロンプトをリセットしました ✓"
+  },
+  "badgeStyleLabel": {
+    "message": "🏷️ バッジスタイル"
+  },
+  "badgeStylePillSolid": {
+    "message": "ソリッドピル"
+  },
+  "badgeStyleInlineClassic": {
+    "message": "クラシックインライン"
+  },
+  "flashBadgeStyleSaved": {
+    "message": "バッジスタイルを保存しました ✓"
   }
 }

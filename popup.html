@@ -285,6 +285,22 @@
       font-weight: 500;
     }
     .col-item.col-hidden .col-name { color: var(--muted); }
+
+    .field select {
+      width: 100%;
+      min-width: 0;
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      font: inherit;
+      color: var(--text);
+      background: rgba(255,255,255,0.85);
+      appearance: auto;
+    }
+    .field select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
   </style>
 </head>
 <body>
@@ -314,6 +330,13 @@
           <input id="viral" type="number" min="2" step="1" required>
         </label>
       </div>
+      <label class="field">
+        <span data-i18n="badgeStyleLabel">🏷️ Badge style</span>
+        <select id="badge-style">
+          <option value="pill-solid" data-i18n="badgeStylePillSolid">Pill solid</option>
+          <option value="inline-classic" data-i18n="badgeStyleInlineClassic">Inline classic</option>
+        </select>
+      </label>
       <div class="actions">
         <button type="submit" data-i18n="btnSave">Save</button>
         <button type="button" id="reset" data-i18n="btnReset">Reset</button>
