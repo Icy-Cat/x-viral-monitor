@@ -10,6 +10,7 @@
 ## 功能
 
 - 在每条推文旁显示每小时浏览量（impression/h）
+- **两种徽章样式可选**——胶囊实底（彩色背景）或经典行内（纯文字），在扩展弹窗中切换
 - 颜色标签一眼区分流量等级
 - 悬浮弹窗展示详细数据（浏览量、点赞、转发、回复、收藏、爆帖指数）
 - 支持所有时间线标签页（为你推荐、正在关注、列表等）
@@ -18,6 +19,7 @@
 - 为任意推文生成「感谢星图」——把所有转推与引用用户做成动画粒子可视化
 - 在回复框 **AI 生成评论候选**——直接借用 X 内置的 Grok 能力（无需自备 API key），4 套提示词模板（默认 / 中文短评 / 犀利观点 / 贴吧老哥），长文自动切换到深度回应模板
 - 支持中文、英文、日文
+- **独立油猴脚本**——不想装整个扩展？`userscript/` 目录提供精简版油猴脚本，支持徽章 + 排行榜 + 设置面板
 
 ### 流速分级
 
@@ -43,7 +45,9 @@
 
 ## 安装
 
-**推荐 — Chrome 应用商店：**
+### Chrome 扩展（推荐）
+
+**Chrome 应用商店：**
 [安装 X Viral Monitor](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
 
 **手动安装（最新未上架版本）：**
@@ -54,6 +58,14 @@
 4. 右上角打开**开发者模式**
 5. 点击左上角**加载已解压的扩展程序**
 6. 选择刚才解压的文件夹，确定
+
+### 油猴脚本（精简版）
+
+只需要流速徽章和排行榜？可以使用独立油猴脚本：
+
+1. 安装 [Tampermonkey](https://www.tampermonkey.net/) 浏览器扩展
+2. 打开 [`userscript/x-viral-monitor.user.js`](userscript/x-viral-monitor.user.js)，点击"Raw"安装
+3. 通过 Tampermonkey 菜单打开设置面板
 
 ## 工作原理
 
@@ -76,6 +88,26 @@
 
 「感谢星图」功能改编自 [London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart)（MIT 协议）——
 轨道动画的数学公式、侧边面板的布局、配色方案均移植自该项目。
+
+## 项目结构
+
+```
+├── _locales/          # 国际化（en / zh_CN / ja）
+├── icons/             # 扩展图标
+├── lib/               # 运行时库（网络钩子、Grok 集成等）
+├── userscript/        # 独立油猴脚本
+├── release/           # 打包产物（zip / patch，已 gitignore）
+├── docs/              # 文档（Chrome Web Store 配置等）
+├── scripts/           # 开发工具脚本
+├── store-assets/      # 商店素材
+├── tests/             # 测试
+├── bridge.js          # 扩展 ↔ 页面通信桥
+├── content.js         # 主内容脚本（MAIN world）
+├── popup.html/js      # 扩展弹窗设置界面
+├── starchart.js       # 感谢星图模块
+├── styles.css         # 注入页面的样式
+└── manifest.json      # Chrome 扩展清单
+```
 
 ## 许可证
 

@@ -10,6 +10,7 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 ## What it does
 
 - Shows impression velocity (views/hour) on each tweet in your timeline
+- **Two badge styles** — pill solid (colored background) or inline classic (plain text), switchable in the popup
 - Color-coded badges indicate traffic levels at a glance
 - Hover tooltip with detailed metrics (views, likes, retweets, replies, bookmarks, viral score)
 - Works across all timeline tabs (For You, Following, Lists, etc.)
@@ -18,6 +19,7 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 - Generate a Thank-You Star Chart for any tweet — animated visualization of every retweeter and quoter
 - **AI reply generator** in the reply composer — invokes X's built-in Grok directly (no API key needed). 4 default prompt templates (default / short Chinese / sharp opinion / Tieba veteran tone); long-form posts auto-switch to a deeper-reasoning template set
 - Supports English, Chinese, and Japanese
+- **Standalone userscript** — don't want the full extension? A lightweight Tampermonkey script is available in `userscript/` with badges + leaderboard + settings panel
 
 ### Velocity Tiers
 
@@ -43,7 +45,9 @@ Templates can be edited in the extension popup. **Tweet templates** and **articl
 
 ## Install
 
-**Recommended — Chrome Web Store:**
+### Chrome Extension (recommended)
+
+**Chrome Web Store:**
 [Install X Viral Monitor](https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd)
 
 **Manual install (latest unpublished build):**
@@ -54,6 +58,14 @@ Templates can be edited in the extension popup. **Tweet templates** and **articl
 4. Toggle **Developer mode** on (top right corner)
 5. Click **Load unpacked** (top left)
 6. Select the unzipped folder and confirm
+
+### Userscript (lightweight)
+
+Only need velocity badges and the leaderboard? Use the standalone userscript:
+
+1. Install [Tampermonkey](https://www.tampermonkey.net/)
+2. Open [`userscript/x-viral-monitor.user.js`](userscript/x-viral-monitor.user.js) and click "Raw" to install
+3. Access settings via the Tampermonkey menu
 
 ## How it works
 
@@ -77,6 +89,26 @@ A composite 0-100 score based on four weighted dimensions:
 The Thank-You Star Chart visualization is adapted from
 [London-Chen/Thank-you-star-chart](https://github.com/London-Chen/Thank-you-star-chart) (MIT License) —
 orbital field math, side-panel layout, and color palette ported from that project.
+
+## Project Structure
+
+```
+├── _locales/          # i18n (en / zh_CN / ja)
+├── icons/             # Extension icons
+├── lib/               # Runtime libraries (network hooks, Grok integration, etc.)
+├── userscript/        # Standalone Tampermonkey script
+├── release/           # Build artifacts (zip / patch, gitignored)
+├── docs/              # Documentation (Chrome Web Store config, etc.)
+├── scripts/           # Dev utility scripts
+├── store-assets/      # Web Store assets
+├── tests/             # Tests
+├── bridge.js          # Extension ↔ page communication bridge
+├── content.js         # Main content script (MAIN world)
+├── popup.html/js      # Extension popup settings UI
+├── starchart.js       # Thank-You Star Chart module
+├── styles.css         # Injected page styles
+└── manifest.json      # Chrome extension manifest
+```
 
 ## License
 
