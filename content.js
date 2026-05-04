@@ -1408,7 +1408,7 @@ function showToast(msg, options = {}) {
   const toast = document.createElement('div');
   toast.className = [
     'xvm-toast',
-    type === 'error' ? 'xvm-toast--error' : '',
+    type === 'error' ? 'xvm-toast--error' : type === 'success' ? 'xvm-toast--success' : '',
     position === 'top' ? 'xvm-toast--top' : '',
     sticky ? 'xvm-toast--sticky' : '',
   ].filter(Boolean).join(' ');
@@ -1424,12 +1424,73 @@ function showToast(msg, options = {}) {
   }
 }
 
-function showGrokErrorToast(msg) {
-  showToast(msg || 'Grok 生成失败', {
-    type: 'error',
-    sticky: true,
-    position: 'top',
-  });
+function showGrokErrorToast(_msg) {
+  const toast = document.createElement('div');
+  toast.className = 'xvm-toast xvm-toast--error xvm-toast--top';
+  toast.style.pointerEvents = 'auto';
+  toast.style.cursor = 'pointer';
+  toast.innerHTML = '<div style="font-weight:700">⚠ Grok 签名失效</div><div style="font-size:12px;opacity:0.85;margin-top:4px">点击自动修复 / 前往 Grok 发一条消息</div>';
+  toast.addEventListener('click', () => {
+    const grokLink = document.querySelector('a[href="/i/grok"]');
+    if (grokLink) {
+      grokLink.click();
+    } else {
+      location.href = '/i/grok';
+    }
+    dismissToast(toast);
+    autoSendGrokPrime();
+  }, { once: true });
+  document.body.appendChild(toast);
+  requestAnimationFrame(() => toast.classList.add('xvm-toast--show'));
+  setTimeout(() => dismissToast(toast), 8000);
+}
+
+function autoSendGrokPrime() {
+  let attempts = 0;
+  const maxAttempts = 30;
+  const interval = setInterval(() => {
+    attempts++;
+    const textarea = document.querySelector('textarea[autocapitalize="sentences"]');
+    if (textarea) {
+      clearInterval(interval);
+      const nativeSetter = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, 'value')?.set;
+      if (nativeSetter) {
+        nativeSetter.call(textarea, 'hi');
+      } else {
+        textarea.value = 'hi';
+      }
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      setTimeout(() => {
+        textarea.focus();
+        const enterOpts = { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true };
+        textarea.dispatchEvent(new KeyboardEvent('keydown', enterOpts));
+        textarea.dispatchEvent(new KeyboardEvent('keypress', enterOpts));
+        textarea.dispatchEvent(new KeyboardEvent('keyup', enterOpts));
+        waitForGrokCapture();
+      }, 500);
+    } else if (attempts >= maxAttempts) {
+      clearInterval(interval);
+    }
+  }, 500);
+}
+
+function waitForGrokCapture() {
+  const handler = (event) => {
+    if (event.source !== window) return;
+    if (event.data?.type !== 'XVM_GROK_CAPTURE_SET') return;
+    window.removeEventListener('message', handler);
+    const t = document.createElement('div');
+    t.className = 'xvm-toast xvm-toast--success xvm-toast--top';
+    t.innerHTML = '<div style="font-weight:700">✅ 签名抓取成功</div><div style="font-size:12px;opacity:0.85;margin-top:4px">可以返回使用 AI 生成了</div>';
+    t.style.pointerEvents = 'auto';
+    t.style.cursor = 'pointer';
+    t.addEventListener('click', () => dismissToast(t), { once: true });
+    document.body.appendChild(t);
+    requestAnimationFrame(() => t.classList.add('xvm-toast--show'));
+    setTimeout(() => dismissToast(t), 5000);
+  };
+  window.addEventListener('message', handler);
+  setTimeout(() => window.removeEventListener('message', handler), 15000);
 }
 
 function isArticleLengthText(text) {
