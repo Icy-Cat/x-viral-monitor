@@ -1,6 +1,5 @@
-dist/
-*.zip
-*.png.bak
 node_modules/
+release/
 .superpowers/
 .playwright-mcp/
+*.png.bak
