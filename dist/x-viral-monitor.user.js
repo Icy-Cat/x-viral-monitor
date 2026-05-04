@@ -15,6 +15,9 @@
   const GRAPHQL_RE = /\/i\/api\/graphql\//;
   const tweetDataStore = new Map();
   const velocityThresholds = { trending: 1000, viral: 10000 };
+  const settings = loadSettings();
+  velocityThresholds.trending = settings.trending;
+  velocityThresholds.viral = Math.max(settings.viral, settings.trending + 1);
   const labels = {
     views: 'Views',
     likes: 'Likes',
@@ -31,6 +34,7 @@
     capturedGraphql: 0,
     extractedTweets: 0,
     leaderboardItems: 0,
+    settings,
     hookInstalled: false,
     receivedMessages: 0,
     ignoredMessages: 0,
@@ -42,7 +46,39 @@
   window.__xvmTampermonkey = debugState;
   try { debugWindow.__xvmTampermonkey = debugState; } catch (_) {}
 
+  function loadSettings() {
+    try {
+      const parsed = JSON.parse(localStorage.getItem('xvmTampermonkeySettings') || '{}');
+      const trending = Number.parseInt(parsed.trending, 10);
+      const viral = Number.parseInt(parsed.viral, 10);
+      const leaderboardCount = Number.parseInt(parsed.leaderboardCount, 10);
+      return {
+        trending: Number.isFinite(trending) && trending > 0 ? trending : 1000,
+        viral: Number.isFinite(viral) && viral > 0 ? viral : 10000,
+        leaderboardCount: Number.isFinite(leaderboardCount) ? Math.max(1, Math.min(50, leaderboardCount)) : 10,
+        badgeStyle: parsed.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid',
+      };
+    } catch (_) {
+      return { trending: 1000, viral: 10000, leaderboardCount: 10, badgeStyle: 'pill-solid' };
+    }
+  }
+
+  function saveSettings() {
+    localStorage.setItem('xvmTampermonkeySettings', JSON.stringify(settings));
+  }
+
+  function applySettings() {
+    velocityThresholds.trending = settings.trending;
+    velocityThresholds.viral = Math.max(settings.viral, settings.trending + 1);
+    document.documentElement.dataset.xvmBadgeStyle = settings.badgeStyle;
+    document.querySelectorAll('article[data-xvm-tm-scored]').forEach((article) => article.removeAttribute('data-xvm-tm-scored'));
+    document.querySelectorAll('.xvm-badge').forEach((badge) => badge.remove());
+    leaderboardHtml = '';
+    scheduleRender();
+  }
+
   function injectCss() {
+    document.documentElement.dataset.xvmBadgeStyle = settings.badgeStyle;
     if (document.getElementById('xvm-tm-style')) return;
     const style = document.createElement('style');
     style.id = 'xvm-tm-style';
@@ -67,6 +103,28 @@
 .xvm-badge--green { background: #16a34a; }
 .xvm-badge--orange { background: #ea580c; }
 .xvm-badge--red { background: #dc2626; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge {
+  gap: 0;
+  margin-left: 0;
+  margin-right: 4px;
+  padding: 0;
+  border-radius: 0;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 20px;
+  color: rgb(83, 100, 113);
+  background: transparent;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+html[data-xvm-badge-style="inline-classic"] .xvm-badge::before {
+  content: attr(data-prefix) " " attr(data-velocity) "/h";
+}
+html[data-xvm-badge-style="inline-classic"] .xvm-badge::after { content: ""; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge:hover { color: rgb(29, 155, 240); }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge--green { color: #4caf50; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge--orange { color: #ff9800; }
+html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
 .xvm-lb {
   display: none;
   position: fixed;
@@ -105,6 +163,26 @@
   font-weight: 700;
   color: #6e5b4d;
 }
+.xvm-lb-settings-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: transparent;
+  color: #9b877a;
+  cursor: pointer;
+  font-size: 14px;
+  line-height: 1;
+  transition: background 0.12s, color 0.12s;
+}
+.xvm-lb-settings-btn:hover {
+  background: rgba(191, 90, 42, 0.14);
+  color: #8f3d17;
+}
 .xvm-lb-count {
   font-size: 10px;
   font-weight: 700;
@@ -130,6 +208,47 @@
   color: #8f3d17;
 }
 .xvm-lb-back[hidden] { display: none; }
+.xvm-settings {
+  display: none;
+  padding: 9px 10px 10px;
+  border-bottom: 1px solid rgba(86, 60, 34, 0.14);
+  background: rgba(255, 248, 241, 0.92);
+}
+.xvm-settings.xvm-settings-open { display: grid; gap: 8px; }
+.xvm-setting-row {
+  display: grid;
+  grid-template-columns: 92px 1fr;
+  align-items: center;
+  gap: 8px;
+  font-size: 11px;
+  color: #6e5b4d;
+}
+.xvm-setting-row input,
+.xvm-setting-row select {
+  width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+  border: 1px solid rgba(86, 60, 34, 0.22);
+  border-radius: 6px;
+  padding: 4px 6px;
+  background: #fff;
+  color: #24180f;
+  font: 11px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.xvm-settings-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+.xvm-settings-save {
+  border: none;
+  border-radius: 6px;
+  padding: 5px 9px;
+  background: #bf5a2a;
+  color: #fff;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
 .xvm-lb-list {
   list-style: none;
   margin: 0;
@@ -447,6 +566,7 @@ article[data-testid="tweet"].xvm-article-linked {
     leaderboardEl.innerHTML = `
       <div class="xvm-lb-head">
         <span class="xvm-lb-title">🔥 Velocity Monitor</span>
+        <button class="xvm-lb-settings-btn" type="button" title="Settings" aria-label="Settings">⚙</button>
         <span class="xvm-lb-count">0</span>
         <button class="xvm-lb-back" type="button" title="Back to previous position" aria-label="Back to previous position" hidden>
           <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -455,12 +575,80 @@ article[data-testid="tweet"].xvm-article-linked {
           </svg>
         </button>
       </div>
+      <div class="xvm-settings">
+        <label class="xvm-setting-row">
+          <span>Badge style</span>
+          <select class="xvm-setting-badge-style">
+            <option value="pill-solid">Pill solid</option>
+            <option value="inline-classic">Inline classic</option>
+          </select>
+        </label>
+        <label class="xvm-setting-row">
+          <span>Trending /h</span>
+          <input class="xvm-setting-trending" type="number" min="1" step="1">
+        </label>
+        <label class="xvm-setting-row">
+          <span>Viral /h</span>
+          <input class="xvm-setting-viral" type="number" min="2" step="1">
+        </label>
+        <label class="xvm-setting-row">
+          <span>Rows</span>
+          <input class="xvm-setting-count" type="number" min="1" max="50" step="1">
+        </label>
+        <div class="xvm-settings-actions">
+          <button class="xvm-settings-save" type="button">Save</button>
+        </div>
+      </div>
       <ul class="xvm-lb-list"></ul>
     `;
     document.body.appendChild(leaderboardEl);
     installLeaderboardDrag();
     installLeaderboardBackButton();
+    installSettingsPanel();
     return leaderboardEl;
+  }
+
+  function syncSettingsForm() {
+    if (!leaderboardEl) return;
+    const badgeStyle = leaderboardEl.querySelector('.xvm-setting-badge-style');
+    const trending = leaderboardEl.querySelector('.xvm-setting-trending');
+    const viral = leaderboardEl.querySelector('.xvm-setting-viral');
+    const count = leaderboardEl.querySelector('.xvm-setting-count');
+    if (badgeStyle) badgeStyle.value = settings.badgeStyle;
+    if (trending) trending.value = String(settings.trending);
+    if (viral) viral.value = String(settings.viral);
+    if (count) count.value = String(settings.leaderboardCount);
+  }
+
+  function installSettingsPanel() {
+    const btn = leaderboardEl?.querySelector('.xvm-lb-settings-btn');
+    const panel = leaderboardEl?.querySelector('.xvm-settings');
+    const save = leaderboardEl?.querySelector('.xvm-settings-save');
+    if (!btn || !panel || !save) return;
+    syncSettingsForm();
+    btn.addEventListener('mousedown', (event) => event.stopPropagation());
+    btn.addEventListener('click', (event) => {
+      event.stopPropagation();
+      panel.classList.toggle('xvm-settings-open');
+      syncSettingsForm();
+    });
+    panel.addEventListener('mousedown', (event) => event.stopPropagation());
+    panel.addEventListener('click', (event) => event.stopPropagation());
+    save.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const nextTrending = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-trending')?.value, 10);
+      const nextViral = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-viral')?.value, 10);
+      const nextCount = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-count')?.value, 10);
+      const nextStyle = leaderboardEl.querySelector('.xvm-setting-badge-style')?.value;
+      settings.trending = Number.isFinite(nextTrending) && nextTrending > 0 ? nextTrending : 1000;
+      settings.viral = Number.isFinite(nextViral) && nextViral > settings.trending ? nextViral : Math.max(10000, settings.trending + 1);
+      settings.leaderboardCount = Number.isFinite(nextCount) ? Math.max(1, Math.min(50, nextCount)) : 10;
+      settings.badgeStyle = nextStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid';
+      saveSettings();
+      applySettings();
+      syncSettingsForm();
+      panel.classList.remove('xvm-settings-open');
+    });
   }
 
   function setBackButtonVisible(visible) {
@@ -567,7 +755,7 @@ article[data-testid="tweet"].xvm-article-linked {
     }
     return items
       .sort((a, b) => b.velocity - a.velocity)
-      .slice(0, 10);
+      .slice(0, settings.leaderboardCount);
   }
 
   function ensureLinkSvg() {
@@ -589,6 +777,13 @@ article[data-testid="tweet"].xvm-article-linked {
     return svg;
   }
 
+  function getLinkTargetRect(article) {
+    const target = article.querySelector('.xvm-badge')
+      || article.querySelector('[data-testid="tweetText"]')
+      || article;
+    return target.getBoundingClientRect();
+  }
+
   function updateLinkGeometry() {
     if (!linkState) return;
     const { tweetId, itemEl, svg } = linkState;
@@ -605,7 +800,7 @@ article[data-testid="tweet"].xvm-article-linked {
     if (!article.classList.contains('xvm-article-linked')) article.classList.add('xvm-article-linked');
 
     const itemRect = itemEl.getBoundingClientRect();
-    const articleRect = article.getBoundingClientRect();
+    const articleRect = getLinkTargetRect(article);
     const itemCx = itemRect.left + itemRect.width / 2;
     const articleCx = articleRect.left + articleRect.width / 2;
     const startOnRight = articleCx >= itemCx;
@@ -635,6 +830,16 @@ article[data-testid="tweet"].xvm-article-linked {
       linkUpdateRaf = 0;
       updateLinkGeometry();
     });
+  }
+
+  function followLinkDuringScroll(durationMs = 1200) {
+    const started = Date.now();
+    const tick = () => {
+      if (!linkState) return;
+      updateLinkGeometry();
+      if (Date.now() - started < durationMs) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
   }
 
   function setLink(tweetId, itemEl, article) {
@@ -712,6 +917,7 @@ article[data-testid="tweet"].xvm-article-linked {
         }
         item.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setLink(item.id, row, item.article);
+        followLinkDuringScroll();
       });
     });
   }
