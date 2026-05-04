@@ -1267,6 +1267,7 @@ let lastUrl = location.href;
 new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
+    dismissStickyToasts();
     bootGrokInjectorRetries();
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
@@ -1383,16 +1384,52 @@ async function copyTextToClipboard(text) {
   }
 }
 
-function showToast(msg) {
+const stickyToasts = new Set();
+
+function dismissToast(toast) {
+  if (!toast) return;
+  stickyToasts.delete(toast);
+  toast.classList.remove('xvm-toast--show');
+  setTimeout(() => toast.remove(), 250);
+}
+
+function dismissStickyToasts() {
+  for (const toast of Array.from(stickyToasts)) {
+    dismissToast(toast);
+  }
+}
+
+function showToast(msg, options = {}) {
+  const {
+    type = 'default',
+    sticky = false,
+    position = 'bottom',
+  } = options;
   const toast = document.createElement('div');
-  toast.className = 'xvm-toast';
+  toast.className = [
+    'xvm-toast',
+    type === 'error' ? 'xvm-toast--error' : '',
+    position === 'top' ? 'xvm-toast--top' : '',
+    sticky ? 'xvm-toast--sticky' : '',
+  ].filter(Boolean).join(' ');
   toast.textContent = msg;
+  if (sticky) {
+    stickyToasts.add(toast);
+    toast.addEventListener('click', () => dismissToast(toast), { once: true });
+  }
   document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('xvm-toast--show'));
-  setTimeout(() => {
-    toast.classList.remove('xvm-toast--show');
-    setTimeout(() => toast.remove(), 250);
-  }, 1400);
+  if (!sticky) {
+    setTimeout(() => dismissToast(toast), 1400);
+  }
+}
+
+function showGrokErrorToast(msg) {
+  showToast(msg || 'Grok 生成失败', {
+    type: 'error',
+    sticky: true,
+    position: 'top',
+  });
 }
 
 function isArticleLengthText(text) {
@@ -1827,7 +1864,7 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   const article = findReplyArticle(root);
   const replyText = getTweetTextFromArticle(article);
   if (!replyText) {
-    showToast('未找到推文内容');
+    showGrokErrorToast('未找到推文内容');
     delete btn.dataset.xvmBusy;
     return;
   }
@@ -1863,7 +1900,7 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   } catch (err) {
     console.debug('[XVM-GROK] generation failed', err);
     closeGrokOptions();
-    showToast(err?.message || 'Grok 生成失败');
+    showGrokErrorToast(err?.message || 'Grok 生成失败');
   } finally {
     btn.disabled = false;
     setGrokButtonLabel(btn);

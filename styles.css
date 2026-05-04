@@ -298,6 +298,19 @@ article[data-testid="tweet"].xvm-article-linked {
   z-index: 2147483646;
   pointer-events: none;
 }
+.xvm-toast--top {
+  top: 24px;
+  bottom: auto;
+  transform: translate(-50%, -12px);
+}
+.xvm-toast--error {
+  background: rgba(185, 28, 28, 0.96);
+  box-shadow: 0 10px 30px rgba(127, 29, 29, 0.42);
+}
+.xvm-toast--sticky {
+  cursor: pointer;
+  pointer-events: auto;
+}
 .xvm-toast--show {
   opacity: 1;
   transform: translate(-50%, 0);
