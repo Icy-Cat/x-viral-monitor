@@ -30,6 +30,7 @@
   const debugState = {
     capturedGraphql: 0,
     extractedTweets: 0,
+    leaderboardItems: 0,
     hookInstalled: false,
     receivedMessages: 0,
     ignoredMessages: 0,
@@ -66,6 +67,121 @@
 .xvm-badge--green { background: #16a34a; }
 .xvm-badge--orange { background: #ea580c; }
 .xvm-badge--red { background: #dc2626; }
+.xvm-lb {
+  display: none;
+  position: fixed;
+  right: 16px;
+  top: 72px;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  background: #fffcf6;
+  color: #24180f;
+  border: 1px solid rgba(86, 60, 34, 0.18);
+  border-radius: 14px;
+  font-family: "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
+  box-shadow: 0 10px 28px rgba(36, 24, 15, 0.22), 0 2px 6px rgba(36, 24, 15, 0.08);
+  z-index: 2147483646;
+  overflow: hidden;
+}
+.xvm-lb.xvm-lb-dragging {
+  box-shadow: 0 16px 36px rgba(36, 24, 15, 0.32), 0 2px 6px rgba(36, 24, 15, 0.12);
+  opacity: 0.96;
+}
+.xvm-lb-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px 6px;
+  border-bottom: 1px solid rgba(86, 60, 34, 0.14);
+  background: linear-gradient(180deg, rgba(191, 90, 42, 0.06), rgba(191, 90, 42, 0));
+  cursor: grab;
+  user-select: none;
+}
+.xvm-lb-head:active,
+.xvm-lb.xvm-lb-dragging .xvm-lb-head { cursor: grabbing; }
+.xvm-lb-title {
+  flex: 1;
+  font-size: 11px;
+  font-weight: 700;
+  color: #6e5b4d;
+}
+.xvm-lb-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: #9b877a;
+  font-variant-numeric: tabular-nums;
+}
+.xvm-lb-list {
+  list-style: none;
+  margin: 0;
+  padding: 2px 0;
+  max-height: 300px;
+  overflow-y: auto;
+}
+.xvm-lb-list::-webkit-scrollbar { width: 5px; }
+.xvm-lb-list::-webkit-scrollbar-thumb {
+  background: rgba(86, 60, 34, 0.2);
+  border-radius: 2px;
+}
+.xvm-lb-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 30px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.12s;
+}
+.xvm-lb-item:hover { background: rgba(191, 90, 42, 0.08); }
+.xvm-lb-item-selected {
+  background: rgba(191, 90, 42, 0.14);
+  box-shadow: inset 0 0 0 1.5px #bf5a2a;
+  border-radius: 6px;
+}
+.xvm-lb-rank {
+  width: 16px;
+  text-align: center;
+  color: #9b877a;
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.xvm-lb-icon { flex-shrink: 0; }
+.xvm-lb-handle {
+  flex: 0 1 auto;
+  max-width: 110px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #24180f;
+  font-weight: 600;
+}
+.xvm-lb-preview {
+  flex: 1 1 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #3a2b1f;
+  font-size: 11.5px;
+}
+.xvm-lb-vel {
+  font-variant-numeric: tabular-nums;
+  font-size: 11px;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+.xvm-lb-green .xvm-lb-vel { color: #3b8a3f; }
+.xvm-lb-orange .xvm-lb-vel { color: #bf5a2a; }
+.xvm-lb-red .xvm-lb-vel { color: #c23c1c; }
+article[data-testid="tweet"].xvm-article-linked {
+  outline: 2px solid #bf5a2a;
+  outline-offset: -1px;
+  transition: outline-color 0.2s;
+}
 .xvm-tooltip {
   position: fixed;
   z-index: 2147483647;
@@ -248,6 +364,198 @@
     return match ? match[1] : null;
   }
 
+  let leaderboardEl = null;
+  let selectedLeaderboardId = '';
+  let leaderboardHtml = '';
+  let leaderboardDragInstalled = false;
+
+  function escapeHtml(s) {
+    return String(s || '').replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;',
+      '<': '&lt;',
+      '>': '&gt;',
+      '"': '&quot;',
+      "'": '&#39;',
+    }[c]));
+  }
+
+  function formatViews(n) {
+    if (!Number.isFinite(n) || n <= 0) return '0';
+    if (n >= 1000000) return (n / 1000000).toFixed(1) + 'M';
+    if (n >= 1000) return (n / 1000).toFixed(1) + 'k';
+    return String(n);
+  }
+
+  function tierForVelocity(velocity) {
+    if (velocity >= velocityThresholds.viral) return 'red';
+    if (velocity >= velocityThresholds.trending) return 'orange';
+    return 'green';
+  }
+
+  function iconForTier(tier) {
+    if (tier === 'red') return '🔥';
+    if (tier === 'orange') return '🚀';
+    return '🌱';
+  }
+
+  function ensureLeaderboard() {
+    if (leaderboardEl) return leaderboardEl;
+    leaderboardEl = document.createElement('div');
+    leaderboardEl.className = 'xvm-lb';
+    leaderboardEl.innerHTML = `
+      <div class="xvm-lb-head">
+        <span class="xvm-lb-title">🔥 Velocity Monitor</span>
+        <span class="xvm-lb-count">0</span>
+      </div>
+      <ul class="xvm-lb-list"></ul>
+    `;
+    document.body.appendChild(leaderboardEl);
+    installLeaderboardDrag();
+    return leaderboardEl;
+  }
+
+  function clampLeaderboardToViewport(left, top) {
+    const rect = leaderboardEl.getBoundingClientRect();
+    return {
+      left: Math.max(8, Math.min(left, window.innerWidth - rect.width - 8)),
+      top: Math.max(8, Math.min(top, window.innerHeight - rect.height - 8)),
+    };
+  }
+
+  function installLeaderboardDrag() {
+    if (!leaderboardEl || leaderboardDragInstalled) return;
+    leaderboardDragInstalled = true;
+    const head = leaderboardEl.querySelector('.xvm-lb-head');
+    if (!head) return;
+    let dragState = null;
+    let dragRaf = 0;
+    let pendingX = 0;
+    let pendingY = 0;
+
+    const flush = () => {
+      dragRaf = 0;
+      if (!dragState) return;
+      const pos = clampLeaderboardToViewport(pendingX - dragState.offsetX, pendingY - dragState.offsetY);
+      leaderboardEl.style.left = `${pos.left}px`;
+      leaderboardEl.style.top = `${pos.top}px`;
+      leaderboardEl.style.right = 'auto';
+    };
+
+    head.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      const rect = leaderboardEl.getBoundingClientRect();
+      dragState = {
+        offsetX: event.clientX - rect.left,
+        offsetY: event.clientY - rect.top,
+      };
+      leaderboardEl.classList.add('xvm-lb-dragging');
+      event.preventDefault();
+    });
+    window.addEventListener('mousemove', (event) => {
+      if (!dragState) return;
+      pendingX = event.clientX;
+      pendingY = event.clientY;
+      if (!dragRaf) dragRaf = requestAnimationFrame(flush);
+    }, { passive: true });
+    window.addEventListener('mouseup', () => {
+      if (!dragState) return;
+      dragState = null;
+      leaderboardEl.classList.remove('xvm-lb-dragging');
+      if (dragRaf) {
+        cancelAnimationFrame(dragRaf);
+        dragRaf = 0;
+      }
+    });
+  }
+
+  function getArticleByTweetId(id) {
+    const articles = document.querySelectorAll('article[data-testid="tweet"]');
+    for (const article of articles) {
+      if (getTweetIdFromArticle(article) === id) return article;
+    }
+    return null;
+  }
+
+  function collectLeaderboardItems() {
+    return Array.from(tweetDataStore.values())
+      .map((data) => {
+        const { velocity } = computeScore(data);
+        return {
+          ...data,
+          velocity,
+          tier: tierForVelocity(velocity),
+          article: getArticleByTweetId(data.id),
+        };
+      })
+      .sort((a, b) => b.velocity - a.velocity)
+      .slice(0, 10);
+  }
+
+  function openTweetFallback(data) {
+    const handle = (data.authorScreenName || '').replace(/^@/, '');
+    const path = handle ? `/${handle}/status/${data.id}` : `/i/status/${data.id}`;
+    window.location.assign(path);
+  }
+
+  function focusLeaderboardTweet(data) {
+    document.querySelectorAll('.xvm-lb-item-selected').forEach((el) => el.classList.remove('xvm-lb-item-selected'));
+    document.querySelectorAll('article[data-testid="tweet"].xvm-article-linked').forEach((el) => el.classList.remove('xvm-article-linked'));
+    selectedLeaderboardId = data.id;
+
+    const article = getArticleByTweetId(data.id);
+    if (!article) {
+      openTweetFallback(data);
+      return;
+    }
+    article.classList.add('xvm-article-linked');
+    article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    const row = leaderboardEl?.querySelector(`[data-id="${data.id}"]`);
+    if (row) row.classList.add('xvm-lb-item-selected');
+  }
+
+  function renderLeaderboard() {
+    if (!document.body) return;
+    const items = collectLeaderboardItems();
+    debugState.leaderboardItems = items.length;
+    const el = ensureLeaderboard();
+    const list = el.querySelector('.xvm-lb-list');
+    const count = el.querySelector('.xvm-lb-count');
+    if (!items.length) {
+      el.style.display = 'none';
+      list.innerHTML = '';
+      count.textContent = '0';
+      leaderboardHtml = '';
+      return;
+    }
+
+    el.style.display = 'block';
+    count.textContent = String(items.length);
+    const nextHtml = items.map((item, index) => {
+      const handle = item.authorScreenName ? `@${item.authorScreenName}` : item.authorName || 'Tweet';
+      const text = (item.text || '').replace(/\s+/g, ' ').trim();
+      const selected = item.id === selectedLeaderboardId ? ' xvm-lb-item-selected' : '';
+      return `
+        <li class="xvm-lb-item xvm-lb-${item.tier}${selected}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(text || handle)}">
+          <span class="xvm-lb-rank">${index + 1}</span>
+          <span class="xvm-lb-icon">${iconForTier(item.tier)}</span>
+          <span class="xvm-lb-handle">${escapeHtml(handle)}</span>
+          <span class="xvm-lb-preview">${escapeHtml(text)}</span>
+          <span class="xvm-lb-vel">${formatVelocity(item.velocity)}/h</span>
+        </li>
+      `;
+    }).join('');
+    if (nextHtml === leaderboardHtml) return;
+
+    leaderboardHtml = nextHtml;
+    list.innerHTML = nextHtml;
+    list.querySelectorAll('.xvm-lb-item').forEach((row) => {
+      row.addEventListener('click', () => {
+        const item = items.find((candidate) => candidate.id === row.dataset.id);
+        if (item) focusLeaderboardTweet(item);
+      });
+    });
+  }
+
   function renderBadges() {
     const articles = document.querySelectorAll('article[data-testid="tweet"]');
     for (const article of articles) {
@@ -308,6 +616,7 @@
     scheduleRender.raf = requestAnimationFrame(() => {
       scheduleRender.raf = 0;
       renderBadges();
+      renderLeaderboard();
     });
   }
 
