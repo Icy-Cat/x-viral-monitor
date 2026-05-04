@@ -15,6 +15,23 @@
   const GRAPHQL_RE = /\/i\/api\/graphql\//;
   const tweetDataStore = new Map();
   const velocityThresholds = { trending: 1000, viral: 10000 };
+  const DEFAULT_COLUMNS = [
+    { id: 'rank', visible: true },
+    { id: 'icon', visible: true },
+    { id: 'handle', visible: false },
+    { id: 'preview', visible: true },
+    { id: 'views', visible: true },
+    { id: 'velocity', visible: true },
+  ];
+  const COLUMN_LABELS = {
+    rank: 'Rank',
+    icon: 'Icon',
+    handle: 'Handle',
+    preview: 'Preview',
+    views: 'Views',
+    velocity: 'Velocity',
+  };
+  const KNOWN_COLUMN_IDS = DEFAULT_COLUMNS.map((column) => column.id);
   const settings = loadSettings();
   velocityThresholds.trending = settings.trending;
   velocityThresholds.viral = Math.max(settings.viral, settings.trending + 1);
@@ -60,11 +77,28 @@
         leaderboardCount: Number.isFinite(leaderboardCount) ? Math.max(1, Math.min(50, leaderboardCount)) : 10,
         leaderboardWidth: Number.isFinite(leaderboardWidth) ? Math.max(240, Math.min(640, leaderboardWidth)) : 280,
         leaderboardPos: pos && Number.isFinite(pos.left) && Number.isFinite(pos.top) ? { left: pos.left, top: pos.top } : null,
+        leaderboardColumns: normalizeColumns(parsed.leaderboardColumns),
         badgeStyle: parsed.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid',
       };
     } catch (_) {
-      return { trending: 1000, viral: 10000, leaderboardCount: 10, leaderboardWidth: 280, leaderboardPos: null, badgeStyle: 'pill-solid' };
+      return { trending: 1000, viral: 10000, leaderboardCount: 10, leaderboardWidth: 280, leaderboardPos: null, leaderboardColumns: normalizeColumns(null), badgeStyle: 'pill-solid' };
     }
+  }
+
+  function normalizeColumns(raw) {
+    if (!Array.isArray(raw)) return DEFAULT_COLUMNS.map((column) => ({ ...column }));
+    const seen = new Set();
+    const out = [];
+    for (const column of raw) {
+      if (!column || typeof column.id !== 'string' || !KNOWN_COLUMN_IDS.includes(column.id)) continue;
+      if (seen.has(column.id)) continue;
+      seen.add(column.id);
+      out.push({ id: column.id, visible: !!column.visible });
+    }
+    for (const column of DEFAULT_COLUMNS) {
+      if (!seen.has(column.id)) out.push({ ...column });
+    }
+    return out;
   }
 
   function saveSettings() {
@@ -104,9 +138,9 @@
 }
 .xvm-badge::before { content: attr(data-prefix); }
 .xvm-badge::after { content: attr(data-velocity) "/h"; }
-.xvm-badge--green { background: #16a34a; }
-.xvm-badge--orange { background: #ea580c; }
-.xvm-badge--red { background: #dc2626; }
+.xvm-badge--green { color: #15803d; background: rgba(22, 163, 74, 0.25); }
+.xvm-badge--orange { color: #c2410c; background: rgba(234, 88, 12, 0.25); }
+.xvm-badge--red { color: #b91c1c; background: rgba(220, 38, 38, 0.25); }
 html[data-xvm-badge-style="inline-classic"] .xvm-badge {
   gap: 0;
   margin-left: 0;
@@ -270,6 +304,24 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
   background: #fff;
   color: #24180f;
   font: 11px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+}
+.xvm-setting-columns {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 5px 8px;
+}
+.xvm-setting-col {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  min-width: 0;
+  font-size: 11px;
+  color: #6e5b4d;
+}
+.xvm-setting-col input {
+  width: auto;
+  min-width: 0;
+  margin: 0;
 }
 .xvm-settings-actions {
   display: flex;
@@ -599,6 +651,21 @@ article[data-testid="tweet"].xvm-article-linked {
     return '🌱';
   }
 
+  const leaderboardColumnRenderers = {
+    rank: (_item, index) => `<span class="xvm-lb-rank">${index + 1}</span>`,
+    icon: (item) => `<span class="xvm-lb-icon">${iconForTier(item.tier)}</span>`,
+    handle: (item) => {
+      const handle = item.authorScreenName ? `@${item.authorScreenName}` : item.authorName || 'Tweet';
+      return `<span class="xvm-lb-handle" title="${escapeHtml(handle)}">${escapeHtml(handle)}</span>`;
+    },
+    preview: (item) => {
+      const text = (item.text || '').replace(/\s+/g, ' ').trim();
+      return `<span class="xvm-lb-preview" title="${escapeHtml(text.slice(0, 280))}">${escapeHtml(text)}</span>`;
+    },
+    views: (item) => `<span class="xvm-lb-views">👁 ${formatViews(item.views)}</span>`,
+    velocity: (item) => `<span class="xvm-lb-vel">${formatVelocity(item.velocity)}/h</span>`,
+  };
+
   function ensureLeaderboard() {
     if (leaderboardEl) return leaderboardEl;
     leaderboardEl = document.createElement('div');
@@ -636,6 +703,10 @@ article[data-testid="tweet"].xvm-article-linked {
           <span>Rows</span>
           <input class="xvm-setting-count" type="number" min="1" max="50" step="1">
         </label>
+        <div class="xvm-setting-row">
+          <span>Columns</span>
+          <div class="xvm-setting-columns"></div>
+        </div>
         <div class="xvm-settings-actions">
           <button class="xvm-settings-save" type="button">Save</button>
         </div>
@@ -663,6 +734,18 @@ article[data-testid="tweet"].xvm-article-linked {
     if (trending) trending.value = String(settings.trending);
     if (viral) viral.value = String(settings.viral);
     if (count) count.value = String(settings.leaderboardCount);
+    renderColumnSettings();
+  }
+
+  function renderColumnSettings() {
+    const root = leaderboardEl?.querySelector('.xvm-setting-columns');
+    if (!root) return;
+    root.innerHTML = settings.leaderboardColumns.map((column) => `
+      <label class="xvm-setting-col">
+        <input type="checkbox" data-column-id="${escapeHtml(column.id)}" ${column.visible ? 'checked' : ''}>
+        <span>${escapeHtml(COLUMN_LABELS[column.id] || column.id)}</span>
+      </label>
+    `).join('');
   }
 
   function installSettingsPanel() {
@@ -685,9 +768,14 @@ article[data-testid="tweet"].xvm-article-linked {
       const nextViral = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-viral')?.value, 10);
       const nextCount = Number.parseInt(leaderboardEl.querySelector('.xvm-setting-count')?.value, 10);
       const nextStyle = leaderboardEl.querySelector('.xvm-setting-badge-style')?.value;
+      const nextColumns = settings.leaderboardColumns.map((column) => {
+        const checkbox = leaderboardEl.querySelector(`.xvm-setting-columns input[data-column-id="${column.id}"]`);
+        return { id: column.id, visible: checkbox ? checkbox.checked : column.visible };
+      });
       settings.trending = Number.isFinite(nextTrending) && nextTrending > 0 ? nextTrending : 1000;
       settings.viral = Number.isFinite(nextViral) && nextViral > settings.trending ? nextViral : Math.max(10000, settings.trending + 1);
       settings.leaderboardCount = Number.isFinite(nextCount) ? Math.max(1, Math.min(50, nextCount)) : 10;
+      settings.leaderboardColumns = normalizeColumns(nextColumns);
       settings.badgeStyle = nextStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid';
       saveSettings();
       applySettings();
@@ -1043,17 +1131,15 @@ article[data-testid="tweet"].xvm-article-linked {
 
     el.style.display = 'block';
     count.textContent = String(items.length);
+    const visibleColumns = settings.leaderboardColumns.filter((column) => column.visible && leaderboardColumnRenderers[column.id]);
     const nextHtml = items.map((item, index) => {
       const handle = item.authorScreenName ? `@${item.authorScreenName}` : item.authorName || 'Tweet';
       const text = (item.text || '').replace(/\s+/g, ' ').trim();
       const selected = item.id === selectedLeaderboardId ? ' xvm-lb-item-selected' : '';
+      const cells = visibleColumns.map((column) => leaderboardColumnRenderers[column.id](item, index)).join('');
       return `
         <li class="xvm-lb-item xvm-lb-${item.tier}${selected}" data-id="${escapeHtml(item.id)}" title="${escapeHtml(text || handle)}">
-          <span class="xvm-lb-rank">${index + 1}</span>
-          <span class="xvm-lb-icon">${iconForTier(item.tier)}</span>
-          <span class="xvm-lb-preview">${escapeHtml(text)}</span>
-          <span class="xvm-lb-views">👁 ${formatViews(item.views)}</span>
-          <span class="xvm-lb-vel">${formatVelocity(item.velocity)}/h</span>
+          ${cells}
         </li>
       `;
     }).join('');

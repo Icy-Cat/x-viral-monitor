@@ -80,7 +80,7 @@ Tampermonkey alignment target:
 
 - Keep mounted-article-only behavior.
 - Keep default visible columns aligned.
-- Later expose optional columns in settings only after core parity is stable.
+- Expose optional columns in settings. Implemented with the original ids: `rank`, `icon`, `handle`, `preview`, `views`, `velocity`.
 
 ## Click And Jump Behavior
 
@@ -226,5 +226,6 @@ Original style values to preserve:
 4. Add resize handle and width persistence. Done.
 5. Add position persistence. Done.
 6. Add scroll-throttled leaderboard refresh parity. Done.
-7. Add original grip and remaining small style differences. Grip done; remaining style differences require manual screenshot comparison.
-8. Retest manually on X home and detail pages. Pending manual verification.
+7. Add configurable leaderboard fields. Done.
+8. Add original grip and remaining small style differences. Grip done; remaining style differences require manual screenshot comparison.
+9. Retest manually on X home and detail pages. Pending manual verification.
