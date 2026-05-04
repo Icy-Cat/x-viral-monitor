@@ -1482,9 +1482,62 @@ function findReplyEditable(root = document) {
   return root.querySelector?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
 }
 
-function cleanupMisplacedGrokButtons(editable) {
+const GROK_SUBMIT_SELECTOR = '[data-testid="tweetButton"], [data-testid="tweetButtonInline"]';
+const GROK_DRAFT_CONTAINER_SELECTOR = [
+  '[contenteditable="true"]',
+  '[data-testid="tweetTextarea_0"]',
+  '[data-testid="tweetTextarea_0RichTextInputContainer"]',
+  '.DraftEditor-root',
+  '.DraftEditor-editorContainer',
+  '.public-DraftEditor-content',
+].join(', ');
+
+function isInvalidGrokButtonHost(host, editable) {
+  if (!host || !editable) return true;
+  if (host === editable || host.contains(editable)) return true;
+  return !!host.closest?.(GROK_DRAFT_CONTAINER_SELECTOR);
+}
+
+function findGrokButtonHost(editable, composerRoot) {
+  const scope = composerRoot?.closest?.('[role="dialog"]')
+    || editable.closest('article[data-testid="tweet"]')
+    || editable.closest('form')
+    || composerRoot
+    || editable.parentElement;
+  if (!scope) return null;
+
+  const submitBtn = scope.querySelector?.(GROK_SUBMIT_SELECTOR);
+  const candidates = [];
+  if (submitBtn) {
+    candidates.push(submitBtn.parentElement);
+    let node = submitBtn.parentElement;
+    for (let depth = 0; node && node !== scope && depth < 8; depth++, node = node.parentElement) {
+      const hasSubmit = node.querySelector?.(GROK_SUBMIT_SELECTOR);
+      const hasToolbar = node.querySelector?.('[data-testid="toolBar"], [role="group"]');
+      if (hasSubmit && hasToolbar) candidates.push(node);
+    }
+  }
+  const toolbar = scope.querySelector?.('[data-testid="toolBar"]');
+  candidates.push(
+    toolbar?.parentElement,
+    toolbar?.closest?.('[role="group"]')?.parentElement,
+    editable.closest('form')?.querySelector?.('[role="group"]')?.parentElement,
+  );
+
+  for (const host of candidates) {
+    if (!isInvalidGrokButtonHost(host, editable)) {
+      return { host, submitBtn };
+    }
+  }
+  return null;
+}
+
+function cleanupMisplacedGrokButtons(editable, composerRoot = null) {
   const editorShell = editable?.closest?.('[data-testid="tweetTextarea_0RichTextInputContainer"], .DraftEditor-root, .DraftEditor-editorContainer');
   editorShell?.querySelectorAll?.('.xvm-grok-generate-btn').forEach((btn) => btn.remove());
+  composerRoot?.querySelectorAll?.('.xvm-grok-generate-btn').forEach((btn) => {
+    if (isInvalidGrokButtonHost(btn.parentElement, editable)) btn.remove();
+  });
 }
 
 function insertTextIntoReply(editable, text) {
@@ -1825,8 +1878,8 @@ function injectGrokReplyButtons(root = document) {
   // that share our injection path).
   const editors = root.querySelectorAll?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]') || [];
   for (const editable of editors) {
-    cleanupMisplacedGrokButtons(editable);
     const composerRoot = findReplyComposerRoot(editable);
+    cleanupMisplacedGrokButtons(editable, composerRoot);
     if (!composerRoot || composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
     // Single gate: there must be a source tweet to reference. findReplyArticle
     // covers all the surfaces the user might be replying from — modal, inline,
@@ -1837,13 +1890,9 @@ function injectGrokReplyButtons(root = document) {
     // status id and the textarea is in the primary column, not a dialog).
     if (!findReplyArticle(composerRoot)) continue;
 
-    const scope = composerRoot.closest('[role="dialog"]') || editable.closest('article[data-testid="tweet"]') || editable.closest('form') || composerRoot.parentElement;
-    const submitBtn = scope?.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]');
-    const host = submitBtn?.parentElement
-      || scope?.querySelector?.('[data-testid="toolBar"]')?.parentElement
-      || editable.closest('form')?.querySelector?.('[role="group"]')?.parentElement
-      || editable.parentElement;
-    if (!host) continue;
+    const target = findGrokButtonHost(editable, composerRoot);
+    if (!target) continue;
+    const { host, submitBtn } = target;
 
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -1866,10 +1915,11 @@ function injectGrokReplyButtons(root = document) {
         handleGrokGenerate(btn, editable);
       }
     });
-    if (submitBtn?.parentElement) {
-      submitBtn.parentElement.classList.add('xvm-grok-actions-host');
-      submitBtn.parentElement.insertBefore(btn, submitBtn);
+    if (submitBtn?.parentElement === host) {
+      host.classList.add('xvm-grok-actions-host');
+      host.insertBefore(btn, submitBtn);
     } else {
+      host.classList.add('xvm-grok-actions-host');
       host.appendChild(btn);
     }
   }
