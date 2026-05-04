@@ -528,6 +528,8 @@ article[data-testid="tweet"].xvm-article-linked {
   let savedScrollY = null;
   let linkState = null;
   let linkUpdateRaf = 0;
+  let linkFollowRaf = 0;
+  let leaderboardListClickInstalled = false;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   function escapeHtml(s) {
@@ -698,6 +700,7 @@ article[data-testid="tweet"].xvm-article-linked {
       leaderboardEl.style.left = `${pos.left}px`;
       leaderboardEl.style.top = `${pos.top}px`;
       leaderboardEl.style.right = 'auto';
+      updateLinkGeometry();
     };
 
     head.addEventListener('mousedown', (event) => {
@@ -724,6 +727,7 @@ article[data-testid="tweet"].xvm-article-linked {
         cancelAnimationFrame(dragRaf);
         dragRaf = 0;
       }
+      updateLinkGeometry();
     });
   }
 
@@ -733,6 +737,19 @@ article[data-testid="tweet"].xvm-article-linked {
       if (getTweetIdFromArticle(article) === id) return article;
     }
     return null;
+  }
+
+  function getLeaderboardItemById(id) {
+    const article = getArticleByTweetId(id);
+    const data = tweetDataStore.get(id);
+    if (!article || !data) return null;
+    const { velocity } = computeScore(data);
+    return {
+      ...data,
+      velocity,
+      tier: tierForVelocity(velocity),
+      article,
+    };
   }
 
   function collectLeaderboardItems() {
@@ -777,13 +794,6 @@ article[data-testid="tweet"].xvm-article-linked {
     return svg;
   }
 
-  function getLinkTargetRect(article) {
-    const target = article.querySelector('.xvm-badge')
-      || article.querySelector('[data-testid="tweetText"]')
-      || article;
-    return target.getBoundingClientRect();
-  }
-
   function updateLinkGeometry() {
     if (!linkState) return;
     const { tweetId, itemEl, svg } = linkState;
@@ -800,7 +810,7 @@ article[data-testid="tweet"].xvm-article-linked {
     if (!article.classList.contains('xvm-article-linked')) article.classList.add('xvm-article-linked');
 
     const itemRect = itemEl.getBoundingClientRect();
-    const articleRect = getLinkTargetRect(article);
+    const articleRect = article.getBoundingClientRect();
     const itemCx = itemRect.left + itemRect.width / 2;
     const articleCx = articleRect.left + articleRect.width / 2;
     const startOnRight = articleCx >= itemCx;
@@ -832,14 +842,14 @@ article[data-testid="tweet"].xvm-article-linked {
     });
   }
 
-  function followLinkDuringScroll(durationMs = 1200) {
-    const started = Date.now();
+  function startLinkFollowLoop() {
+    if (linkFollowRaf) return;
     const tick = () => {
       if (!linkState) return;
       updateLinkGeometry();
-      if (Date.now() - started < durationMs) requestAnimationFrame(tick);
+      linkFollowRaf = requestAnimationFrame(tick);
     };
-    requestAnimationFrame(tick);
+    linkFollowRaf = requestAnimationFrame(tick);
   }
 
   function setLink(tweetId, itemEl, article) {
@@ -850,6 +860,7 @@ article[data-testid="tweet"].xvm-article-linked {
     article.classList.add('xvm-article-linked');
     linkState = { tweetId, itemEl, article, svg };
     updateLinkGeometry();
+    startLinkFollowLoop();
   }
 
   function clearLink() {
@@ -865,6 +876,33 @@ article[data-testid="tweet"].xvm-article-linked {
       cancelAnimationFrame(linkUpdateRaf);
       linkUpdateRaf = 0;
     }
+    if (linkFollowRaf) {
+      cancelAnimationFrame(linkFollowRaf);
+      linkFollowRaf = 0;
+    }
+  }
+
+  function installLeaderboardListClick(list) {
+    if (leaderboardListClickInstalled) return;
+    leaderboardListClickInstalled = true;
+    list.addEventListener('click', (event) => {
+      const row = event.target.closest('.xvm-lb-item');
+      if (!row) return;
+      event.stopPropagation();
+      const id = row.dataset.id;
+      const item = getLeaderboardItemById(id);
+      if (!item?.article?.isConnected) return;
+      if (linkState && linkState.tweetId === item.id) {
+        clearLink();
+        return;
+      }
+      if (savedScrollY === null) {
+        savedScrollY = window.scrollY;
+        setBackButtonVisible(true);
+      }
+      item.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setLink(item.id, row, item.article);
+    });
   }
 
   function renderLeaderboard() {
@@ -874,6 +912,7 @@ article[data-testid="tweet"].xvm-article-linked {
     const el = ensureLeaderboard();
     const list = el.querySelector('.xvm-lb-list');
     const count = el.querySelector('.xvm-lb-count');
+    installLeaderboardListClick(list);
     if (!items.length) {
       el.style.display = 'none';
       list.innerHTML = '';
@@ -902,24 +941,16 @@ article[data-testid="tweet"].xvm-article-linked {
 
     leaderboardHtml = nextHtml;
     list.innerHTML = nextHtml;
-    list.querySelectorAll('.xvm-lb-item').forEach((row) => {
-      row.addEventListener('click', (event) => {
-        event.stopPropagation();
-        const item = items.find((candidate) => candidate.id === row.dataset.id);
-        if (!item?.article?.isConnected) return;
-        if (linkState && linkState.tweetId === item.id) {
-          clearLink();
-          return;
-        }
-        if (savedScrollY === null) {
-          savedScrollY = window.scrollY;
-          setBackButtonVisible(true);
-        }
-        item.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setLink(item.id, row, item.article);
-        followLinkDuringScroll();
-      });
-    });
+    if (linkState) {
+      const row = list.querySelector(`.xvm-lb-item[data-id="${linkState.tweetId}"]`);
+      if (row) {
+        linkState.itemEl = row;
+        row.classList.add('xvm-lb-item-selected');
+        updateLinkGeometry();
+      } else {
+        clearLink();
+      }
+    }
   }
 
   function renderBadges() {
