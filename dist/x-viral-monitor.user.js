@@ -52,14 +52,18 @@
       const trending = Number.parseInt(parsed.trending, 10);
       const viral = Number.parseInt(parsed.viral, 10);
       const leaderboardCount = Number.parseInt(parsed.leaderboardCount, 10);
+      const leaderboardWidth = Number.parseInt(parsed.leaderboardWidth, 10);
+      const pos = parsed.leaderboardPos;
       return {
         trending: Number.isFinite(trending) && trending > 0 ? trending : 1000,
         viral: Number.isFinite(viral) && viral > 0 ? viral : 10000,
         leaderboardCount: Number.isFinite(leaderboardCount) ? Math.max(1, Math.min(50, leaderboardCount)) : 10,
+        leaderboardWidth: Number.isFinite(leaderboardWidth) ? Math.max(240, Math.min(640, leaderboardWidth)) : 280,
+        leaderboardPos: pos && Number.isFinite(pos.left) && Number.isFinite(pos.top) ? { left: pos.left, top: pos.top } : null,
         badgeStyle: parsed.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid',
       };
     } catch (_) {
-      return { trending: 1000, viral: 10000, leaderboardCount: 10, badgeStyle: 'pill-solid' };
+      return { trending: 1000, viral: 10000, leaderboardCount: 10, leaderboardWidth: 280, leaderboardPos: null, badgeStyle: 'pill-solid' };
     }
   }
 
@@ -145,6 +149,9 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
   box-shadow: 0 16px 36px rgba(36, 24, 15, 0.32), 0 2px 6px rgba(36, 24, 15, 0.12);
   opacity: 0.96;
 }
+.xvm-lb.xvm-lb-resizing {
+  box-shadow: 0 16px 36px rgba(36, 24, 15, 0.32), 0 2px 6px rgba(36, 24, 15, 0.12);
+}
 .xvm-lb-head {
   display: flex;
   align-items: center;
@@ -157,6 +164,11 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
 }
 .xvm-lb-head:active,
 .xvm-lb.xvm-lb-dragging .xvm-lb-head { cursor: grabbing; }
+.xvm-lb-grip {
+  font-size: 10px;
+  color: #9b877a;
+  letter-spacing: -1px;
+}
 .xvm-lb-title {
   flex: 1;
   font-size: 11px;
@@ -208,6 +220,30 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; }
   color: #8f3d17;
 }
 .xvm-lb-back[hidden] { display: none; }
+.xvm-lb-resize {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 12px;
+  height: 100%;
+  cursor: ew-resize;
+}
+.xvm-lb-resize::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  right: 3px;
+  width: 3px;
+  height: 28px;
+  border-radius: 999px;
+  background: rgba(110, 91, 77, 0.22);
+  transform: translateY(-50%);
+  transition: background 0.12s;
+}
+.xvm-lb:hover .xvm-lb-resize::before,
+.xvm-lb.xvm-lb-resizing .xvm-lb-resize::before {
+  background: rgba(191, 90, 42, 0.35);
+}
 .xvm-settings {
   display: none;
   padding: 9px 10px 10px;
@@ -525,11 +561,13 @@ article[data-testid="tweet"].xvm-article-linked {
   let selectedLeaderboardId = '';
   let leaderboardHtml = '';
   let leaderboardDragInstalled = false;
+  let leaderboardResizeInstalled = false;
   let savedScrollY = null;
   let linkState = null;
   let linkUpdateRaf = 0;
   let linkFollowRaf = 0;
   let leaderboardListClickInstalled = false;
+  let lbScrollTick = false;
   const SVG_NS = 'http://www.w3.org/2000/svg';
 
   function escapeHtml(s) {
@@ -567,6 +605,7 @@ article[data-testid="tweet"].xvm-article-linked {
     leaderboardEl.className = 'xvm-lb';
     leaderboardEl.innerHTML = `
       <div class="xvm-lb-head">
+        <span class="xvm-lb-grip">⋮⋮</span>
         <span class="xvm-lb-title">🔥 Velocity Monitor</span>
         <button class="xvm-lb-settings-btn" type="button" title="Settings" aria-label="Settings">⚙</button>
         <span class="xvm-lb-count">0</span>
@@ -602,9 +641,13 @@ article[data-testid="tweet"].xvm-article-linked {
         </div>
       </div>
       <ul class="xvm-lb-list"></ul>
+      <div class="xvm-lb-resize" aria-hidden="true"></div>
     `;
     document.body.appendChild(leaderboardEl);
+    applyLeaderboardWidth();
+    applyLeaderboardPosition();
     installLeaderboardDrag();
+    installLeaderboardResize();
     installLeaderboardBackButton();
     installSettingsPanel();
     return leaderboardEl;
@@ -675,6 +718,35 @@ article[data-testid="tweet"].xvm-article-linked {
     });
   }
 
+  function clampLeaderboardWidth(width) {
+    const safeWidth = Number.isFinite(width) ? width : 280;
+    const maxByViewport = Math.max(240, Math.min(640, window.innerWidth - 16));
+    const left = settings.leaderboardPos?.left;
+    const maxByPosition = Number.isFinite(left)
+      ? Math.max(240, Math.min(maxByViewport, window.innerWidth - left - 8))
+      : maxByViewport;
+    return Math.max(240, Math.min(safeWidth, maxByPosition));
+  }
+
+  function applyLeaderboardWidth() {
+    if (!leaderboardEl) return;
+    settings.leaderboardWidth = clampLeaderboardWidth(settings.leaderboardWidth);
+    leaderboardEl.style.width = `${settings.leaderboardWidth}px`;
+  }
+
+  function applyLeaderboardPosition() {
+    if (!leaderboardEl) return;
+    applyLeaderboardWidth();
+    const pos = settings.leaderboardPos;
+    if (pos && Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
+      const clamped = clampLeaderboardToViewport(pos.left, pos.top);
+      settings.leaderboardPos = clamped;
+      leaderboardEl.style.left = `${clamped.left}px`;
+      leaderboardEl.style.top = `${clamped.top}px`;
+      leaderboardEl.style.right = 'auto';
+    }
+  }
+
   function clampLeaderboardToViewport(left, top) {
     const rect = leaderboardEl.getBoundingClientRect();
     return {
@@ -700,6 +772,7 @@ article[data-testid="tweet"].xvm-article-linked {
       leaderboardEl.style.left = `${pos.left}px`;
       leaderboardEl.style.top = `${pos.top}px`;
       leaderboardEl.style.right = 'auto';
+      settings.leaderboardPos = pos;
       updateLinkGeometry();
     };
 
@@ -727,6 +800,53 @@ article[data-testid="tweet"].xvm-article-linked {
         cancelAnimationFrame(dragRaf);
         dragRaf = 0;
       }
+      saveSettings();
+      updateLinkGeometry();
+    });
+  }
+
+  function installLeaderboardResize() {
+    if (!leaderboardEl || leaderboardResizeInstalled) return;
+    leaderboardResizeInstalled = true;
+    const handle = leaderboardEl.querySelector('.xvm-lb-resize');
+    if (!handle) return;
+    let resizeState = null;
+    let resizeRaf = 0;
+    let pendingX = 0;
+
+    const flush = () => {
+      resizeRaf = 0;
+      if (!resizeState) return;
+      settings.leaderboardWidth = clampLeaderboardWidth(resizeState.startWidth + (pendingX - resizeState.startX));
+      applyLeaderboardWidth();
+      applyLeaderboardPosition();
+      updateLinkGeometry();
+    };
+
+    handle.addEventListener('mousedown', (event) => {
+      if (event.button !== 0) return;
+      resizeState = {
+        startWidth: leaderboardEl.getBoundingClientRect().width,
+        startX: event.clientX,
+      };
+      leaderboardEl.classList.add('xvm-lb-resizing');
+      event.stopPropagation();
+      event.preventDefault();
+    });
+    window.addEventListener('mousemove', (event) => {
+      if (!resizeState) return;
+      pendingX = event.clientX;
+      if (!resizeRaf) resizeRaf = requestAnimationFrame(flush);
+    }, { passive: true });
+    window.addEventListener('mouseup', () => {
+      if (!resizeState) return;
+      resizeState = null;
+      leaderboardEl.classList.remove('xvm-lb-resizing');
+      if (resizeRaf) {
+        cancelAnimationFrame(resizeRaf);
+        resizeRaf = 0;
+      }
+      saveSettings();
       updateLinkGeometry();
     });
   }
@@ -1018,7 +1138,19 @@ article[data-testid="tweet"].xvm-article-linked {
   }
 
   window.addEventListener('scroll', scheduleLinkUpdate, { capture: true, passive: true });
-  window.addEventListener('resize', scheduleLinkUpdate, { passive: true });
+  window.addEventListener('scroll', () => {
+    if (lbScrollTick) return;
+    lbScrollTick = true;
+    setTimeout(() => {
+      lbScrollTick = false;
+      renderLeaderboard();
+    }, 250);
+  }, { passive: true });
+  window.addEventListener('resize', () => {
+    applyLeaderboardWidth();
+    applyLeaderboardPosition();
+    scheduleLinkUpdate();
+  }, { passive: true });
   document.addEventListener('click', (event) => {
     if (!linkState) return;
     const insideItem = linkState.itemEl && linkState.itemEl.contains(event.target);

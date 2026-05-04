@@ -22,10 +22,8 @@ Original `ensureLeaderboard()` creates:
 
 Current Tampermonkey gaps:
 
-- Has root/header/title/back/list.
+- Has root/header/grip/title/back/list/resize handle.
 - Has settings button/panel, which is Tampermonkey-specific.
-- Missing original drag grip.
-- Missing resize handle and resize behavior.
 
 ## Panel Position And Size
 
@@ -48,9 +46,9 @@ Original defaults:
 Tampermonkey alignment target:
 
 - Use localStorage instead of bridge messages.
-- Persist `{ left, top }` after drag.
-- Persist `width` after resize.
-- Clamp panel to viewport on drag, resize, and window resize.
+- Persist `{ left, top }` after drag. Implemented with `settings.leaderboardPos`.
+- Persist `width` after resize. Implemented with `settings.leaderboardWidth`.
+- Clamp panel to viewport on drag, resize, and window resize. Implemented.
 
 ## Rows And Columns
 
@@ -129,9 +127,9 @@ Tampermonkey alignment target:
 - Update link geometry on:
   - scroll capture
   - resize
-  - drag movement
-  - resize movement
-  - leaderboard rerender when selected row DOM is replaced
+  - drag movement. Implemented.
+  - resize movement. Implemented.
+  - leaderboard rerender when selected row DOM is replaced. Implemented.
 
 ## Link Clearing
 
@@ -166,9 +164,9 @@ Original behavior:
 
 Tampermonkey alignment target:
 
-- Keep current drag behavior.
-- Add missing position persistence.
-- Add `.xvm-lb-grip`.
+- Keep current drag behavior. Implemented.
+- Add missing position persistence. Implemented.
+- Add `.xvm-lb-grip`. Implemented.
 
 ## Resize Behavior
 
@@ -183,9 +181,9 @@ Original behavior:
 
 Tampermonkey alignment target:
 
-- Add resize handle.
-- Add width clamping.
-- Persist width in localStorage.
+- Add resize handle. Implemented.
+- Add width clamping. Implemented.
+- Persist width in localStorage. Implemented.
 
 ## Rerender Timing
 
@@ -202,7 +200,7 @@ Original behavior:
 Tampermonkey alignment target:
 
 - Keep selected row rebinding.
-- Keep scroll-triggered leaderboard refresh.
+- Keep scroll-triggered leaderboard refresh. Implemented with 250ms throttling.
 - Avoid stale row click closures; use current id lookup.
 
 ## Style Details
@@ -222,12 +220,11 @@ Original style values to preserve:
 
 ## Step Plan
 
-1. Restore link endpoint parity: article outer frame, original Bezier math.
-2. Fix stale click/row binding under X virtualization.
-3. Add drag-time and rerender-time link geometry updates.
-4. Add resize handle and width persistence.
-5. Add position persistence.
-6. Add scroll-throttled leaderboard refresh parity.
-7. Add original grip and remaining small style differences.
-8. Retest manually on X home and detail pages.
-
+1. Restore link endpoint parity: article outer frame, original Bezier math. Done.
+2. Fix stale click/row binding under X virtualization. Done.
+3. Add drag-time and rerender-time link geometry updates. Done.
+4. Add resize handle and width persistence. Done.
+5. Add position persistence. Done.
+6. Add scroll-throttled leaderboard refresh parity. Done.
+7. Add original grip and remaining small style differences. Grip done; remaining style differences require manual screenshot comparison.
+8. Retest manually on X home and detail pages. Pending manual verification.
