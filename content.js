@@ -585,6 +585,8 @@ function renderBadges() {
 // === Velocity Leaderboard ===
 let leaderboardEl = null;
 let leaderboardRaf = 0;
+const leaderboardItemMeta = new Map();
+let pendingLeaderboardJump = null;
 const LB_DEFAULT_WIDTH = 280;
 const LB_MIN_WIDTH = 240;
 const LB_MAX_WIDTH = 640;
@@ -912,6 +914,31 @@ function hideLeaderboard() {
   clearLink();
 }
 
+function getTweetPermalinkFromArticle(article, tweetId = '') {
+  if (!article) return '';
+  const links = article.querySelectorAll('a[href*="/status/"]');
+  for (const link of links) {
+    const href = link.getAttribute('href') || '';
+    const match = href.match(/^\/([^/]+)\/status\/(\d+)/);
+    if (!match) continue;
+    if (tweetId && match[2] !== tweetId) continue;
+    return `https://x.com/${match[1]}/status/${match[2]}`;
+  }
+  return '';
+}
+
+function rememberLeaderboardItem(entry) {
+  if (!entry?.id) return;
+  const prev = leaderboardItemMeta.get(entry.id) || {};
+  leaderboardItemMeta.set(entry.id, {
+    ...prev,
+    ...entry,
+    article: entry.article || prev.article || null,
+    permalink: entry.permalink || prev.permalink || '',
+    lastSeen: Date.now(),
+  });
+}
+
 function collectRanked() {
   const out = [];
   const seen = new Set();
@@ -931,9 +958,92 @@ function collectRanked() {
     if (!handle) {
       handle = (data.text || '').slice(0, 60);
     }
-    out.push({ id, article, velocity, views: data.views || 0, handle, text: data.text });
+    const entry = {
+      id,
+      article,
+      permalink: getTweetPermalinkFromArticle(article, id),
+      lastSeen: Date.now(),
+      velocity,
+      views: data.views || 0,
+      handle,
+      text: data.text,
+    };
+    rememberLeaderboardItem(entry);
+    out.push(entry);
   }
   return out.sort((a, b) => b.velocity - a.velocity);
+}
+
+function waitForLeaderboardTarget(tweetId, itemEl = null, timeoutMs = 12000) {
+  const startedAt = Date.now();
+  pendingLeaderboardJump = { tweetId, itemEl, startedAt };
+  const finish = (article) => {
+    if (pendingLeaderboardJump?.tweetId !== tweetId) return;
+    pendingLeaderboardJump = null;
+    if (!article) return;
+    article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    if (itemEl?.isConnected) {
+      setLink(tweetId, itemEl, article);
+    } else {
+      clearLink();
+      article.classList.add('xvm-article-linked');
+    }
+  };
+  const tick = () => {
+    const article = findArticleByTweetId(tweetId);
+    if (article) {
+      finish(article);
+      return true;
+    }
+    if (Date.now() - startedAt >= timeoutMs) {
+      pendingLeaderboardJump = null;
+      return true;
+    }
+    return false;
+  };
+  if (tick()) return;
+  const observer = new MutationObserver(() => {
+    if (tick()) observer.disconnect();
+  });
+  observer.observe(document.body || document.documentElement, { childList: true, subtree: true });
+  setTimeout(() => {
+    observer.disconnect();
+    tick();
+  }, timeoutMs + 50);
+}
+
+function jumpToLeaderboardTweet(id, itemEl) {
+  const latest = collectRanked().find((e) => e.id === id);
+  const meta = latest || leaderboardItemMeta.get(id);
+  const article = latest?.article?.isConnected
+    ? latest.article
+    : meta?.article?.isConnected
+      ? meta.article
+      : findArticleByTweetId(id);
+
+  if (article) {
+    if (linkState && linkState.tweetId === id) {
+      clearLink();
+      return;
+    }
+    if (savedScrollY === null) {
+      savedScrollY = window.scrollY;
+      setBackButtonVisible(true);
+    }
+    article.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setLink(id, itemEl, article);
+    return;
+  }
+
+  clearLink();
+  const permalink = meta?.permalink || '';
+  if (!permalink) {
+    showToast('无法定位该推文：页面已回收该条目且没有可用链接');
+    return;
+  }
+  pendingLeaderboardJump = { tweetId: id, itemEl, startedAt: Date.now() };
+  window.location.assign(permalink);
+  waitForLeaderboardTarget(id, itemEl);
 }
 
 function renderLeaderboard() {
@@ -961,21 +1071,7 @@ function renderLeaderboard() {
       li.addEventListener('click', (ev) => {
         ev.stopPropagation();
         const id = li.dataset.id;
-        const entry = collectRanked().find((e) => e.id === id);
-        if (!entry?.article?.isConnected) return;
-        if (linkState && linkState.tweetId === id) {
-          clearLink();
-          return;
-        }
-        // Remember current scroll position so the back button can restore it.
-        // Only set if we don't already have one stacked — multiple jumps in a
-        // row return to the original pre-jump position, not the last jump.
-        if (savedScrollY === null) {
-          savedScrollY = window.scrollY;
-          setBackButtonVisible(true);
-        }
-        entry.article.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        setLink(id, li, entry.article);
+        jumpToLeaderboardTweet(id, li);
       });
     });
 
@@ -1268,6 +1364,10 @@ new MutationObserver(() => {
   if (location.href !== lastUrl) {
     lastUrl = location.href;
     dismissStickyToasts();
+    clearLink();
+    if (pendingLeaderboardJump?.tweetId) {
+      waitForLeaderboardTarget(pendingLeaderboardJump.tweetId, pendingLeaderboardJump.itemEl);
+    }
     bootGrokInjectorRetries();
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
