@@ -22,7 +22,7 @@
     },
     {
       "matches": ["https://x.com/*", "https://pro.x.com/*"],
-      "js": ["lib/x-net-hook.js", "lib/x-client-transaction.js", "lib/grok-reply.js", "content.js", "starchart.js"],
+      "js": ["lib/x-net-hook.js", "lib/x-client-transaction.js", "lib/grok-reply.js", "lib/image-viewer.js", "content.js", "starchart.js"],
       "css": ["styles.css"],
       "run_at": "document_start",
       "world": "MAIN"
