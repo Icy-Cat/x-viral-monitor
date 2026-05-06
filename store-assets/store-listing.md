@@ -1,38 +1,54 @@
 # Chrome Web Store Listing
 
 ## Short Description (132 chars max)
-Real-time impression velocity badges on every X (Twitter) tweet. Spot trending and viral posts instantly. Supports x.com & pro.x.com.
+Spot viral tweets, read long screenshots smoothly, draft Grok replies, and visualize boosters — all on X. No data collection.
 
 ## Detailed Description
 
-X Viral Monitor adds real-time impression velocity badges to every tweet in your X timeline.
+X Viral Monitor turns the X (Twitter) timeline into a control panel for spotting, reading, and engaging with content — without sending your data anywhere.
 
-WHAT IT DOES
-• Shows views/hour velocity on each tweet with color-coded badges
-• Three tiers: 🌱 Normal (< 1k/h), 🚀 Trending (1k-10k/h), 🔥 Viral (≥ 10k/h)
-• Hover tooltip with detailed metrics: Views, Likes, Retweets, Replies, Bookmarks, and a composite Viral Score
-• Works on all timeline tabs: For You, Following, Lists, and more
-• Supports both x.com and pro.x.com (TweetDeck)
+⸻ VELOCITY BADGES ⸻
+• Real-time views/hour badge on every tweet
+• Three tiers: 🌱 Normal · 🚀 Trending · 🔥 Viral
+• Customizable thresholds via popup
+• Hover for detailed metrics: views, likes, retweets, replies, bookmarks, viral score
+
+⸻ HOT-ON-THIS-PAGE LEADERBOARD ⸻
+• Draggable floating panel ranking the fastest-growing tweets currently visible
+• Click a row to scroll to the tweet, return button to jump back
+• Reorderable columns
+
+⸻ ENHANCED PHOTO VIEWER ⸻
+• Wheel-zoom, drag-pan, double-click toggle, +/- /0 hotkeys in X's lightbox
+• NEW: Long-image reading mode — tall screenshots scroll vertically at a 900px reading width with auto quality upgrade to 4096px, instead of being squashed
+
+⸻ COPY AS MARKDOWN ⸻
+• Adds "Copy as Markdown" to X's share menu
+• Captures author, date, link, and tweet text in clean Markdown
+
+⸻ THANK-YOU STAR CHART ⸻
+• One click on a tweet's share menu visualizes everyone who retweeted or quoted it
+• Searchable supporter list, retweet/quote filters, quote river timeline
+
+⸻ GROK REPLY ASSISTANT ⸻
+• Uses X's built-in Grok endpoint (same one the website already uses) to draft reply suggestions
+• Editable prompt template, optional temporary chat mode (won't pollute Grok history)
 
 HOW IT WORKS
-The extension intercepts X's existing GraphQL API responses — it does NOT make any additional API requests or store any of your data externally. All processing happens locally in your browser.
-
-FEATURES
-• Customizable thresholds via popup (click the extension icon)
-• Multi-language tooltip: English, Chinese, Japanese
-• Lightweight — no background service worker, pure content script
-• Privacy-first: no data collection, no external servers, no tracking
+The extension hooks into X's existing GraphQL responses and same-origin endpoints — no third-party servers, no analytics, no tracking. All processing happens locally in your browser.
 
 PRIVACY
-This extension:
-✓ Only reads data from X's existing page responses
-✓ Does not make any external network requests
-✓ Does not collect or transmit any user data
-✓ Stores only your threshold settings locally (chrome.storage.sync)
+✓ Only reads data from x.com / pro.x.com pages you're already viewing
+✓ No third-party network requests, no analytics, no tracking pixels
+✓ Stores only your own settings + a local Star Chart cache (chrome.storage)
 ✓ Open source: https://github.com/Icy-Cat/x-viral-monitor
 
+COMPATIBILITY
+• x.com and pro.x.com (TweetDeck)
+• English / 中文 / 日本語 UI
+
 ## Category
-Social & Communication
+Tools
 
 ## Language
 English, Chinese, Japanese
