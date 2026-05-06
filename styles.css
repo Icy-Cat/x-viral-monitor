@@ -1405,3 +1405,67 @@ article[data-testid="tweet"].xvm-article-linked {
   opacity: 1;
   transform: translateX(-50%) translateY(0);
 }
+
+/* === Long Image Viewer === */
+/* Modal-only: tall images (h/w > 2) scroll vertically at a fixed reading
+   width, instead of being squashed by X's flex centering. Coexists with
+   image-viewer.js — that script bails when it sees .xvm-liv-dialog. */
+[role="dialog"].xvm-liv-dialog {
+  overflow: hidden !important;
+}
+
+/* Relax width / aspect-ratio / transform clamps on the ancestor chain so the
+   image can render at its natural size inside the chosen scroller. */
+[role="dialog"].xvm-liv-dialog .xvm-liv-ancestor {
+  max-width: none !important;
+  width: 100% !important;
+  min-height: 0 !important;
+  aspect-ratio: auto !important;
+  transform: none !important;
+}
+
+/* X re-renders the photo as a background-image on a sibling div sitting
+   behind the <img>. Hide it so we only see the (now visible) <img>. */
+[role="dialog"].xvm-liv-dialog [style*="pbs.twimg.com/media"] {
+  background-image: none !important;
+}
+
+/* Chosen scroll container — only the image area scrolls, replies stay put. */
+[role="dialog"].xvm-liv-dialog .xvm-liv-scroll {
+  max-height: 100vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(120, 120, 120, 0.5) transparent;
+}
+[role="dialog"].xvm-liv-dialog .xvm-liv-scroll::-webkit-scrollbar {
+  width: 8px;
+}
+[role="dialog"].xvm-liv-dialog .xvm-liv-scroll::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 120, 0.5);
+  border-radius: 4px;
+}
+
+/* Reveal X's normally hidden <img> (it sets opacity:0 / z-index:-1) and
+   render it at reading width. */
+img.xvm-liv-img {
+  width: min(900px, 100%) !important;
+  max-width: 100% !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex-shrink: 0 !important;
+  object-fit: contain !important;
+  margin: 24px auto !important;
+  display: block !important;
+  opacity: 1 !important;
+  visibility: visible !important;
+  z-index: auto !important;
+  transform: none !important;
+  position: relative !important;
+  inset: auto !important;
+}
