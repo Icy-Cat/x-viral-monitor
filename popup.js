@@ -20,6 +20,7 @@ const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   featureCopyAsMarkdown: true,
   featureStarChart: true,
+  featureArticlesScraper: true,
   badgeStyle: 'pill-solid',
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
@@ -82,6 +83,7 @@ const statusEl = document.getElementById('status');
 const leaderboardToggle = document.getElementById('feat-leaderboard');
 const copyMdToggle = document.getElementById('feat-copy-md');
 const starChartToggle = document.getElementById('feat-starchart');
+const articlesScraperToggle = document.getElementById('feat-articles-scraper');
 const leaderboardCountInput = document.getElementById('lb-count');
 const badgeStyleSelect = document.getElementById('badge-style');
 const colListEl = document.getElementById('lb-col-list');
@@ -171,6 +173,7 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   leaderboardToggle.checked = !!items.featureVelocityLeaderboard;
   copyMdToggle.checked = items.featureCopyAsMarkdown !== false;
   starChartToggle.checked = items.featureStarChart !== false;
+  articlesScraperToggle.checked = items.featureArticlesScraper !== false;
   leaderboardCountInput.value = normalizeCount(items.leaderboardCount);
   badgeStyleSelect.value = items.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid';
   grokTemplatesState = normalizeGrokTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
@@ -334,6 +337,12 @@ copyMdToggle.addEventListener('change', () => {
 starChartToggle.addEventListener('change', () => {
   chrome.storage.sync.set({ featureStarChart: starChartToggle.checked }, () => {
     flash(tr(starChartToggle.checked ? 'flashStarChartOn' : 'flashStarChartOff'));
+  });
+});
+
+articlesScraperToggle.addEventListener('change', () => {
+  chrome.storage.sync.set({ featureArticlesScraper: articlesScraperToggle.checked }, () => {
+    flash(articlesScraperToggle.checked ? 'Articles Scraper 已开启' : 'Articles Scraper 已关闭');
   });
 });
 

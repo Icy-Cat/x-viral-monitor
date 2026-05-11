@@ -94,9 +94,26 @@ window.addEventListener('message', (event) => {
 
   copyAsMarkdownEnabled = event.data.featureCopyAsMarkdown !== false;
   starChartEnabled = event.data.featureStarChart !== false;
+  scrapeState.enabled = event.data.featureArticlesScraper !== false;
 });
 
 window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
+
+// === Articles Scraper ===
+const ARTICLES_PAGE_RE = /^\/[^/]+\/articles\/?$/;
+const scrapeState = {
+  enabled: true,
+  collecting: false,
+  running: false,
+  articles: new Map(),
+  panel: null,
+  userId: '',
+};
+function isArticlesPage() {
+  const m = location.pathname.match(ARTICLES_PAGE_RE);
+  if (m) { scrapeState.userId = location.pathname.split('/')[1]; return true; }
+  return false;
+}
 
 // === Request Interception (fetch + XHR) ===
 const GRAPHQL_RE = /\/i\/api\/graphql\//;
@@ -236,9 +253,15 @@ window.__xvmNet?.onResponse(GRAPHQL_RE, async ({ url, response, source }) => {
   if (source === 'fetch') {
     reportRateLimit(response.headers.get('x-rate-limit-remaining'), response.headers.get('x-rate-limit-reset'));
     response.clone().json().then(scanForTweets).catch(() => {});
+    if (scrapeState.collecting && isArticlesPage()) {
+      response.clone().json().then(collectArticlesFromResponse).catch(() => {});
+    }
   } else {
     reportRateLimit(response.getHeader('x-rate-limit-remaining'), response.getHeader('x-rate-limit-reset'));
     try { scanForTweets(response.json()); } catch (_) {}
+    if (scrapeState.collecting && isArticlesPage()) {
+      try { collectArticlesFromResponse(response.json()); } catch (_) {}
+    }
   }
 });
 
@@ -451,6 +474,305 @@ function applyMarkdownStyles(text, styles) {
   if (styles.has('STRIKETHROUGH')) result = `~~${result}~~`;
   if (styles.has('UNDERLINE')) result = `<u>${result}</u>`;
   return result;
+}
+
+// === Articles Scraper Core ===
+function collectArticlesFromResponse(obj) {
+  if (!obj || typeof obj !== 'object') return;
+  const seen = new Set();
+  const before = scrapeState.articles.size;
+  collectArticles(obj, seen);
+  const after = scrapeState.articles.size;
+  if (after > before) console.log(`[XVM] Collected ${after - before} articles (total: ${after})`);
+  if (scrapeState.panel) updateArticleList();
+}
+
+function collectArticles(obj, seen) {
+  if (!obj || typeof obj !== 'object' || seen.has(obj)) return;
+  seen.add(obj);
+  if (obj.tweet_results?.result) {
+    extractFromResult(obj.tweet_results.result, seen);
+    for (const key of Object.keys(obj)) {
+      if (key === 'tweet_results') continue;
+      collectArticles(obj[key], seen);
+    }
+    return;
+  }
+  if (Array.isArray(obj)) { for (const item of obj) collectArticles(item, seen); }
+  else { for (const key of Object.keys(obj)) collectArticles(obj[key], seen); }
+}
+
+function extractFromResult(result, seen) {
+  if (!result || typeof result !== 'object' || seen.has(result)) return;
+  seen.add(result);
+  const tweet = result.tweet || result;
+  const legacy = tweet.legacy;
+  if (!legacy?.id_str) return;
+  const id = legacy.id_str;
+  if (scrapeState.articles.has(id)) return;
+  const user = tweet.core?.user_results?.result?.legacy;
+  const displayName = user?.name || '';
+  let preview = (legacy.full_text || '').replace(/https:\/\/t\.co\/\S+$/g, '').trim().slice(0, 60);
+  const articleResult = tweet.article?.article_results?.result;
+  const title = articleResult?.title || '';
+  scrapeState.articles.set(id, { id, displayName, title, preview });
+  if (tweet.quoted_status_result?.result) extractFromResult(tweet.quoted_status_result.result, seen);
+  if (legacy.retweeted_status_result?.result) extractFromResult(legacy.retweeted_status_result.result, seen);
+}
+
+function delayRandom(min, max) {
+  return new Promise(r => setTimeout(r, min + Math.random() * (max - min)));
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// --- Persistent scrape queue (survives page navigation) ---
+// MAIN world has no chrome.* API — use postMessage bridge
+function savePendingScrape(articleIds, userId, index) {
+  window.postMessage({ type: 'XVM_SCRAPE_SAVE_PENDING', articleIds, userId, index: index || 0 }, '*');
+}
+
+function loadPendingScrape() {
+  return new Promise(resolve => {
+    window.postMessage({ type: 'XVM_SCRAPE_LOAD_PENDING' }, '*');
+    const handler = (e) => {
+      if (e.source !== window || e.data?.type !== 'XVM_SCRAPE_PENDING_DATA') return;
+      window.removeEventListener('message', handler);
+      resolve(e.data.data || null);
+    };
+    window.addEventListener('message', handler);
+    setTimeout(() => { window.removeEventListener('message', handler); resolve(null); }, 1000);
+  });
+}
+
+function clearPendingScrape() {
+  window.postMessage({ type: 'XVM_SCRAPE_CLEAR_PENDING' }, '*');
+}
+
+// --- Resume on page load (called from init) ---
+async function resumePendingScrape() {
+  const pending = await loadPendingScrape();
+  if (!pending || !pending.articleIds?.length) return;
+  if (pending.index >= pending.articleIds.length) {
+    clearPendingScrape();
+    console.log('[XVM] Scrape complete!');
+    return;
+  }
+  const articleId = pending.articleIds[pending.index];
+  const total = pending.articleIds.length;
+  console.log(`[XVM] Scraping ${pending.index + 1}/${total}: ${articleId}`);
+  showScrapeProgress(pending.index, total);
+
+  // Wait for GraphQL data to arrive (page just loaded)
+  let data = tweetDataStore.get(articleId);
+  if (!data) {
+    for (let i = 0; i < 30; i++) {
+      await sleep(500);
+      data = tweetDataStore.get(articleId);
+      if (data) break;
+    }
+  }
+  if (!data) {
+    await sleep(2000);
+    data = tweetDataStore.get(articleId);
+  }
+
+  // Extract markdown
+  let md;
+  if (data) {
+    md = buildArticleMd(data, pending.userId, articleId);
+  } else {
+    console.warn('[XVM] No GraphQL data, falling back to DOM');
+    md = extractFromDOM(pending.userId, articleId);
+  }
+  downloadMd(md, (data?.articleTitle || data?.text || articleId).slice(0, 80));
+
+  // Check if cancelled
+  const stillPending = await loadPendingScrape();
+  if (!stillPending) {
+    removeScrapeProgress();
+    console.log('[XVM] Scrape cancelled');
+    return;
+  }
+
+  // Chain to next article
+  const nextIndex = pending.index + 1;
+  if (nextIndex < pending.articleIds.length) {
+    savePendingScrape(pending.articleIds, pending.userId, nextIndex);
+    await delayRandom(10000, 25000);
+    location.href = `https://x.com/${pending.userId}/status/${pending.articleIds[nextIndex]}`;
+  } else {
+    clearPendingScrape();
+    removeScrapeProgress();
+    console.log('[XVM] All articles scraped!');
+  }
+}
+
+function showScrapeProgress(index, total) {
+  removeScrapeProgress();
+  const bar = document.createElement('div');
+  bar.className = 'xvm-scrape-progress';
+  bar.id = 'xvm-scrape-progress';
+  bar.innerHTML = `<span>📥 抓取中 ${index + 1}/${total}</span><button class="xvm-scrape-cancel">取消</button>`;
+  document.body.appendChild(bar);
+  bar.querySelector('.xvm-scrape-cancel').addEventListener('click', () => {
+    clearPendingScrape();
+    bar.remove();
+    console.log('[XVM] Scrape cancelled by user');
+  });
+}
+
+function removeScrapeProgress() {
+  document.getElementById('xvm-scrape-progress')?.remove();
+}
+
+function buildArticleMd(data, userId, articleId) {
+  const author = data.displayName
+    ? `${data.displayName}${data.handle ? ' (' + data.handle + ')' : ''}`
+    : userId;
+  const permalink = `https://x.com/${userId}/status/${articleId}`;
+  const date = data.createdAt
+    ? new Date(data.createdAt).toISOString().split('T')[0]
+    : '';
+  let md = '';
+  if (data.articleTitle) md += `# ${data.articleTitle}\n\n`;
+  md += `> ${author}${date ? ' · ' + date : ''} · [原文链接](${permalink})\n\n`;
+  md += data.articleMd || data.text || '';
+  return md;
+}
+
+// --- UI ---
+function backfillFromDOM() {
+  const before = scrapeState.articles.size;
+  const articles = document.querySelectorAll('article[data-testid="tweet"]');
+  for (const article of articles) {
+    const links = article.querySelectorAll('a[href*="/status/"]');
+    for (const link of links) {
+      const m = (link.getAttribute('href') || '').match(/\/status\/(\d+)/);
+      if (!m || scrapeState.articles.has(m[1])) continue;
+      const id = m[1];
+      const data = tweetDataStore.get(id);
+      if (data) {
+        scrapeState.articles.set(id, {
+          id,
+          displayName: data.displayName || '',
+          title: data.articleTitle || '',
+          preview: (data.text || '').slice(0, 60),
+        });
+      }
+    }
+  }
+  const added = scrapeState.articles.size - before;
+  if (added > 0) console.log(`[XVM] DOM backfill: +${added} articles (total: ${scrapeState.articles.size})`);
+}
+
+function createScrapeButton() {
+  if (!scrapeState.enabled || !isArticlesPage()) return;
+  if (document.querySelector('.xvm-scrape-btn')) return;
+  const column = document.querySelector('[data-testid="primaryColumn"]');
+  if (!column) return;
+  const btn = document.createElement('button');
+  btn.className = 'xvm-scrape-btn';
+  btn.textContent = '📥 抓取文章';
+  btn.addEventListener('click', toggleScrapePanel);
+  column.insertBefore(btn, column.firstChild);
+  console.log('[XVM] Scrape button injected');
+}
+
+function toggleScrapePanel() {
+  if (scrapeState.panel) {
+    scrapeState.panel.style.display = scrapeState.panel.style.display === 'none' ? '' : 'none';
+    return;
+  }
+  scrapeState.collecting = true;
+  backfillFromDOM();
+  const panel = document.createElement('div');
+  panel.className = 'xvm-scrape-panel';
+  panel.innerHTML = `<div class="xvm-scrape-header"><span>📥 文章抓取器</span><button class="xvm-scrape-close">✕</button></div><div class="xvm-scrape-status">滚动页面以加载更多文章...</div><div class="xvm-scrape-list"></div><div class="xvm-scrape-actions"><button class="xvm-scrape-start">开始抓取 (0)</button></div>`;
+  document.body.appendChild(panel);
+  scrapeState.panel = panel;
+  panel.querySelector('.xvm-scrape-close').addEventListener('click', () => { panel.style.display = 'none'; scrapeState.collecting = false; });
+  panel.querySelector('.xvm-scrape-start').addEventListener('click', startBatchScrape);
+  updateArticleList();
+}
+
+function updateArticleList() {
+  const panel = scrapeState.panel;
+  if (!panel) return;
+  const listEl = panel.querySelector('.xvm-scrape-list');
+  const statusEl = panel.querySelector('.xvm-scrape-status');
+  const startBtn = panel.querySelector('.xvm-scrape-start');
+  listEl.innerHTML = '';
+  for (const [, article] of scrapeState.articles) {
+    const item = document.createElement('div');
+    item.className = 'xvm-scrape-item';
+    const label = article.title || article.preview || `ID: ${article.id}`;
+    item.innerHTML = `<span class="xvm-scrape-item-id">${article.id}</span><span class="xvm-scrape-item-title">${label}</span>`;
+    listEl.appendChild(item);
+  }
+  statusEl.textContent = `已收集 ${scrapeState.articles.size} 篇文章，滚动页面加载更多`;
+  startBtn.textContent = `开始抓取 (${scrapeState.articles.size})`;
+}
+
+async function startBatchScrape() {
+  if (scrapeState.running || scrapeState.articles.size === 0) return;
+  scrapeState.running = true;
+  scrapeState.collecting = false;
+  const userId = scrapeState.userId;
+  const startBtn = scrapeState.panel.querySelector('.xvm-scrape-start');
+  const statusEl = scrapeState.panel.querySelector('.xvm-scrape-status');
+  startBtn.disabled = true;
+  statusEl.textContent = '准备中...页面即将跳转';
+
+  const articleIds = [...scrapeState.articles.keys()];
+  await savePendingScrape(articleIds, userId);
+
+  await delayRandom(1000, 2000);
+  location.href = `https://x.com/${userId}/status/${articleIds[0]}`;
+}
+
+function downloadMd(content, filename) {
+  const blob = new Blob([content], { type: 'text/markdown' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  const safe = (filename || 'article').replace(/[<>:"/\\|?*]/g, '_').slice(0, 80);
+  a.download = `${safe}.md`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+}
+
+function extractFromDOM(userId, articleId) {
+  let text = '';
+  const textEl = document.querySelector('[data-testid="tweetText"]');
+  if (textEl) text = textEl.innerText.trim();
+  const nameBlock = document.querySelector('[data-testid="User-Name"]');
+  let displayName = userId, handle = '';
+  if (nameBlock) {
+    const spans = nameBlock.querySelectorAll('span');
+    for (const s of spans) {
+      const t = (s.textContent || '').trim();
+      if (!handle && t.startsWith('@')) handle = t;
+      else if (!displayName && t && !t.startsWith('@') && t !== '·') displayName = t;
+    }
+  }
+  const permalink = `https://x.com/${userId}/status/${articleId}`;
+  let md = `# 文章 ${articleId}\n\n> ${displayName}${handle ? ' (' + handle + ')' : ''} · [原文链接](${permalink})\n\n`;
+  md += text || '*（无法提取内容）*';
+  return md;
+}
+
+function updateScrapeButton() {
+  if (scrapeState.enabled && isArticlesPage()) {
+    createScrapeButton();
+    let tries = 0;
+    const id = setInterval(() => {
+      createScrapeButton();
+      if (++tries >= 10 || document.querySelector('.xvm-scrape-btn')) clearInterval(id);
+    }, 500);
+  }
 }
 
 // === Formatting ===
@@ -1306,6 +1628,7 @@ const observer = new MutationObserver((mutations) => {
   }
   if (hasNewArticles) renderBadges();
   if (touchedComposer) scheduleComposerInject();
+  if (hasNewArticles && scrapeState.enabled) updateScrapeButton();
 });
 
 function startObserver() {
@@ -1345,11 +1668,15 @@ if (document.body) {
   startObserver();
   injectGrokReplyButtons();
   bootGrokInjectorRetries();
+  updateScrapeButton();
+  resumePendingScrape();
 } else {
   document.addEventListener('DOMContentLoaded', () => {
     startObserver();
     injectGrokReplyButtons();
     bootGrokInjectorRetries();
+    updateScrapeButton();
+    resumePendingScrape();
   });
 }
 
@@ -1369,6 +1696,7 @@ new MutationObserver(() => {
       waitForLeaderboardTarget(pendingLeaderboardJump.tweetId, pendingLeaderboardJump.itemEl);
     }
     bootGrokInjectorRetries();
+    updateScrapeButton();
   }
 }).observe(document.body || document.documentElement, { childList: true, subtree: true });
 
