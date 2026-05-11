@@ -71,6 +71,7 @@ const DEFAULT_FEATURES = {
   featureVelocityLeaderboard: false,
   featureCopyAsMarkdown: true,
   featureStarChart: true,
+  featureArticlesScraper: true,
   badgeStyle: 'pill-solid',
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
@@ -168,6 +169,7 @@ function pushSettings(raw) {
     featureVelocityLeaderboard: !!raw?.featureVelocityLeaderboard,
     featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
     featureStarChart: raw?.featureStarChart !== false,
+    featureArticlesScraper: raw?.featureArticlesScraper !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
     leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
     badgeStyle: raw?.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid',
@@ -351,7 +353,7 @@ safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
     const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !grokTouched) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.featureArticlesScraper && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !grokTouched) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
@@ -381,5 +383,24 @@ safeChromeCall(() => {
       }
     });
   });
+});
+
+// === Articles Scraper: persistent queue via chrome.storage.local ===
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  const d = event.data;
+  if (d?.type === 'XVM_SCRAPE_SAVE_PENDING') {
+    safeChromeCall(() => {
+      chrome.storage.local.set({ xvmPendingScrape: { articleIds: d.articleIds, userId: d.userId, index: d.index || 0 } });
+    });
+  } else if (d?.type === 'XVM_SCRAPE_LOAD_PENDING') {
+    safeChromeCall(() => {
+      chrome.storage.local.get('xvmPendingScrape', (items) => {
+        window.postMessage({ type: 'XVM_SCRAPE_PENDING_DATA', data: items.xvmPendingScrape || null }, '*');
+      });
+    });
+  } else if (d?.type === 'XVM_SCRAPE_CLEAR_PENDING') {
+    safeChromeCall(() => { chrome.storage.local.remove('xvmPendingScrape'); });
+  }
 });
 
