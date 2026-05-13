@@ -352,6 +352,20 @@ function buildArticleMarkdown(articleResult) {
     || articleResult.cover_media?.url
     || '';
 
+  // Article-level media lookup: in X's payload the content_state's MEDIA
+  // entities carry only a mediaId reference (e.g. {"mediaItems":[{"mediaId":
+  // "2051..."}]}). The actual URLs live on a sibling collection of the
+  // article result. Build a mediaId → renderedMd map by scanning all known
+  // shapes so each MEDIA entity can be resolved at block time.
+  const mediaLookup = buildArticleMediaLookup(articleResult);
+  if (!buildArticleMarkdown._loggedShape && (Object.keys(mediaLookup).length === 0)) {
+    buildArticleMarkdown._loggedShape = true;
+    try {
+      const keys = Object.keys(articleResult || {});
+      console.warn('[XVM] articleResult shape (no media lookup found):', keys, articleResult);
+    } catch (_) {}
+  }
+
   let state = articleResult.content_state;
   if (typeof state === 'string') {
     try { state = JSON.parse(state); } catch (_) { state = null; }
@@ -362,10 +376,10 @@ function buildArticleMarkdown(articleResult) {
   if (coverUrl) lines.push(`![](${coverUrl})`, '');
 
   if (state?.blocks?.length) {
-    // Build a map of entityKey → entity (for LINK / IMAGE)
+    // Build a map of entityKey → entity (for LINK / IMAGE / MEDIA)
     const entityMap = state.entityMap || {};
     for (const block of state.blocks) {
-      lines.push(renderArticleBlock(block, entityMap));
+      lines.push(renderArticleBlock(block, entityMap, mediaLookup));
     }
   } else if (articleResult.preview_text) {
     lines.push(articleResult.preview_text);
@@ -374,10 +388,75 @@ function buildArticleMarkdown(articleResult) {
   return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
-function renderArticleBlock(block, entityMap) {
+// Walk every plausible "where X parks the resolved media for an article"
+// path and collect mediaId → markdown string. The content_state entity
+// references images by mediaId; we resolve them here.
+function buildArticleMediaLookup(articleResult) {
+  const map = Object.create(null);
+  if (!articleResult) return map;
+
+  const buckets = [
+    articleResult.media_entities,
+    articleResult.media,
+    articleResult.tweet_media,
+    articleResult.attached_media,
+    articleResult.media_results,
+    // Sometimes nested under a `result` wrapper.
+    articleResult.media?.media_results,
+  ];
+
+  const visit = (node) => {
+    if (!node) return;
+    if (Array.isArray(node)) {
+      for (const item of node) visit(item);
+      return;
+    }
+    if (typeof node !== 'object') return;
+
+    // Common nested wrappers
+    if (node.result) visit(node.result);
+    if (node.media_results?.result) visit(node.media_results.result);
+    if (node.tweet_media_results?.result) visit(node.tweet_media_results.result);
+
+    const ids = [
+      node.media_id_str, node.media_id, node.mediaId,
+      node.id_str, node.rest_id, node.id,
+    ].filter(Boolean).map(String);
+    if (ids.length) {
+      const md = renderResolvedMedia(node);
+      if (md) {
+        for (const id of ids) {
+          if (!map[id]) map[id] = md;
+        }
+      }
+    }
+  };
+
+  for (const b of buckets) visit(b);
+
+  // Last resort: walk all top-level array fields and pull anything that
+  // looks media-shaped. Catches unknown bucket names.
+  for (const key of Object.keys(articleResult)) {
+    const v = articleResult[key];
+    if (Array.isArray(v)) visit(v);
+  }
+
+  return map;
+}
+
+function renderResolvedMedia(node) {
+  const src = extractMediaUrl(node);
+  if (!src) return '';
+  if (isVideoMedia(node) || /\.mp4(\?|$)/i.test(src)) {
+    return `[📹 video](${src})`;
+  }
+  return `![](${src})`;
+}
+
+function renderArticleBlock(block, entityMap, mediaLookup = {}) {
   const type = block.type || 'unstyled';
   const raw = block.text || '';
-  const text = applyInlineFormatting(raw, block.inlineStyleRanges || [], block.entityRanges || [], entityMap);
+  const text = applyInlineFormatting(raw, block.inlineStyleRanges || [], block.entityRanges || [], entityMap, mediaLookup);
 
   switch (type) {
     case 'header-one':   return `# ${text}\n`;
@@ -397,7 +476,7 @@ function renderArticleBlock(block, entityMap) {
       for (const r of ranges) {
         const entity = entityMap[r.key];
         if (!entity) continue;
-        const rendered = renderArticleAtomicEntity(entity);
+        const rendered = renderArticleAtomicEntity(entity, mediaLookup);
         if (rendered) return rendered;
       }
       if (ranges.length) {
@@ -448,9 +527,22 @@ function isVideoMedia(payload) {
   return false;
 }
 
-function renderArticleAtomicEntity(entity) {
+function renderArticleAtomicEntity(entity, mediaLookup = {}) {
   const rawType = String(entity.type || '').toUpperCase();
   const data = entity.data || {};
+
+  // MEDIA entities with only a mediaId reference — resolve via the
+  // article-level lookup built in buildArticleMediaLookup. Multiple
+  // mediaItems → render each on its own line.
+  if ((rawType === 'MEDIA' || rawType === 'IMAGE') && Array.isArray(data.mediaItems) && data.mediaItems.length) {
+    const out = [];
+    for (const item of data.mediaItems) {
+      const id = String(item?.mediaId || item?.media_id || '');
+      const md = id && mediaLookup[id];
+      if (md) out.push(md);
+    }
+    if (out.length) return out.join('\n') + '\n';
+  }
 
   // Embedded tweet — render as blockquote with author + link.
   if (rawType === 'TWEET' || rawType === 'EMBEDDED_TWEET' || rawType === 'TWEET_EMBED'
@@ -532,7 +624,7 @@ function extractEmbeddedTweetInfo(entity) {
   return null;
 }
 
-function applyInlineFormatting(raw, inlineStyleRanges, entityRanges, entityMap) {
+function applyInlineFormatting(raw, inlineStyleRanges, entityRanges, entityMap, mediaLookup = {}) {
   if (!raw) return '';
 
   const boundaries = new Set([0, raw.length]);
@@ -571,7 +663,7 @@ function applyInlineFormatting(raw, inlineStyleRanges, entityRanges, entityMap) 
     } else if (entity && entityType !== '') {
       // Inline image / embedded tweet / embed within a text block — rare,
       // but worth rendering instead of dropping the slice.
-      const atomic = renderArticleAtomicEntity(entity);
+      const atomic = renderArticleAtomicEntity(entity, mediaLookup);
       if (atomic) text = atomic.trimEnd();
     }
 
