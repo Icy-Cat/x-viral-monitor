@@ -294,15 +294,31 @@ function extractTweetData(result) {
 
   if (legacy.promotedMetadata || tweet.promotedMetadata) return null;
 
+  const tweetId = legacy.id_str;
+  const screenName = tweet.core?.user_results?.result?.legacy?.screen_name
+    || tweet.core?.user_results?.result?.core?.screen_name
+    || '';
+  // Rewrite the opaque /i/article/<articleId> form X serializes into the
+  // human-readable /<handle>/article/<tweetId> form. Same article, but the
+  // copied markdown points back to the post the user actually shared.
+  const canonicalArticleUrl = (screenName && tweetId)
+    ? `https://x.com/${screenName}/article/${tweetId}`
+    : '';
+  const articleUrlRe = /^https?:\/\/(?:x|twitter)\.com\/i\/article\/\d+/i;
+  const normalizeExpanded = (raw) => {
+    if (!raw) return raw;
+    return canonicalArticleUrl && articleUrlRe.test(raw) ? canonicalArticleUrl : raw;
+  };
+
   const urlMap = {};
   for (const u of legacy.entities?.urls || []) {
-    if (u?.url && u.expanded_url) urlMap[u.url] = u.expanded_url;
+    if (u?.url && u.expanded_url) urlMap[u.url] = normalizeExpanded(u.expanded_url);
   }
 
   // Long-form tweet body (note_tweet) overrides full_text if present
   const noteText = tweet.note_tweet?.note_tweet_results?.result?.text;
   for (const u of tweet.note_tweet?.note_tweet_results?.result?.entity_set?.urls || []) {
-    if (u?.url && u.expanded_url && !urlMap[u.url]) urlMap[u.url] = u.expanded_url;
+    if (u?.url && u.expanded_url && !urlMap[u.url]) urlMap[u.url] = normalizeExpanded(u.expanded_url);
   }
 
   // X Article (long-form essay) content
@@ -1791,13 +1807,24 @@ function buildTweetMarkdown(ctx) {
       text = text.split(short).join(urlMap[short]);
     }
   }
+
+  const { displayName, handle } = getAuthorInfo(article);
+  const screenName = (handle || '').replace(/^@/, '');
+
+  // Safety net: rewrite any leftover /i/article/<id> form (e.g. from text
+  // assembled outside the urlMap path) to /<handle>/article/<tweetId>.
+  if (screenName && tweetId) {
+    text = text.replace(
+      /https?:\/\/(?:x|twitter)\.com\/i\/article\/\d+/gi,
+      `https://x.com/${screenName}/article/${tweetId}`
+    );
+  }
   // If this tweet is a long-form Article, prefer the full article body.
   if (data?.articleMd) {
     text = text ? `${data.articleMd}\n\n${text}` : data.articleMd;
   }
 
-  const { displayName, handle } = getAuthorInfo(article);
-  const url = permalink || (handle && tweetId ? `https://x.com/${handle.replace(/^@/, '')}/status/${tweetId}` : '');
+  const url = permalink || (screenName && tweetId ? `https://x.com/${screenName}/status/${tweetId}` : '');
 
   const createdAt = data?.createdAt ? new Date(data.createdAt) : null;
   const dateStr = createdAt && !isNaN(createdAt)
