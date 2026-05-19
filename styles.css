@@ -1417,8 +1417,16 @@ article[data-testid="tweet"].xvm-article-linked {
 }
 
 /* Relax width / aspect-ratio / transform clamps on the ancestor chain so the
-   image can render at its natural size inside the chosen scroller. */
-[role="dialog"].xvm-liv-dialog .xvm-liv-ancestor {
+   image can render at its natural size inside the chosen scroller.
+   The `:not()` chain is a defensive backstop: lib/long-image-viewer.js
+   already stops `markAncestors()` at these carousel-boundary nodes, but
+   if JS ever drifts (X DOM change, future regression) the CSS rule by
+   itself still won't touch X's swipe / list / carousel machinery — which
+   is the layer that controls next/prev navigation and off-screen slide
+   positioning. Stripping width/aspect-ratio/transform on those would
+   make the previous slide bleed onto the viewport (#9 v1 bug). */
+[role="dialog"].xvm-liv-dialog
+  .xvm-liv-ancestor:not([role="list"]):not([role="listitem"]):not([role="group"]):not([aria-roledescription="carousel"]):not([data-testid="swipe-to-dismiss"]) {
   max-width: none !important;
   width: 100% !important;
   min-height: 0 !important;
