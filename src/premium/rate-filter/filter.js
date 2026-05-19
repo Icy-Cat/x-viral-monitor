@@ -217,13 +217,14 @@
       return;
     }
     // Gate just opened → register the net hook (no-op if already
-    // subscribed) so future GraphQL responses are observed, and trigger
-    // an immediate applyHidesNow so any tweets already in the DOM at
-    // first paint have a chance to be hidden once a fresh GraphQL
-    // response classifies them. (Tweets already rendered before the
-    // first GraphQL arrives will still wait for the next response —
-    // acceptable since X re-fetches on scroll.)
+    // subscribed) so future GraphQL responses are observed, and connect
+    // the MutationObserver so X virtual-scroll re-mounts keep applying
+    // the hide decisions. Both activate() invocations were skipped at
+    // fail-closed boot (dev3 root cause #2 — Codex bb-browser confirmed
+    // mo.observe never ran). MutationObserver.observe is idempotent
+    // for the same target+options.
     subscribe();
+    mo.observe(document.documentElement, { childList: true, subtree: true });
     applyHidesNow();
   });
 

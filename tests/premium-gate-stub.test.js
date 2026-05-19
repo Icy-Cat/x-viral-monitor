@@ -86,6 +86,17 @@ describe('#45 M1 step 1 — premium gate scaffold', () => {
       ).toBe(true);
     });
 
+    it('onTierChange callback also connects the MutationObserver (dev3 root cause #2)', () => {
+      // Codex bb-browser dev3 verification surfaced that mo.observe was
+      // also skipped at fail-closed boot. Same fix mechanism: invoke
+      // from onTierChange. Idempotent for same target+options.
+      const cb = filter.match(/onTierChange\(\(tier\)\s*=>\s*\{[\s\S]*?\}\)/);
+      expect(cb, 'onTierChange callback must be locatable').not.toBeNull();
+      expect(/mo\.observe\s*\(/.test(cb[0]),
+        'onTierChange must call mo.observe() so virtual-scroll re-mounts re-trigger applyHidesNow'
+      ).toBe(true);
+    });
+
     it('reset() clears the subscribed flag (for hot-reload + tests)', () => {
       const reset = filter.match(/reset\(\)\s*\{[\s\S]*?\n    \},/);
       expect(reset, 'reset() body must be locatable').not.toBeNull();
