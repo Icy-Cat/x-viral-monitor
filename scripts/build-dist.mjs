@@ -24,6 +24,7 @@ const ITEMS = [
   'manifest.json',
   'popup.html',
   'popup.js',
+  'popup-dashboard.js', // mock A tab router (also handles theme + nav events)
   'starchart.js',
   'styles.css',
 ];

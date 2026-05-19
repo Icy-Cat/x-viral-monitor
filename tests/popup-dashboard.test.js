@@ -106,6 +106,23 @@ describe('#45 popup tabs structure (mock A)', () => {
       'popup-dashboard.js',
     ]);
   });
+
+  it('every popup.html <script src="…"> root-level file is in scripts/build-dist.mjs ITEMS', () => {
+    // Codex finding: dist/ build script silently dropped popup-dashboard.js,
+    // so the file 404'd at extension load → every click handler dead.
+    // Pin every root-level script reference against the ITEMS list so this
+    // class of bug can't recur.
+    const buildScript = readFileSync(resolve(repo, 'scripts/build-dist.mjs'), 'utf8');
+    const itemsBlock = buildScript.match(/ITEMS\s*=\s*\[([\s\S]*?)\]/)?.[1] || '';
+    const items = [...itemsBlock.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]);
+
+    const rootScripts = [...html.matchAll(/<script\s+src="([^"\/]+\.js)"/g)].map((m) => m[1]);
+    for (const s of rootScripts) {
+      expect(items.includes(s),
+        `scripts/build-dist.mjs ITEMS must include "${s}" (referenced by popup.html)`
+      ).toBe(true);
+    }
+  });
 });
 
 describe('#45 dual theme (light warm default + dark slate)', () => {
