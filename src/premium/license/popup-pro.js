@@ -13,7 +13,7 @@
 //   Annual  $90 — prod_69yTiXGXb04DKm46DNVbN9
 
 (() => {
-  const LICENSE_PROXY_URL = '__XVM_LICENSE_WORKER__';
+  const LICENSE_PROXY_URL = 'https://xmp-license.lengkuxiaomao.workers.dev';
   const BUY_URL_MONTHLY = 'https://www.creem.io/payment/prod_7f7t9EHK3RJlOK37DWr7J';
   const BUY_URL_ANNUAL  = 'https://www.creem.io/payment/prod_69yTiXGXb04DKm46DNVbN9';
 

@@ -38,9 +38,20 @@ describe('#45 step 2 — ADR-0004 storage / secret / productId checklist', () =>
     ).toBe(true);
   });
 
-  it('Worker URL is a build-time placeholder', () => {
-    expect(/__XVM_LICENSE_WORKER__/.test(isolated),
-      'isolated.js LICENSE_PROXY_URL must be the build-time placeholder until DEPLOY.md substitution'
+  it('Worker URL is a real https://*.workers.dev URL (post-substitution)', () => {
+    // Pre-substitution this asserted the __XVM_LICENSE_WORKER__ placeholder.
+    // After the user deploys the Worker and we substitute, the LICENSE_PROXY_URL
+    // const must be a real Cloudflare Worker URL. Either form is acceptable
+    // (placeholder for unsubstituted dev branches, real URL for shippable),
+    // but pinning the SHAPE here prevents accidentally pushing 'localhost' or
+    // a non-https URL to release.
+    const m = isolated.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/);
+    expect(m, 'isolated.js must declare LICENSE_PROXY_URL').not.toBeNull();
+    const url = m[1];
+    const isPlaceholder = url === '__XVM_LICENSE_WORKER__';
+    const isWorkerUrl = /^https:\/\/[a-z0-9.-]+\.workers\.dev\/?$/.test(url);
+    expect(isPlaceholder || isWorkerUrl,
+      `LICENSE_PROXY_URL must be either the placeholder or a https://*.workers.dev URL — got ${url}`
     ).toBe(true);
   });
 

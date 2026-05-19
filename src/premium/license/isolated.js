@@ -32,7 +32,7 @@
   // ─── Configuration ──────────────────────────────────────────────────
   // Placeholder replaced at build time. If you see __XVM_LICENSE_WORKER__
   // in production, the build script failed to substitute.
-  const LICENSE_PROXY_URL = '__XVM_LICENSE_WORKER__';
+  const LICENSE_PROXY_URL = 'https://xmp-license.lengkuxiaomao.workers.dev';
 
   // Client-side product scoping (#45 follow-up: shared Worker between
   // x-md-paste and XVM Pro). The Worker now whitelists multiple products

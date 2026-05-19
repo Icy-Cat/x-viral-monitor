@@ -33,10 +33,24 @@ describe('#45 step 3 — popup pro UI', () => {
     ).toBe(false);
   });
 
-  it('popup-pro.js still uses the __XVM_LICENSE_WORKER__ placeholder', () => {
-    expect(/__XVM_LICENSE_WORKER__/.test(js),
-      'popup-pro.js must keep the build-time placeholder until DEPLOY.md substitution'
+  it('popup-pro.js LICENSE_PROXY_URL is placeholder OR a https://*.workers.dev URL', () => {
+    const m = js.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/);
+    expect(m, 'popup-pro.js must declare LICENSE_PROXY_URL').not.toBeNull();
+    const url = m[1];
+    const isPlaceholder = url === '__XVM_LICENSE_WORKER__';
+    const isWorkerUrl = /^https:\/\/[a-z0-9.-]+\.workers\.dev\/?$/.test(url);
+    expect(isPlaceholder || isWorkerUrl,
+      `popup-pro.js LICENSE_PROXY_URL must be placeholder or workers.dev URL — got ${url}`
     ).toBe(true);
+  });
+
+  it('popup-pro.js LICENSE_PROXY_URL matches isolated.js (mirror invariant)', () => {
+    const isolated = readFileSync(resolve(repo, 'src/premium/license/isolated.js'), 'utf8');
+    const a = isolated.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/)?.[1];
+    const b = js.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/)?.[1];
+    expect(a).toBeTruthy();
+    expect(b).toBeTruthy();
+    expect(a).toBe(b);
   });
 
   it('popup-pro.js mirrors RECHECK_INTERVAL_MS / OFFLINE_GRACE_MS / TRIAL_DAYS', () => {
