@@ -469,3 +469,21 @@ resetBtn.addEventListener('click', () => {
   chrome.storage.sync.set({ ...DEFAULT_THRESHOLDS, badgeStyle: 'pill-solid' }, () => flash(tr('flashReset')));
 });
 
+// #45 dev3 add-on: leaderboard "reset position" button. Clears the three
+// persisted dimensions (pos / width / height) so the panel returns to its
+// default on the next page load. Simple version — user must refresh; the
+// live-reset path goes through bridge → content.js and is queued as a
+// follow-up task in #dev.
+const lbResetBtn = document.getElementById('lb-reset-pos');
+const lbResetMsg = document.getElementById('lb-reset-msg');
+lbResetBtn?.addEventListener('click', () => {
+  chrome.storage.local.remove(
+    ['xvmLeaderboardPos', 'xvmLeaderboardWidth', 'xvmLeaderboardHeight'],
+    () => {
+      if (!lbResetMsg) return;
+      lbResetMsg.textContent = tr('featureLeaderboardResetDone');
+      setTimeout(() => { lbResetMsg.textContent = ''; }, 2500);
+    }
+  );
+});
+

@@ -392,6 +392,16 @@
     .rf-msg { margin-top: 6px; font-size: 11px; min-height: 14px; }
     .rf-msg[data-kind="ok"]  { color: #2a7f3f; }
     .rf-msg[data-kind="err"] { color: #b14a2a; }
+
+    /* Leaderboard reset position button (#45 dev3 UX add-on) */
+    .ft-lb-reset { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+    .ft-lb-reset-btn {
+      padding: 4px 10px; border-radius: 5px;
+      border: 1px solid var(--line); background: #fff; color: var(--text);
+      font-size: 12px; cursor: pointer;
+    }
+    .ft-lb-reset-btn:hover { border-color: var(--accent); color: var(--accent-strong); }
+    .ft-lb-reset-msg { font-size: 11px; color: #2a7f3f; }
   </style>
 </head>
 <body>
@@ -532,6 +542,10 @@
         <div class="ft-lb-cols">
           <div class="ft-lb-cols-hint" data-i18n="featureLeaderboardColsHint">Drag to reorder · check to show</div>
           <ul id="lb-col-list" class="col-list"></ul>
+        </div>
+        <div class="ft-lb-reset">
+          <button type="button" id="lb-reset-pos" class="ft-lb-reset-btn" data-i18n="featureLeaderboardResetPos">Reset leaderboard position</button>
+          <span class="ft-lb-reset-msg" id="lb-reset-msg"></span>
         </div>
       </div>
     </div>

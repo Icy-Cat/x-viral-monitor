@@ -362,5 +362,7 @@
   "rfReset":         { "message": "Reset defaults" },
   "rfSave":          { "message": "Save" },
   "rfSavedOk":       { "message": "Saved ✓" },
-  "rfResetOk":       { "message": "Reset ✓" }
+  "rfResetOk":       { "message": "Reset ✓" },
+  "featureLeaderboardResetPos":  { "message": "Reset leaderboard position" },
+  "featureLeaderboardResetDone": { "message": "Reset — please refresh the page." }
 }

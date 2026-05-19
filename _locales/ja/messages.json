@@ -360,5 +360,7 @@
   "rfReset":         { "message": "デフォルト" },
   "rfSave":          { "message": "保存" },
   "rfSavedOk":       { "message": "保存しました ✓" },
-  "rfResetOk":       { "message": "リセット ✓" }
+  "rfResetOk":       { "message": "リセット ✓" },
+  "featureLeaderboardResetPos":  { "message": "ランキング位置をリセット" },
+  "featureLeaderboardResetDone": { "message": "リセットしました。ページを更新してください。" }
 }

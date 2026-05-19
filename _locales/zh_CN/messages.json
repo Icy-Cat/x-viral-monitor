@@ -360,5 +360,7 @@
   "rfReset":         { "message": "恢复默认" },
   "rfSave":          { "message": "保存" },
   "rfSavedOk":       { "message": "已保存 ✓" },
-  "rfResetOk":       { "message": "已重置 ✓" }
+  "rfResetOk":       { "message": "已重置 ✓" },
+  "featureLeaderboardResetPos":  { "message": "重置流速榜位置" },
+  "featureLeaderboardResetDone": { "message": "已重置,请刷新页面。" }
 }
