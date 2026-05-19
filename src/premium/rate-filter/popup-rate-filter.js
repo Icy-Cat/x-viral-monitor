@@ -71,48 +71,53 @@
   function buildSection() {
     const section = document.getElementById('rate-filter-section');
     if (!section) return null;
+    // mock A layout:
+    //   header (icon + title)
+    //   Enable toggle (full row, switch on right)
+    //   Sub-tab card (Short / Long, underline-style sub-tabs + threshold inputs)
+    //   Scope checkboxes (Home / Lists)
+    //   Save (primary, full width) + Reset (ghost link below)
     section.innerHTML = `
       <h2 class="rf-title" data-k="rfTitle"></h2>
       <p class="rf-locked-hint" id="rf-locked-hint" data-k="rfLockedHint" hidden></p>
 
       <label class="rf-toggle">
+        <span data-k="rfEnabled"></span>
         <span class="switch">
           <input type="checkbox" id="rf-enabled" />
           <span class="slider"></span>
         </span>
-        <span data-k="rfEnabled"></span>
       </label>
 
-      <!-- Scope chips (Home / Lists) -->
+      <div class="rf-subcard">
+        <div class="sub-tabbar" role="tablist">
+          <button type="button" class="sub-tab-btn" role="tab" data-sub-tab="short" aria-selected="true"  data-k="rfSubShort"></button>
+          <button type="button" class="sub-tab-btn" role="tab" data-sub-tab="long"  aria-selected="false" data-k="rfSubLong"></button>
+        </div>
+        <div data-sub-panel="short" data-active="1">
+          <fieldset class="rf-fieldset">
+            <label class="rf-row"><span data-k="rfRatePerMin"></span>    <input type="number" id="rf-shortRateThreshold"     min="0" step="1"   /></label>
+            <label class="rf-row"><span data-k="rfAbsoluteViews"></span> <input type="number" id="rf-shortAbsoluteThreshold" min="0" step="100" /></label>
+          </fieldset>
+        </div>
+        <div data-sub-panel="long">
+          <fieldset class="rf-fieldset">
+            <label class="rf-row"><span data-k="rfRatePerMin"></span>    <input type="number" id="rf-longRateThreshold"     min="0" step="1"   /></label>
+            <label class="rf-row"><span data-k="rfAbsoluteViews"></span> <input type="number" id="rf-longAbsoluteThreshold" min="0" step="100" /></label>
+          </fieldset>
+        </div>
+      </div>
+
       <div class="rf-scope">
         <label><input type="checkbox" id="rf-scopeHome" /> <span data-k="rfScopeHome"></span></label>
         <label><input type="checkbox" id="rf-scopeList" /> <span data-k="rfScopeList"></span></label>
       </div>
 
-      <!-- Short / Long sub-tabs -->
-      <div class="sub-tabbar" role="tablist">
-        <button type="button" class="sub-tab-btn" role="tab" data-sub-tab="short" aria-selected="true"  data-k="rfSubShort"></button>
-        <button type="button" class="sub-tab-btn" role="tab" data-sub-tab="long"  aria-selected="false" data-k="rfSubLong"></button>
-      </div>
-
-      <div data-sub-panel="short" data-active="1">
-        <fieldset class="rf-fieldset">
-          <label class="rf-row"><span data-k="rfRatePerMin"></span>    <input type="number" id="rf-shortRateThreshold"     min="0" step="1"   /></label>
-          <label class="rf-row"><span data-k="rfAbsoluteViews"></span> <input type="number" id="rf-shortAbsoluteThreshold" min="0" step="100" /></label>
-        </fieldset>
-      </div>
-      <div data-sub-panel="long">
-        <fieldset class="rf-fieldset">
-          <label class="rf-row"><span data-k="rfRatePerMin"></span>    <input type="number" id="rf-longRateThreshold"     min="0" step="1"   /></label>
-          <label class="rf-row"><span data-k="rfAbsoluteViews"></span> <input type="number" id="rf-longAbsoluteThreshold" min="0" step="100" /></label>
-        </fieldset>
-      </div>
-
       <p class="rf-rule-hint" data-k="rfRuleHint"></p>
 
       <div class="rf-actions">
-        <button type="button" id="rf-reset" class="rf-btn-ghost" data-k="rfReset"></button>
         <button type="button" id="rf-save"  class="rf-btn"       data-k="rfSave"></button>
+        <button type="button" id="rf-reset" class="rf-btn-ghost" data-k="rfReset"></button>
       </div>
       <div class="rf-msg" id="rf-msg"></div>
     `;

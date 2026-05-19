@@ -60,13 +60,15 @@
        per-theme if needed. */
     * { box-sizing: border-box; margin: 0; }
     body {
-      width: 380px;
+      width: 360px;            /* fixed-width popup per mock A (polish #1) */
+      min-width: 360px;
+      max-width: 360px;
       font-family: "Inter", "Avenir Next", "PingFang SC", "Microsoft YaHei", sans-serif;
       font-size: 13px;
       color: var(--text);
       background: var(--bg);
     }
-    .popup { padding: 12px; }
+    .popup { padding: 14px; }
 
     /* === Header === */
     .app-header {
@@ -83,9 +85,9 @@
     .app-title .sub  { display: block; font-size: 10px; color: var(--muted); }
 
     #tier-chip {
-      font-size: 10.5px; padding: 4px 10px; border-radius: 999px;
+      font-size: 11px; padding: 5px 12px; border-radius: 999px;
       font-weight: 600; letter-spacing: 0.02em;
-      border: 1px solid transparent;
+      border: 1px solid transparent; white-space: nowrap;
       display: inline-flex; align-items: center; gap: 4px;
     }
     body[data-tier="free"]  #tier-chip { color: var(--muted); border-color: var(--border-hi); background: var(--surface); }
@@ -113,19 +115,19 @@
       margin-bottom: 10px;
     }
     .tab-btn {
-      flex: 1; padding: 8px 4px;
+      flex: 1; padding: 10px 4px;
       background: none; border: none;
-      color: var(--muted); font-size: 12px; font-weight: 500;
+      color: var(--muted); font-size: 12.5px; font-weight: 500;
       cursor: pointer; position: relative;
       transition: color 120ms;
     }
     .tab-btn:hover { color: var(--text-2); }
     .tab-btn[aria-selected="true"] {
-      color: var(--text); font-weight: 700;
+      color: var(--text); font-weight: 700;          /* bolder when active (polish #2) */
     }
     .tab-btn[aria-selected="true"]::after {
       content: ""; position: absolute;
-      left: 8px; right: 8px; bottom: -1px; height: 2px;
+      left: 8px; right: 8px; bottom: -1px; height: 3px;  /* 3px underline (polish #2) */
       background: var(--accent); border-radius: 2px;
     }
     .tab-btn:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 4px; }
@@ -210,56 +212,156 @@
     [data-sub-panel][data-active="1"] { display: block; }
 
     /* === Rate filter (popup-rate-filter.js inline styles) === */
+    .rf-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
     .rf-section[data-locked="1"] { opacity: 0.55; }
     .rf-section[data-locked="1"] input, .rf-section[data-locked="1"] button { cursor: not-allowed; }
-    .rf-title { display: none; }
+
+    /* Section header (polish #4: "🔵 流速过滤" inside Filter tab) */
+    .rf-title {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 14px; font-weight: 700; color: var(--text);
+      margin: 0 0 12px;
+    }
+    .rf-title::before {
+      content: ""; display: inline-block;
+      width: 16px; height: 16px; flex: 0 0 16px;
+      background: var(--accent); mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'/></svg>") center/contain no-repeat;
+      -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polygon points='22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3'/></svg>") center/contain no-repeat;
+    }
+
     .rf-locked-hint {
-      margin: 0 0 8px; padding: 6px 8px; border-radius: var(--radius-sm);
+      margin: 0 0 10px; padding: 8px 10px; border-radius: var(--radius-sm);
       background: rgba(251, 191, 36, 0.08); color: var(--warn);
-      font-size: 11px; border: 1px dashed var(--warn);
+      font-size: 11.5px; border: 1px dashed var(--warn);
     }
-    .rf-toggle { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; font-weight: 600; font-size: 13px; }
-    .rf-fieldset {
-      border: none; padding: 0; margin: 0;
+
+    /* Polish #5: enable toggle full row + larger label */
+    .rf-toggle {
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 8px; margin: 0 0 12px; font-weight: 500; font-size: 13px;
+      color: var(--text);
     }
+
+    /* Polish #4: sub-tabs card wrapper */
+    .rf-subcard {
+      background: var(--surface-2); border: 1px solid var(--border);
+      border-radius: var(--radius-sm); padding: 4px; margin: 0 0 12px;
+    }
+    .rf-subcard .sub-tabbar {
+      background: transparent; border: none; border-radius: 0;
+      padding: 0; margin: 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .rf-subcard .sub-tab-btn {
+      background: transparent !important; color: var(--text-2) !important;
+      border-radius: 0 !important; position: relative;
+      padding: 8px 4px; font-weight: 500;
+    }
+    .rf-subcard .sub-tab-btn[aria-selected="true"] {
+      color: var(--text) !important; font-weight: 700;
+    }
+    .rf-subcard .sub-tab-btn[aria-selected="true"]::after {
+      content: ""; position: absolute;
+      left: 12px; right: 12px; bottom: -1px; height: 2px;
+      background: var(--accent); border-radius: 2px;
+    }
+    .rf-subcard [data-sub-panel] { padding: 10px 4px 4px; }
+
+    .rf-fieldset { border: none; padding: 0; margin: 0; }
     .rf-fieldset legend { display: none; }
-    .rf-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; font-size: 12px; color: var(--text-2); }
-    .rf-row input[type="number"] {
-      width: 110px; padding: 6px 8px; border: 1px solid var(--border-hi);
-      border-radius: var(--radius-xs); background: var(--bg); color: var(--text);
-      font: inherit; font-size: 12px; text-align: right;
+
+    /* Polish #8: full-width inputs (one per row, not right-aligned tiny) */
+    .rf-row { margin: 10px 0; font-size: 12px; color: var(--text-2); }
+    .rf-row > span:first-child {
+      display: block; font-size: 11.5px; color: var(--text-2); margin-bottom: 5px;
     }
-    .rf-rule-hint { font-size: 10.5px; color: var(--muted); margin: 8px 0; line-height: 1.5; }
-    .rf-actions { display: flex; gap: 6px; justify-content: flex-end; margin-top: 10px; }
+    .rf-row input[type="number"] {
+      width: 100%;
+      padding: 9px 12px; border: 1px solid var(--border-hi);
+      border-radius: var(--radius-sm); background: var(--bg); color: var(--text);
+      font: inherit; font-size: 13px; text-align: left;
+    }
+    .rf-row input[type="number"]:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+
+    .rf-rule-hint { font-size: 10.5px; color: var(--muted); margin: 10px 0; line-height: 1.5; }
+
+    /* Polish #7: full-width Save button */
+    .rf-actions { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
     .rf-btn, .rf-btn-ghost {
-      padding: 7px 14px; border-radius: var(--radius-xs); font-size: 12px;
-      cursor: pointer; border: 1px solid var(--accent); font-weight: 600;
+      width: 100%;
+      padding: 11px 14px; border-radius: var(--radius-sm);
+      font-size: 13px; font-weight: 700;
+      cursor: pointer; border: 1px solid var(--accent);
     }
     .rf-btn       { background: var(--accent); color: #0b1120; }
-    .rf-btn-ghost { background: transparent; color: var(--accent-hi); }
-    .rf-msg { margin-top: 8px; font-size: 11px; min-height: 14px; }
+    .rf-btn:hover { background: var(--accent-hi); border-color: var(--accent-hi); }
+    .rf-btn-ghost { background: transparent; color: var(--accent-hi); order: 2; font-weight: 500; font-size: 12px; padding: 6px; border: none; }
+    .rf-btn-ghost:hover { color: var(--text); }
+    .rf-msg { margin-top: 8px; font-size: 11px; min-height: 14px; text-align: center; }
     .rf-msg[data-kind="ok"]  { color: var(--ok); }
     .rf-msg[data-kind="err"] { color: var(--danger); }
 
-    /* Scope (Home / Lists) chips inside Filter tab */
-    .rf-scope { display: flex; gap: 6px; margin: 10px 0; }
+    /* Polish #6: shadcn square checkbox for Home/Lists + advanced toggles */
+    .rf-scope { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
     .rf-scope label {
-      display: inline-flex; align-items: center; gap: 5px;
-      padding: 5px 10px; border-radius: 999px;
-      background: var(--surface); border: 1px solid var(--border-hi);
-      color: var(--text-2); font-size: 11.5px; cursor: pointer;
+      display: flex; align-items: center; gap: 10px;
+      padding: 0; font-size: 13px; color: var(--text); cursor: pointer;
       user-select: none;
     }
-    .rf-scope input { margin: 0; }
-    .rf-scope label:has(input:checked) { background: rgba(6, 182, 212, 0.10); color: var(--accent-hi); border-color: var(--accent); }
+    input[type="checkbox"].xvm-cb,
+    .rf-scope input[type="checkbox"],
+    .feature-row > input[type="checkbox"],
+    .inline-toggle input[type="checkbox"] {
+      appearance: none; -webkit-appearance: none;
+      width: 18px; height: 18px; flex: 0 0 18px;
+      border: 1.5px solid var(--border-hi); border-radius: 4px;
+      background: var(--bg); cursor: pointer;
+      position: relative; margin: 0;
+      transition: background 120ms, border-color 120ms;
+    }
+    input[type="checkbox"].xvm-cb:checked,
+    .rf-scope input[type="checkbox"]:checked,
+    .feature-row > input[type="checkbox"]:checked,
+    .inline-toggle input[type="checkbox"]:checked {
+      background: var(--accent); border-color: var(--accent);
+    }
+    input[type="checkbox"].xvm-cb:checked::after,
+    .rf-scope input[type="checkbox"]:checked::after,
+    .feature-row > input[type="checkbox"]:checked::after,
+    .inline-toggle input[type="checkbox"]:checked::after {
+      content: ""; position: absolute; left: 4px; top: 1px;
+      width: 6px; height: 11px;
+      border: solid #0b1120; border-width: 0 2px 2px 0;
+      transform: rotate(45deg);
+    }
+    input[type="checkbox"].xvm-cb:focus-visible,
+    .rf-scope input[type="checkbox"]:focus-visible,
+    .feature-row > input[type="checkbox"]:focus-visible,
+    .inline-toggle input[type="checkbox"]:focus-visible {
+      outline: 2px solid var(--accent); outline-offset: 2px;
+    }
 
-    /* === Switch === */
-    .switch { position: relative; display: inline-block; width: 34px; height: 19px; flex: 0 0 34px; }
-    .switch input { opacity: 0; width: 0; height: 0; }
-    .switch .slider { position: absolute; inset: 0; cursor: pointer; background: var(--surface-3); border-radius: 999px; transition: 200ms; }
-    .switch .slider::before { content: ""; position: absolute; top: 2px; left: 2px; width: 15px; height: 15px; border-radius: 50%; background: white; transition: 200ms; }
+    /* === Polish #5: shadcn pill switch (24×44 with sliding knob) === */
+    .switch {
+      position: relative; display: inline-block;
+      width: 44px; height: 24px; flex: 0 0 44px;
+    }
+    .switch input { opacity: 0; width: 0; height: 0; position: absolute; }
+    .switch .slider {
+      position: absolute; inset: 0; cursor: pointer;
+      background: var(--surface-3); border-radius: 999px;
+      transition: 200ms;
+    }
+    .switch .slider::before {
+      content: ""; position: absolute; top: 2px; left: 2px;
+      width: 20px; height: 20px; border-radius: 50%;
+      background: white;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.25);
+      transition: 200ms;
+    }
     .switch input:checked + .slider { background: var(--accent); }
-    .switch input:checked + .slider::before { transform: translateX(15px); }
+    .switch input:checked + .slider::before { transform: translateX(20px); }
+    .switch input:focus-visible + .slider { box-shadow: 0 0 0 2px var(--accent); }
 
     /* === Leaderboard tab + About tab (legacy controls in dark theme) === */
     .panel-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px; margin: 0 0 10px; }

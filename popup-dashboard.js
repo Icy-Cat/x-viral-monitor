@@ -16,9 +16,13 @@
 (() => {
   const TABS = ['pro', 'filter', 'leaderboard', 'about'];
 
-  function t(key) {
+  // Critical bug fix (Codex polish item 3): the previous t(key) signature
+  // didn't forward substitution args, so chrome.i18n.getMessage was always
+  // called with no replacements — placeholders rendered as empty strings.
+  // That's why "试用 · 还剩 天" showed up missing the days number.
+  function t(key, ...subs) {
     try {
-      const v = chrome?.i18n?.getMessage?.(key);
+      const v = chrome?.i18n?.getMessage?.(key, subs.length ? subs.map(String) : undefined);
       if (v) return v;
     } catch (_) {}
     return key;
