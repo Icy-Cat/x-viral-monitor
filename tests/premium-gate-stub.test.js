@@ -67,10 +67,25 @@ describe('#45 M1 step 1 — premium gate scaffold', () => {
     expect(fIdx, 'filter.js must load BEFORE content.js').toBeLessThan(cIdx);
   });
 
-  it('step 1 gate stub returns trial by default', () => {
-    // Quick literal check — step 2 replaces this with the real check.
-    expect(/let\s+_currentTier\s*=\s*['"]trial['"]/.test(gate),
-      'step 1 stub must return trial so feature is exercisable end-to-end'
+  it('gate fails CLOSED (defaults to free) until isolated.js pushes tier', () => {
+    // ADR-0004 invariant: a brief gate-init race must serve free, never
+    // an unverified paid tier. Step 1 stub returned 'trial' to exercise
+    // the feature end-to-end; step 2 must default to 'free' because the
+    // real tier now arrives async from the isolated-world bridge.
+    expect(/let\s+_currentTier\s*=\s*['"]free['"]/.test(gate),
+      'step 2 gate must default to free (fail-closed)'
+    ).toBe(true);
+  });
+
+  it('gate listens for XVM_TIER_UPDATE postMessage', () => {
+    expect(/XVM_TIER_UPDATE/.test(gate), 'gate must listen for tier updates').toBe(true);
+    expect(/window\.addEventListener\(\s*['"]message['"]/.test(gate),
+      'gate must add a window message listener').toBe(true);
+  });
+
+  it('gate kicks an XVM_TIER_REQUEST on init', () => {
+    expect(/window\.postMessage\([^)]*XVM_TIER_REQUEST/.test(gate),
+      'gate must ask isolated.js for the current tier on mount'
     ).toBe(true);
   });
 });

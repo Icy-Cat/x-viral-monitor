@@ -1,69 +1,90 @@
-// === Premium tier gate (M1 step 1 stub) ===
+// === Premium tier gate (M1 step 2 — MAIN world) ===
 //
-// Single source of truth for "what tier is the current user?". Premium
-// feature modules MUST query this gate at activation time and NEVER make
-// their own tier decisions — that invariant lets us swap the implementation
-// later (real Creem license check + 14-day trial + 24h cache) without
-// touching feature modules.
+// Single source of truth for "what tier is the current user?" from any
+// premium feature module's perspective. Feature modules MUST query this
+// gate and NEVER make their own tier decisions or read license/trial state.
 //
-// Step 1 hardcodes the tier to 'trial' so the rate-filter module can be
-// integrated and exercised end-to-end. Step 2 replaces this stub with the
-// real check (ADR-0004 pending @Codex).
+// Step 2 (this version) listens for XVM_TIER_UPDATE postMessage from the
+// ISOLATED-world license bridge (src/premium/license/isolated.js). The
+// bridge owns chrome.storage + Worker calls; gate.js stays in MAIN world
+// and only mirrors the resolved tier so feature modules don't need any
+// extension context.
+//
+// Until the first XVM_TIER_UPDATE arrives, _currentTier defaults to 'free'
+// — fail-CLOSED is safer than fail-OPEN for a paywall gate (a brief
+// race-window of feature unavailability is better than a brief race-window
+// of free users getting paid feature for free).
 //
 // API (window.__xvmPro):
 //   getCurrentTier()          → 'free' | 'trial' | 'pro'
-//   onTierChange(fn)          → subscribe; fn(tier) on every change
-//   isFeatureEnabled(name)    → boolean; central feature map
-//
-// Loaded in MAIN world before any premium feature script. See manifest.
+//   getTrialDaysLeft()        → number  (0 when not trialing)
+//   isFeatureEnabled(name)    → boolean
+//   onTierChange(fn)          → subscribe; fn(tier, info) on every change
 
 (() => {
   if (window.__xvmPro) return; // idempotent on hot reload
 
-  // Feature → minimum tier required.
-  // 'free' = always on. Anything else gates by getCurrentTier().
   const FEATURE_TIER = {
     'rate-filter': 'trial', // M1 paid feature
   };
 
-  // Step 1 stub: always report 'trial'. Replaced in step 2 with the real
-  // Creem license + trial-window check.
-  let _currentTier = 'trial';
+  // Fail-closed default until isolated.js posts a real tier.
+  let _currentTier = 'free';
+  let _daysLeft = 0;
+  let _source = 'init';
   const _subs = [];
 
-  function getCurrentTier() {
-    return _currentTier;
-  }
+  function getCurrentTier()  { return _currentTier; }
+  function getTrialDaysLeft() { return _daysLeft; }
+  function getTierSource()   { return _source; }
 
   function isFeatureEnabled(name) {
     const need = FEATURE_TIER[name];
     if (!need || need === 'free') return true;
     const tier = getCurrentTier();
-    // 'free' < 'trial' < 'pro'. Any of trial/pro unlocks paid features.
     if (need === 'trial') return tier === 'trial' || tier === 'pro';
-    if (need === 'pro') return tier === 'pro';
+    if (need === 'pro')   return tier === 'pro';
     return false;
   }
 
-  function onTierChange(fn) {
-    if (typeof fn === 'function') _subs.push(fn);
-  }
+  function onTierChange(fn) { if (typeof fn === 'function') _subs.push(fn); }
 
-  function _setTier(next) {
-    // Internal — step 2 license module calls this when license/trial state
-    // changes. Step 1 stub never calls it.
-    if (next === _currentTier) return;
-    _currentTier = next;
+  function _setTier(next, daysLeft, source) {
+    // Internal — called when XVM_TIER_UPDATE arrives. Diff-suppressed so
+    // subscribers don't see no-op churn.
+    const tier = ['free','trial','pro'].includes(next) ? next : 'free';
+    const dl = Number.isFinite(daysLeft) ? daysLeft : 0;
+    const src = typeof source === 'string' ? source : 'unknown';
+    const changed = tier !== _currentTier || dl !== _daysLeft;
+    _currentTier = tier;
+    _daysLeft = dl;
+    _source = src;
+    if (!changed) return;
     for (const fn of _subs) {
-      try { fn(next); } catch (_) {}
+      try { fn(tier, { daysLeft: dl, source: src }); } catch (_) {}
     }
   }
 
+  // Receive tier from the isolated-world bridge.
+  window.addEventListener('message', (event) => {
+    if (event.source !== window) return;
+    const d = event.data;
+    if (!d || d.type !== 'XVM_TIER_UPDATE') return;
+    _setTier(d.tier, d.daysLeft, d.source);
+  });
+
+  // Ask the isolated-world bridge for the current tier on init. The bridge
+  // may have already pushed before we mounted (race), but a duplicate push
+  // is harmless (diff-suppressed above).
+  window.postMessage({ type: 'XVM_TIER_REQUEST' }, '*');
+
   window.__xvmPro = {
     getCurrentTier,
+    getTrialDaysLeft,
+    getTierSource,
     isFeatureEnabled,
     onTierChange,
-    _setTier, // step 2 use only
+    _setTier, // exposed for tests + isolated.js postMessage path
     _FEATURE_TIER: FEATURE_TIER,
   };
 })();

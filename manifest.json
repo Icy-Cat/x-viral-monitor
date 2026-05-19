@@ -17,7 +17,7 @@
   "content_scripts": [
     {
       "matches": ["https://x.com/*", "https://pro.x.com/*"],
-      "js": ["bridge.js"],
+      "js": ["bridge.js", "src/premium/license/isolated.js"],
       "run_at": "document_start"
     },
     {
