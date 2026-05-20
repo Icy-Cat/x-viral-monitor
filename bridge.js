@@ -204,6 +204,34 @@ window.addEventListener('message', (event) => {
     return;
   }
 
+  // v1.7.0 #2 — leaderboard theme sync. MAIN-world content.js asks for
+  // the current theme preference; we mirror chrome.storage.sync.theme
+  // back as XVM_THEME_UPDATE { pref }. content.js resolves 'system' via
+  // matchMedia on its own side.
+  if (type === 'XVM_THEME_REQUEST') {
+    safeChromeCall(() => {
+      chrome.storage.sync.get({ theme: 'system' }, (items) => {
+        window.postMessage({ type: 'XVM_THEME_UPDATE', pref: items.theme || 'system' }, '*');
+      });
+    });
+    return;
+  }
+
+  // v1.7.0 #4 — hot-only toggle on the leaderboard writes
+  // chrome.storage.local.xvm_rate_filter_v1.enabled. isolated.js
+  // already handles XVM_RATE_SETTINGS_UPDATE; the toggle just needs a
+  // way to set the boolean without computing the rest of the blob.
+  if (type === 'XVM_RATE_FILTER_SET_ENABLED' && typeof event.data.enabled === 'boolean') {
+    safeChromeCall(() => {
+      const RF_KEY = 'xvm_rate_filter_v1';
+      chrome.storage.local.get({ [RF_KEY]: null }, (items) => {
+        const cur = items[RF_KEY] && typeof items[RF_KEY] === 'object' ? items[RF_KEY] : {};
+        chrome.storage.local.set({ [RF_KEY]: { ...cur, enabled: event.data.enabled } });
+      });
+    });
+    return;
+  }
+
   if (type === 'XVM_LB_POS_REQUEST') {
     safeChromeCall(() => {
       chrome.storage.local.get({ xvmLeaderboardPos: null }, (items) => {
@@ -352,6 +380,12 @@ safeChromeCall(() => {
 safeChromeCall(() => {
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'sync') return;
+    // Theme changes: broadcast to MAIN-world content.js so leaderboard
+    // recolors live. (Popup already self-syncs via its own listener.)
+    if (changes.theme) {
+      const pref = changes.theme.newValue || 'system';
+      window.postMessage({ type: 'XVM_THEME_UPDATE', pref }, '*');
+    }
     const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat;
     if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.showBookmarkCount && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !grokTouched) return;
 

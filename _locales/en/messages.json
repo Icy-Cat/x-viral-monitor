@@ -416,5 +416,11 @@
   "themeHint":      { "message": "Switch between warm light and dark mode. Your choice is synced to chrome.storage.sync." },
   "themeSwitchToDark":  { "message": "Switch to dark" },
   "themeSwitchToLight": { "message": "Switch to light" },
+  "themeFollowSystem":  { "message": "Following system" },
+  "contentLbHotOnly":      { "message": "Hot only" },
+  "contentLbHotProTitle":  { "message": "Velocity filter is a Pro feature" },
+  "contentLbHotProSub":    { "message": "Hide low-views tweets, keep what's actually spreading" },
+  "contentLbHotMonthly":   { "message": "Monthly $9" },
+  "contentLbHotAnnual":    { "message": "Annual $90 (save 17%)" },
   "advAppearanceTitle": { "message": "Appearance" }
 }

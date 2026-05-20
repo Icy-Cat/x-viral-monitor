@@ -989,15 +989,138 @@ function ensureLeaderboard() {
     <div class="xvm-lb-resize" aria-hidden="true"></div>
     <div class="xvm-lb-resize-v" aria-hidden="true"></div>
   `;
+  // v1.7.0 #4 — "Hot only" Pro-feature toggle in the leaderboard head.
+  // tier-aware on click (free → bubble; trial/pro → flip filter enable).
+  const hot = document.createElement('button');
+  hot.className = 'xvm-lb-hot';
+  hot.type = 'button';
+  hot.dataset.on = '0';
+  hot.dataset.tier = 'free';
+  hot.textContent = i18n('contentLbHotOnly') || '仅看热帖';
+  leaderboardEl.querySelector('.xvm-lb-head').appendChild(hot);
+  hot.addEventListener('click', onHotToggleClick);
+
   document.body.appendChild(leaderboardEl);
   applyLeaderboardWidth();
   applyLeaderboardHeight();
   applyLeaderboardPosition();
+  applyLeaderboardTheme();
   installLeaderboardDrag();
   installLeaderboardResize();
   installLeaderboardResizeHeight();
   installLeaderboardBackButton();
+  // v1.7.0 #2 — sync leaderboard theme + tier with popup.
+  installLeaderboardThemeSync();
+  installLeaderboardTierSync();
+  installLeaderboardFilterStateSync();
   return leaderboardEl;
+}
+
+// ── Leaderboard theme sync (v1.7.0 #2) ─────────────────────────────────────
+// Mirrors chrome.storage.sync.theme into the leaderboard root via
+// data-theme="light|dark". Resolves 'system' against
+// `prefers-color-scheme`. Updates on storage change + OS color-scheme
+// change. data-theme on .xvm-lb drives the dark overrides in styles.css.
+function applyLeaderboardTheme(resolved) {
+  if (!leaderboardEl) return;
+  const r = resolved || _resolvedTheme(_themePref);
+  leaderboardEl.setAttribute('data-theme', r);
+}
+let _themePref = 'system';
+function _resolvedTheme(pref) {
+  if (pref === 'light' || pref === 'dark') return pref;
+  try {
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch (_) { return 'light'; }
+}
+function installLeaderboardThemeSync() {
+  // Bootstrap: ask the page for the chrome.storage.sync.theme value via
+  // the ISOLATED-world bridge.js. content.js is in MAIN world, so we
+  // postMessage XVM_THEME_REQUEST and listen for XVM_THEME_UPDATE.
+  window.addEventListener('message', (ev) => {
+    if (ev.source !== window) return;
+    if (ev.data?.type === 'XVM_THEME_UPDATE' && typeof ev.data.pref === 'string') {
+      _themePref = ev.data.pref;
+      applyLeaderboardTheme();
+    }
+  });
+  window.postMessage({ type: 'XVM_THEME_REQUEST' }, '*');
+  try {
+    matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+      if (_themePref === 'system') applyLeaderboardTheme();
+    });
+  } catch (_) {}
+}
+
+// ── Leaderboard tier sync (v1.7.0 #4 — hot-only toggle behavior) ──────────
+function installLeaderboardTierSync() {
+  function refreshTier() {
+    if (!leaderboardEl) return;
+    const tier = window.__xvmPro?.getCurrentTier?.() || 'free';
+    const hot = leaderboardEl.querySelector('.xvm-lb-hot');
+    if (hot) hot.dataset.tier = tier;
+  }
+  refreshTier();
+  window.__xvmPro?.onTierChange?.(() => refreshTier());
+}
+
+// ── Filter-state sync ──────────────────────────────────────────────────────
+// The hot-only toggle reflects whichever side last changed
+// chrome.storage.local.xvm_rate_filter_v1.enabled. We listen for the
+// settings-update message that isolated.js already broadcasts.
+function installLeaderboardFilterStateSync() {
+  window.addEventListener('message', (ev) => {
+    if (ev.source !== window) return;
+    if (ev.data?.type === 'XVM_RATE_SETTINGS_UPDATE' && ev.data.settings) {
+      const hot = leaderboardEl?.querySelector('.xvm-lb-hot');
+      if (hot) hot.dataset.on = ev.data.settings.enabled ? '1' : '0';
+    }
+  });
+}
+
+function onHotToggleClick() {
+  const hot = leaderboardEl?.querySelector('.xvm-lb-hot');
+  if (!hot) return;
+  const tier = hot.dataset.tier || 'free';
+  if (tier === 'free') {
+    showLeaderboardUpgradeBubble();
+    return;
+  }
+  // trial / pro — flip rate-filter enable via storage. isolated.js
+  // listens for storage.onChanged and pushes XVM_RATE_SETTINGS_UPDATE
+  // back, which our sync listener uses to flip data-on on the toggle.
+  const next = hot.dataset.on === '1' ? false : true;
+  window.postMessage({
+    type: 'XVM_RATE_FILTER_SET_ENABLED',
+    enabled: next,
+  }, '*');
+}
+
+function showLeaderboardUpgradeBubble() {
+  if (!leaderboardEl) return;
+  if (leaderboardEl.querySelector('.xvm-lb-upgrade')) return; // already open
+  const bubble = document.createElement('div');
+  bubble.className = 'xvm-lb-upgrade';
+  bubble.innerHTML = `
+    <button class="xvm-lb-upgrade-close" type="button" aria-label="Close">×</button>
+    <div class="xvm-lb-upgrade-title">✨ <span></span></div>
+    <div class="xvm-lb-upgrade-sub"></div>
+    <div class="xvm-lb-upgrade-actions">
+      <a class="xvm-lb-upgrade-link" target="_blank" rel="noopener"></a>
+      <a class="xvm-lb-upgrade-btn"  target="_blank" rel="noopener"></a>
+    </div>
+  `;
+  bubble.querySelector('.xvm-lb-upgrade-title span').textContent = i18n('contentLbHotProTitle') || '流速过滤是 Pro 功能';
+  bubble.querySelector('.xvm-lb-upgrade-sub').textContent = i18n('contentLbHotProSub') || '隐藏低浏览量推文,保留真正在传播的内容';
+  const link = bubble.querySelector('.xvm-lb-upgrade-link');
+  link.textContent = i18n('contentLbHotMonthly') || '月度 $9';
+  link.href = 'https://www.creem.io/payment/prod_7f7t9EHK3RJlOK37DWr7J';
+  const btn = bubble.querySelector('.xvm-lb-upgrade-btn');
+  btn.textContent = i18n('contentLbHotAnnual') || '年度 $90 (省 17%)';
+  btn.href = 'https://www.creem.io/payment/prod_69yTiXGXb04DKm46DNVbN9';
+  bubble.querySelector('.xvm-lb-upgrade-close').addEventListener('click', () => bubble.remove());
+  const head = leaderboardEl.querySelector('.xvm-lb-head');
+  head.insertAdjacentElement('afterend', bubble);
 }
 
 // === Back-to-previous-scroll ===

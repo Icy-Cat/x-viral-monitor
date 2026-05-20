@@ -414,5 +414,11 @@
   "themeHint":      { "message": "ライト(暖色)とダークを切り替えできます。設定は chrome.storage.sync に保存されます。" },
   "themeSwitchToDark":  { "message": "ダークに切替" },
   "themeSwitchToLight": { "message": "ライトに切替" },
+  "themeFollowSystem":  { "message": "システムに従う" },
+  "contentLbHotOnly":      { "message": "ホットのみ" },
+  "contentLbHotProTitle":  { "message": "流速フィルターは Pro 機能" },
+  "contentLbHotProSub":    { "message": "低表示数の投稿を非表示にし、実際に拡散している投稿だけ残す" },
+  "contentLbHotMonthly":   { "message": "月額 ¥9/月" },
+  "contentLbHotAnnual":    { "message": "年額 ¥90/年 (17% お得)" },
   "advAppearanceTitle": { "message": "外観" }
 }

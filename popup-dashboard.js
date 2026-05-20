@@ -112,23 +112,54 @@
     window.addEventListener('xvm-pro-days', refresh);
   }
 
-  // === Theme toggle (light warm default / dark slate) ===
+  // === Theme toggle (3-state: light / dark / system; default system) ===
+  //
+  // Storage holds the USER PREFERENCE ('light' | 'dark' | 'system'); the
+  // resolved theme that drives CSS (body.dataset.theme) is always 'light'
+  // or 'dark'. When preference is 'system', we mirror
+  // `prefers-color-scheme: dark`. Default preference is 'system' so a
+  // fresh install matches the user's OS without any setup.
+  //
+  // The toggle button in the header rotates light → dark → system → light.
+  // body.dataset.themePref carries the user-chosen preference (so the
+  // toggle icon + About-tab label know which step we're at), while
+  // body.dataset.theme always carries the *resolved* 'light' / 'dark'.
   const THEME_KEY = 'theme';
-  function applyTheme(name) {
-    const safe = name === 'dark' ? 'dark' : 'light';
-    document.body.dataset.theme = safe;
+  const THEME_ORDER = ['light', 'dark', 'system'];
+  const _mq = (typeof matchMedia === 'function')
+    ? matchMedia('(prefers-color-scheme: dark)')
+    : null;
+
+  function resolveTheme(pref) {
+    if (pref === 'light' || pref === 'dark') return pref;
+    return (_mq && _mq.matches) ? 'dark' : 'light';
+  }
+
+  function applyTheme(pref) {
+    const p = THEME_ORDER.includes(pref) ? pref : 'system';
+    const resolved = resolveTheme(p);
+    document.body.dataset.theme = resolved;
+    document.body.dataset.themePref = p;
     const aboutBtn = document.getElementById('theme-toggle-about');
-    if (aboutBtn) aboutBtn.textContent = t(safe === 'dark' ? 'themeSwitchToLight' : 'themeSwitchToDark');
+    if (aboutBtn) {
+      const labelKey = p === 'system' ? 'themeFollowSystem'
+                     : p === 'dark'   ? 'themeSwitchToLight'
+                                      : 'themeSwitchToDark';
+      aboutBtn.textContent = t(labelKey);
+    }
   }
   function loadTheme() {
     try {
-      chrome.storage.sync.get({ [THEME_KEY]: 'light' }, (items) => {
-        applyTheme(items[THEME_KEY] || 'light');
+      chrome.storage.sync.get({ [THEME_KEY]: 'system' }, (items) => {
+        applyTheme(items[THEME_KEY] || 'system');
       });
-    } catch (_) { applyTheme('light'); }
+    } catch (_) { applyTheme('system'); }
   }
   function toggleTheme() {
-    const next = document.body.dataset.theme === 'dark' ? 'light' : 'dark';
+    // light → dark → system → light
+    const cur = document.body.dataset.themePref || 'system';
+    const idx = THEME_ORDER.indexOf(cur);
+    const next = THEME_ORDER[(idx + 1) % THEME_ORDER.length];
     applyTheme(next);
     try { chrome.storage.sync.set({ [THEME_KEY]: next }); } catch (_) {}
   }
@@ -140,6 +171,16 @@
         if (area === 'sync' && THEME_KEY in changes) applyTheme(changes[THEME_KEY].newValue);
       });
     } catch (_) {}
+    // OS-level color-scheme changes only matter when pref === 'system'.
+    if (_mq) {
+      try {
+        _mq.addEventListener('change', () => {
+          if (document.body.dataset.themePref === 'system') {
+            applyTheme('system');
+          }
+        });
+      } catch (_) {}
+    }
     loadTheme();
   }
 

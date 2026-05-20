@@ -59,6 +59,7 @@
        color #0b1120 is dark (cyan-500 / bf5a2a both pass AA). Override
        per-theme if needed. */
     * { box-sizing: border-box; margin: 0; }
+    html, body { scrollbar-gutter: stable; }
     body {
       width: 360px;            /* fixed-width popup per mock A (polish #1) */
       min-width: 360px;
@@ -68,6 +69,13 @@
       color: var(--text);
       background: var(--bg);
     }
+    /* Polish #1 (post-mock A): keep scrollbar gutter stable so popup doesn't
+       jitter 1-2px when tab content height changes. Plus slim custom
+       scrollbar matching the theme. */
+    ::-webkit-scrollbar              { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track        { background: transparent; }
+    ::-webkit-scrollbar-thumb        { background: var(--surface-3); border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover  { background: var(--muted); }
     .popup { padding: 14px; }
 
     /* === Header === */
@@ -105,8 +113,19 @@
     }
     .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
     .theme-toggle svg { width: 14px; height: 14px; }
-    body[data-theme="light"] .theme-toggle .ico-moon { display: none; }
-    body[data-theme="dark"]  .theme-toggle .ico-sun  { display: none; }
+    /* Theme toggle shows the icon matching the USER PREFERENCE
+       (light/dark/system), not the resolved theme — so when the
+       user is on 'system', they see the monitor icon. */
+    .theme-toggle svg { display: none; }
+    body[data-theme-pref="light"]  .theme-toggle .ico-sun     { display: inline; }
+    body[data-theme-pref="dark"]   .theme-toggle .ico-moon    { display: inline; }
+    body[data-theme-pref="system"] .theme-toggle .ico-monitor { display: inline; }
+    /* Defensive fallback: if data-theme-pref not yet set, show sun for
+       light, moon for dark (covers the brief flash before applyTheme()). */
+    body:not([data-theme-pref]) .theme-toggle .ico-sun  { display: none; }
+    body:not([data-theme-pref]) .theme-toggle .ico-moon { display: none; }
+    body:not([data-theme-pref])[data-theme="light"] .theme-toggle .ico-sun  { display: inline; }
+    body:not([data-theme-pref])[data-theme="dark"]  .theme-toggle .ico-moon { display: inline; }
 
     /* === Main tab bar === */
     .tabbar {
@@ -463,6 +482,7 @@
     <symbol id="icon-bell"     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/></symbol>
     <symbol id="icon-sun"      viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2"/><path d="M12 20v2"/><path d="m4.93 4.93 1.41 1.41"/><path d="m17.66 17.66 1.41 1.41"/><path d="M2 12h2"/><path d="M20 12h2"/><path d="m6.34 17.66-1.41 1.41"/><path d="m19.07 4.93-1.41 1.41"/></symbol>
     <symbol id="icon-moon"     viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></symbol>
+    <symbol id="icon-monitor"  viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8"/><path d="M12 17v4"/></symbol>
   </svg>
 
   <div class="popup">
@@ -478,6 +498,7 @@
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
         <svg class="ico-sun"><use href="#icon-sun"/></svg>
         <svg class="ico-moon"><use href="#icon-moon"/></svg>
+        <svg class="ico-monitor"><use href="#icon-monitor"/></svg>
       </button>
     </header>
 

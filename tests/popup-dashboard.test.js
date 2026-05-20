@@ -141,8 +141,13 @@ describe('#45 dual theme (light warm default + dark slate)', () => {
     expect(/theme-toggle/.test(dashJs)).toBe(true);
     expect(/theme-toggle-about/.test(dashJs)).toBe(true);
     expect(/THEME_KEY\s*=\s*['"]theme['"]/.test(dashJs)).toBe(true);
-    expect(/chrome\.storage\.sync\.get\s*\(\s*\{\s*\[THEME_KEY\]:\s*['"]light['"]/.test(dashJs),
-      'must default to "light" when reading theme'
+    // 3-state theme (light / dark / system); default 'system' so a fresh
+    // install matches the user's OS (#1 of v1.7.0 follow-up polish).
+    expect(/chrome\.storage\.sync\.get\s*\(\s*\{\s*\[THEME_KEY\]:\s*['"]system['"]/.test(dashJs),
+      'must default to "system" when reading theme (new 3-state default)'
+    ).toBe(true);
+    expect(/THEME_ORDER\s*=\s*\[\s*['"]light['"]\s*,\s*['"]dark['"]\s*,\s*['"]system['"]\s*\]/.test(dashJs),
+      'THEME_ORDER must whitelist [light, dark, system] in that rotation order'
     ).toBe(true);
   });
 

@@ -1479,3 +1479,102 @@ img.xvm-liv-img {
   position: relative !important;
   inset: auto !important;
 }
+
+/* ============================================================
+   Leaderboard dark-theme overrides (v1.7.0 #2 — leaderboard
+   follows popup theme via .xvm-lb[data-theme="dark"], set by
+   content.js based on chrome.storage.sync.theme + system pref).
+   ============================================================ */
+.xvm-lb[data-theme="dark"] {
+  background: #0f172a;
+  color: #f8fafc;
+  border-color: #334155;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.55), 0 2px 6px rgba(0, 0, 0, 0.32);
+}
+.xvm-lb[data-theme="dark"] .xvm-lb-head {
+  background: linear-gradient(180deg, rgba(6, 182, 212, 0.10), rgba(6, 182, 212, 0));
+  border-bottom-color: rgba(148, 163, 184, 0.18);
+}
+.xvm-lb[data-theme="dark"] .xvm-lb-grip,
+.xvm-lb[data-theme="dark"] .xvm-lb-title { color: #f8fafc; }
+.xvm-lb[data-theme="dark"] .xvm-lb-back { color: #cbd5e1; border-color: #334155; }
+.xvm-lb[data-theme="dark"] .xvm-lb-back:hover { color: #f8fafc; border-color: #06b6d4; }
+.xvm-lb[data-theme="dark"] .xvm-lb-resize,
+.xvm-lb[data-theme="dark"] .xvm-lb-resize-v { background: rgba(148, 163, 184, 0.12); }
+.xvm-lb[data-theme="dark"] .xvm-lb-list li { color: #cbd5e1; border-bottom-color: rgba(148, 163, 184, 0.12); }
+.xvm-lb[data-theme="dark"] .xvm-lb-list li:hover { background: rgba(6, 182, 212, 0.10); color: #f8fafc; }
+.xvm-lb[data-theme="dark"] .xvm-lb-red    { color: #f87171; }
+.xvm-lb[data-theme="dark"] .xvm-lb-orange { color: #fb923c; }
+.xvm-lb[data-theme="dark"] .xvm-lb-green  { color: #4ade80; }
+
+/* ============================================================
+   "仅看热帖" hot-only toggle (v1.7.0 #4 — Pro feature in-page
+   entry point on the leaderboard head). State machine is in
+   content.js; styling here.
+   ============================================================ */
+.xvm-lb-hot {
+  margin-left: auto;
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 8px;
+  border: 1px solid rgba(86, 60, 34, 0.25);
+  border-radius: 999px;
+  background: rgba(255, 252, 246, 0.9);
+  color: #6e5b4d;
+  font-size: 11px; font-weight: 500;
+  cursor: pointer;
+  user-select: none;
+}
+.xvm-lb-hot:hover { color: #bf5a2a; border-color: #bf5a2a; }
+.xvm-lb-hot[data-on="1"] {
+  background: #bf5a2a; border-color: #bf5a2a; color: #fffcf6; font-weight: 600;
+}
+.xvm-lb-hot[data-tier="trial"]::after,
+.xvm-lb-hot[data-tier="pro"]::after { content: ""; }
+.xvm-lb-hot[data-tier="free"] {
+  border-style: dashed; opacity: 0.85;
+}
+
+.xvm-lb[data-theme="dark"] .xvm-lb-hot {
+  background: rgba(15, 23, 42, 0.9);
+  border-color: #334155;
+  color: #cbd5e1;
+}
+.xvm-lb[data-theme="dark"] .xvm-lb-hot:hover { color: #22d3ee; border-color: #22d3ee; }
+.xvm-lb[data-theme="dark"] .xvm-lb-hot[data-on="1"] {
+  background: #06b6d4; border-color: #06b6d4; color: #0b1120;
+}
+
+/* Mini upgrade bubble for free users (rendered below leaderboard head). */
+.xvm-lb-upgrade {
+  margin: 8px 12px 10px;
+  padding: 10px 12px;
+  background: linear-gradient(135deg, rgba(191, 90, 42, 0.10), rgba(191, 90, 42, 0.04));
+  border: 1px solid rgba(191, 90, 42, 0.30);
+  border-radius: 10px;
+  font-size: 11.5px;
+  color: #24180f;
+}
+.xvm-lb[data-theme="dark"] .xvm-lb-upgrade {
+  background: linear-gradient(135deg, rgba(6, 182, 212, 0.10), rgba(29, 78, 216, 0.06));
+  border-color: rgba(6, 182, 212, 0.35);
+  color: #f8fafc;
+}
+.xvm-lb-upgrade-title { font-weight: 700; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; }
+.xvm-lb-upgrade-actions { display: flex; gap: 6px; margin-top: 6px; }
+.xvm-lb-upgrade-btn, .xvm-lb-upgrade-link {
+  flex: 1; text-align: center;
+  padding: 5px 8px; border-radius: 6px;
+  font-size: 11px; font-weight: 600;
+  cursor: pointer; text-decoration: none;
+  border: 1px solid #bf5a2a; color: #bf5a2a; background: #fffcf6;
+}
+.xvm-lb-upgrade-btn { background: #bf5a2a; color: #fffcf6; }
+.xvm-lb-upgrade-btn:hover { filter: brightness(1.06); }
+.xvm-lb-upgrade-close {
+  background: none; border: none; cursor: pointer; padding: 0 4px;
+  font-size: 14px; color: #6e5b4d; line-height: 1;
+  float: right; margin-top: -2px;
+}
+.xvm-lb[data-theme="dark"] .xvm-lb-upgrade-btn { background: #06b6d4; color: #0b1120; border-color: #06b6d4; }
+.xvm-lb[data-theme="dark"] .xvm-lb-upgrade-link { background: transparent; color: #22d3ee; border-color: #06b6d4; }
+.xvm-lb[data-theme="dark"] .xvm-lb-upgrade-close { color: #94a3b8; }

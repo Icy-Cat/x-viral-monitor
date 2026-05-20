@@ -414,5 +414,11 @@
   "themeHint":      { "message": "在暖色明亮与深色之间切换,选择已同步到 chrome.storage.sync。" },
   "themeSwitchToDark":  { "message": "切换到深色" },
   "themeSwitchToLight": { "message": "切换到明亮" },
+  "themeFollowSystem":  { "message": "跟随系统" },
+  "contentLbHotOnly":      { "message": "仅看热帖" },
+  "contentLbHotProTitle":  { "message": "流速过滤是 Pro 功能" },
+  "contentLbHotProSub":    { "message": "隐藏低浏览量推文,保留真正在传播的内容" },
+  "contentLbHotMonthly":   { "message": "月度 ¥9/月" },
+  "contentLbHotAnnual":    { "message": "年度 ¥90/年 (省 17%)" },
   "advAppearanceTitle": { "message": "外观" }
 }
