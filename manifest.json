@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extName__",
-  "version": "1.7.1",
+  "version": "1.7.2",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "permissions": ["storage"],
@@ -22,7 +22,7 @@
     },
     {
       "matches": ["https://x.com/*", "https://pro.x.com/*"],
-      "js": ["lib/x-net-hook.js", "lib/x-client-transaction.js", "lib/grok-reply.js", "lib/long-image-viewer.js", "lib/image-viewer.js", "src/premium/license/gate.js", "src/premium/rate-filter/filter.js", "content.js", "starchart.js"],
+      "js": ["lib/x-net-hook.js", "lib/x-client-transaction.js", "lib/grok-reply.js", "lib/long-image-viewer.js", "lib/image-viewer.js", "src/premium/license/gate.js", "src/premium/content-filter/rules.js", "src/premium/content-filter/filter.js", "src/premium/rate-filter/filter.js", "content.js", "starchart.js"],
       "css": ["styles.css"],
       "run_at": "document_start",
       "world": "MAIN"

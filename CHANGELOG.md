@@ -5,6 +5,20 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.7.2] - 2026-05-26
+
+### Added
+
+- Added Pro content filtering for adult, ad, phishing, and funnel replies with Light / Standard / Strict severity levels.
+- Added local built-in rules plus user custom keyword / regex / domain rules, handle/domain whitelist support, and a filtered-replies summary strip on X pages.
+- Added popup controls for content filter enablement, strength, rule counts, and custom rules.
+
+### Internal
+
+- Integrated the content filter into the existing premium gate, GraphQL response pipeline, and cross-filter hide-marker restore logic.
+
+---
+
 ## [1.7.1] - 2026-05-24
 
 ### Fixed

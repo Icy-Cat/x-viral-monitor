@@ -231,14 +231,36 @@
     [data-sub-panel] { display: none; }
     [data-sub-panel][data-active="1"] { display: block; }
 
-    /* === Rate filter (popup-rate-filter.js inline styles) === */
+    /* === Rate/content filter (popup inline settings) === */
     .rf-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; }
+    .cf-section { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; margin-top: 12px; }
     .rf-section[data-locked="1"] { opacity: 0.55; }
-    .rf-section[data-locked="1"] input, .rf-section[data-locked="1"] button { cursor: not-allowed; }
+    .cf-section[data-locked="1"] { opacity: 0.55; }
+    .rf-section[data-locked="1"] input, .rf-section[data-locked="1"] button,
+    .cf-section[data-locked="1"] input, .cf-section[data-locked="1"] button, .cf-section[data-locked="1"] select { cursor: not-allowed; }
     .lf-section {
       margin-top: 12px;
       min-width: 0;
     }
+    .cf-levels { display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px; margin: 10px 0; }
+    .cf-level {
+      padding: 7px 4px; border: 1px solid var(--border-hi); border-radius: var(--radius-xs);
+      background: var(--surface-2); color: var(--text-2); font-size: 11px; cursor: pointer;
+    }
+    .cf-level[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #0b1120; font-weight: 700; }
+    .cf-custom { margin-top: 10px; padding-top: 8px; border-top: 1px solid var(--border); }
+    .cf-custom summary { cursor: pointer; font-size: 12px; font-weight: 700; color: var(--text-2); }
+    .cf-add-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin: 8px 0; }
+    .cf-add-grid input, .cf-add-grid select, .cf-whitelist input {
+      width: 100%; min-width: 0; padding: 7px 8px; border: 1px solid var(--border-hi);
+      border-radius: var(--radius-xs); background: var(--bg); color: var(--text); font: inherit; font-size: 12px;
+    }
+    .cf-add-grid #cf-value { grid-column: 1 / -1; }
+    .cf-custom-list { margin: 8px 0; display: flex; flex-direction: column; gap: 5px; }
+    .cf-custom-row { display: flex; justify-content: space-between; align-items: center; gap: 6px; padding: 6px 8px; border: 1px solid var(--border); border-radius: var(--radius-xs); font-size: 11px; color: var(--text-2); }
+    .cf-custom-row span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cf-custom-row button { width: 22px; height: 22px; border-radius: 999px; border: 1px solid var(--border-hi); background: transparent; color: var(--muted); cursor: pointer; }
+    .cf-whitelist { margin-top: 7px; }
     .lf-section .rf-row {
       min-width: 0;
     }
@@ -632,6 +654,7 @@
       <!-- popup-rate-filter.js renders into #rate-filter-section with
            nested Short/Long sub-tabs (see rebuilt buildSection). -->
       <div id="rate-filter-section" class="rf-section" data-locked="0"></div>
+      <div id="content-filter-section" class="cf-section" data-locked="0"></div>
     </section>
 
     <!-- ============ Tab: Leaderboard ============ -->
@@ -766,6 +789,8 @@
   <script src="src/premium/license/entitlement.js"></script>
   <script src="src/premium/license/popup-pro.js"></script>
   <script src="src/premium/rate-filter/popup-rate-filter.js"></script>
+  <script src="src/premium/content-filter/rules.js"></script>
+  <script src="src/premium/content-filter/popup-content-filter.js"></script>
   <script src="popup.js"></script>
   <script src="popup-dashboard.js"></script>
 </body>

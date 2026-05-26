@@ -1487,7 +1487,7 @@ function getTweetPermalinkFromArticle(article, tweetId = '') {
   return '';
 }
 
-const LEADERBOARD_HIDE_ATTRS = ['data-xvm-rate-hidden'];
+const LEADERBOARD_HIDE_ATTRS = ['data-xvm-rate-hidden', 'data-xvm-content-filter-hidden'];
 
 function leaderboardCellForArticle(article) {
   return article.closest('[data-testid="cellInnerDiv"]') || article;

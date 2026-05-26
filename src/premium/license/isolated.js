@@ -54,6 +54,7 @@
   const TRIAL_KEY      = 'xvm_trial_v1';
   const DEVICE_ID_KEY  = 'xvm_device_id';
   const RATE_FILTER_KEY = 'xvm_rate_filter_v1';
+  const CONTENT_FILTER_KEY = 'xvm_content_filter_v1';
 
   const KEY_RE = /^[A-Za-z0-9_\-]{8,128}$/;
 
@@ -318,11 +319,19 @@
     }
   }
 
+  async function pushContentFilterSettings() {
+    const settings = await safeStorageGet(CONTENT_FILTER_KEY, null);
+    if (settings && typeof settings === 'object') {
+      window.postMessage({ type: 'XVM_CONTENT_FILTER_SETTINGS_UPDATE', settings }, '*');
+    }
+  }
+
   // ─── Bootstrap: ensure trial started, push tier so MAIN can render ──
   (async () => {
     await ensureTrialStarted();
     pushTier();
     pushRateSettings();
+    pushContentFilterSettings();
   })();
 
   // Re-push on storage change so tier flips immediately if the license
@@ -332,6 +341,7 @@
       if (area !== 'local') return;
       if (STORAGE_KEY in changes || TRIAL_KEY in changes) pushTier();
       if (RATE_FILTER_KEY in changes) pushRateSettings();
+      if (CONTENT_FILTER_KEY in changes) pushContentFilterSettings();
     });
   } catch (_) {}
 })();

@@ -1,0 +1,116 @@
+// Built-in content filter rules.
+//
+// Keep this object in sync with rules.json. The MAIN-world content script
+// cannot safely read extension JSON via chrome.runtime, so this wrapper exposes
+// the same data as an executable content/popup script.
+
+(function () {
+  const rules = {
+    version: 1,
+    levels: {
+      light: [
+        'hard-telegram-group-funnel',
+        'adult-sex-service-high',
+        'adult-nude-leak-high',
+        'spam-gambling-high',
+        'spam-phishing-airdrop-high',
+      ],
+      standard: [
+        'hard-telegram-group-funnel',
+        'adult-sex-service-high',
+        'adult-nude-leak-high',
+        'adult-bio-medium',
+        'spam-gambling-high',
+        'spam-phishing-airdrop-high',
+        'spam-telegram-domain-medium',
+        'spam-private-chat-medium',
+      ],
+      strict: [
+        'hard-telegram-group-funnel',
+        'adult-sex-service-high',
+        'adult-nude-leak-high',
+        'adult-bio-medium',
+        'adult-soft-low',
+        'spam-gambling-high',
+        'spam-phishing-airdrop-high',
+        'spam-telegram-domain-medium',
+        'spam-private-chat-medium',
+        'spam-crypto-low',
+      ],
+    },
+    rules: [
+      {
+        id: 'hard-telegram-group-funnel',
+        type: 'regex',
+        field: 'content',
+        value: '(t\\.me|telegram|电报|飞机).{0,24}(群|频道|福利|资源|私信|加)',
+        severity: 'block',
+      },
+      {
+        id: 'adult-sex-service-high',
+        type: 'regex',
+        field: 'content',
+        value: '(约炮|裸聊|外围|包养|上门服务|援交|同城可约)',
+        severity: 'high',
+      },
+      {
+        id: 'adult-nude-leak-high',
+        type: 'regex',
+        field: 'content',
+        value: '(私房照|裸照|流出|国产自拍|成人视频|成人资源)',
+        severity: 'high',
+      },
+      {
+        id: 'adult-bio-medium',
+        type: 'regex',
+        field: 'bio',
+        value: '(性生理|两性|私密|成人|福利姬)',
+        severity: 'medium',
+      },
+      {
+        id: 'adult-soft-low',
+        type: 'regex',
+        field: 'content',
+        value: '(福利视频|擦边|大尺度|黑丝|写真)',
+        severity: 'low',
+      },
+      {
+        id: 'spam-gambling-high',
+        type: 'regex',
+        field: 'content',
+        value: '(博彩|赌场|娱乐城|投注平台|澳门线上娱乐|百家乐|体育投注)',
+        severity: 'high',
+      },
+      {
+        id: 'spam-phishing-airdrop-high',
+        type: 'regex',
+        field: 'content',
+        value: '(空投|领取奖励|钱包授权|助记词|私钥|钓鱼链接|claim now)',
+        severity: 'high',
+      },
+      {
+        id: 'spam-telegram-domain-medium',
+        type: 'domain',
+        field: 'url',
+        value: 't.me',
+        severity: 'medium',
+      },
+      {
+        id: 'spam-private-chat-medium',
+        type: 'regex',
+        field: 'content',
+        value: '(私信|私讯|加我|进群|群聊).{0,16}(福利|资源|项目|带你|名额)',
+        severity: 'medium',
+      },
+      {
+        id: 'spam-crypto-low',
+        type: 'regex',
+        field: 'content',
+        value: '(合约带单|百倍币|稳赚|暴富密码|充值返利)',
+        severity: 'low',
+      },
+    ],
+  };
+
+  window.__xvmContentFilterBuiltinRules = rules;
+})();

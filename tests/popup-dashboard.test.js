@@ -113,6 +113,8 @@ describe('#45 popup tabs structure (mock A)', () => {
       'src/premium/license/entitlement.js',
       'src/premium/license/popup-pro.js',
       'src/premium/rate-filter/popup-rate-filter.js',
+      'src/premium/content-filter/rules.js',
+      'src/premium/content-filter/popup-content-filter.js',
       'popup.js',
       'popup-dashboard.js',
     ]);
@@ -315,7 +317,7 @@ describe('#69/#72 user self-test polish', () => {
     expect(contentJs).not.toMatch(/XVM_LIST_MEMBER_FILTER_SET_ENABLED/);
     expect(contentJs).not.toMatch(/isReadyListMemberFilter/);
     expect(contentJs).not.toMatch(/contentLbListDisabledSub/);
-    expect(contentJs).toMatch(/LEADERBOARD_HIDE_ATTRS\s*=\s*\[['"]data-xvm-rate-hidden['"]\]/);
+    expect(contentJs).toMatch(/LEADERBOARD_HIDE_ATTRS\s*=\s*\[['"]data-xvm-rate-hidden['"],\s*['"]data-xvm-content-filter-hidden['"]\]/);
     expect(contentJs).toMatch(/function\s+isLeaderboardArticleHidden/);
     expect(contentJs).toMatch(/isLeaderboardArticleHidden\(article\)\)\s*continue/);
     expect(contentJs).toMatch(/getComputedStyle\(cell\)\.display\s*===\s*['"]none['"]/);
