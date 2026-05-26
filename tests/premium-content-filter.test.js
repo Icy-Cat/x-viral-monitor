@@ -40,10 +40,12 @@ function loadDebug(overrides = {}) {
       querySelector: () => null,
       querySelectorAll: () => [],
     },
-    MutationObserver: class {
+    MutationObserver: overrides.MutationObserver || class {
       observe() {}
       disconnect() {}
     },
+    requestAnimationFrame: overrides.requestAnimationFrame,
+    setTimeout: overrides.setTimeout || setTimeout,
     URL,
     console,
   };
@@ -66,6 +68,7 @@ function attrNode(kind) {
       if (selector === 'article[data-testid="tweet"]') return kind === 'article';
       return false;
     },
+    closest() { return null; },
   };
 }
 
@@ -379,5 +382,70 @@ describe('#123 XVM content filter v1', () => {
     expect(h.article.hasAttribute('data-xvm-content-filter-hidden')).toBe(false);
     expect(h.cell.hasAttribute('data-xvm-content-filter-hidden')).toBe(false);
     expect(h.cell.style.display || '').toBe('');
+  });
+
+  it('ignores summary DOM mutations and debounces external observer work', () => {
+    let observerCallback = null;
+    let rafCalls = 0;
+    class TestMutationObserver {
+      constructor(callback) {
+        observerCallback = callback;
+      }
+      observe() {}
+      disconnect() {}
+    }
+    const summary = attrNode('summary');
+    summary.id = 'xvm-content-filter-summary';
+    summary.closest = (selector) => (selector === '#xvm-content-filter-summary, #xvm-content-filter-style' ? summary : null);
+    const style = attrNode('style');
+    style.id = 'xvm-content-filter-style';
+    const external = attrNode('external');
+    const api = loadDebug({
+      MutationObserver: TestMutationObserver,
+      requestAnimationFrame: () => { rafCalls += 1; },
+    });
+    expect(api._debug.isOwnMutation({ target: summary, addedNodes: [], removedNodes: [] })).toBe(true);
+    expect(api._debug.isOwnMutation({ target: external, addedNodes: [style], removedNodes: [] })).toBe(true);
+    expect(api._debug.isOwnMutation({ target: external, addedNodes: [], removedNodes: [] })).toBe(false);
+
+    observerCallback([{ target: summary, addedNodes: [], removedNodes: [] }]);
+    expect(rafCalls).toBe(0);
+    observerCallback([{ target: external, addedNodes: [], removedNodes: [] }]);
+    observerCallback([{ target: external, addedNodes: [], removedNodes: [] }]);
+    expect(rafCalls).toBe(1);
+  });
+
+  it('does not rewrite the summary when hidden records are unchanged', () => {
+    const h = contentFilterDomHarness();
+    let html = '';
+    let writes = 0;
+    const summary = {
+      id: 'xvm-content-filter-summary',
+      className: 'xvm-cf-summary',
+      dataset: {},
+      hidden: false,
+      addEventListener() {},
+      closest: (selector) => (selector === '#xvm-content-filter-summary, #xvm-content-filter-style' ? summary : null),
+      get innerHTML() { return html; },
+      set innerHTML(value) {
+        html = value;
+        writes += 1;
+      },
+    };
+    const document = {
+      ...h.document,
+      getElementById(id) {
+        if (id === 'xvm-content-filter-summary') return summary;
+        return null;
+      },
+    };
+    const api = loadDebug({ document });
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+    api._debug.scanForTweets({ tweet_results: { result: h.tweet } });
+    api._debug.applyHidesNow();
+    expect(writes).toBe(1);
+    expect(html).toContain('已过滤 1 条回复 - XVM');
+    api._debug.applyHidesNow();
+    expect(writes).toBe(1);
   });
 });

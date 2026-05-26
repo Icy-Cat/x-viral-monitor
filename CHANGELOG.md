@@ -5,6 +5,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.7.5] - 2026-05-26
+
+### Fixed
+
+- Fixed a content-filter summary observer loop that could make X detail pages unresponsive after filtered replies were rendered.
+- Debounced content-filter DOM rescans and ignored XVM's own summary/style mutations so the filter no longer reacts to its own UI updates.
+
+### Internal
+
+- Added regression coverage for summary self-mutations and unchanged summary rendering.
+
+---
+
 ## [1.7.4] - 2026-05-26
 
 ### Fixed

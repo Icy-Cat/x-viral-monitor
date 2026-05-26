@@ -40,6 +40,8 @@
   let SETTINGS = { ...STORAGE_DEFAULTS };
   let subscribed = false;
   let summaryOpen = false;
+  let summarySignature = '';
+  let applyScheduled = false;
   const decisions = new Map();
   const hiddenRecords = new Map();
   const source = createLocalRuleSource(window.__xvmContentFilterBuiltinRules);
@@ -366,6 +368,7 @@
       restoreCellIfNoOtherXvmMarker(art, cell);
     });
     hiddenRecords.clear();
+    summarySignature = '';
   }
 
   function ensureStyle() {
@@ -408,7 +411,13 @@
     const bar = ensureSummaryBar();
     if (!bar) return;
     const records = Array.from(hiddenRecords.values()).slice(-30).reverse();
-    if (!SETTINGS.enabled || !gateOpen() || records.length === 0) {
+    const hidden = !SETTINGS.enabled || !gateOpen() || records.length === 0;
+    const signature = hidden
+      ? `hidden:${SETTINGS.enabled}:${gateOpen()}:${records.length}`
+      : `visible:${summaryOpen}:${hiddenRecords.size}:${records.map(summaryRecordSignature).join('|')}`;
+    if (summarySignature === signature) return;
+    summarySignature = signature;
+    if (hidden) {
       bar.hidden = true;
       return;
     }
@@ -421,6 +430,11 @@
     bar.innerHTML = `<strong>已过滤 ${hiddenRecords.size} 条回复 - XVM</strong><div class="xvm-cf-list">${items}</div>`;
   }
 
+  function summaryRecordSignature(r) {
+    const matches = (r.matches || []).slice(0, 3).map((m) => `${m.field}:${m.severity}:${m.id || m.label || ''}`).join(',');
+    return `${r.id}:${r.name}:${r.handle}:${(r.content || '').slice(0, 120)}:${matches}`;
+  }
+
   function escapeHtml(s) {
     return String(s || '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   }
@@ -429,7 +443,36 @@
     return escapeHtml(s).replace(/`/g, '&#96;');
   }
 
-  const mo = new MutationObserver(() => applyHidesNow());
+  function isOwnMutationNode(node) {
+    if (!node) return false;
+    if (node.id === 'xvm-content-filter-summary' || node.id === 'xvm-content-filter-style') return true;
+    return Boolean(node.closest?.('#xvm-content-filter-summary, #xvm-content-filter-style'));
+  }
+
+  function isOwnMutation(mutation) {
+    if (isOwnMutationNode(mutation?.target)) return true;
+    const nodes = [...Array.from(mutation?.addedNodes || []), ...Array.from(mutation?.removedNodes || [])];
+    return nodes.length > 0 && nodes.every(isOwnMutationNode);
+  }
+
+  function scheduleApply() {
+    if (applyScheduled) return;
+    applyScheduled = true;
+    const run = () => {
+      applyScheduled = false;
+      applyHidesNow();
+    };
+    if (typeof requestAnimationFrame === 'function') {
+      requestAnimationFrame(run);
+    } else {
+      setTimeout(run, 16);
+    }
+  }
+
+  const mo = new MutationObserver((mutations) => {
+    if (mutations?.length && mutations.every(isOwnMutation)) return;
+    scheduleApply();
+  });
 
   function activate() {
     subscribe();
@@ -450,6 +493,8 @@
       revoke();
       decisions.clear();
       hiddenRecords.clear();
+      summarySignature = '';
+      applyScheduled = false;
       subscribed = false;
       try { mo.disconnect(); } catch (_) {}
       delete window.__xvmContentFilter;
@@ -464,6 +509,8 @@
       scanForTweets,
       applyHidesNow,
       updateSummary,
+      isOwnMutation,
+      scheduleApply,
       gateOpen,
     },
   };
