@@ -88,7 +88,7 @@
 
   function normalizeRule(rule) {
     if (!rule || typeof rule !== 'object') return null;
-    const type = ['keyword', 'regex', 'domain'].includes(rule.type) ? rule.type : 'keyword';
+    const type = ['keyword', 'regex', 'domain', 'short-symbol'].includes(rule.type) ? rule.type : 'keyword';
     const field = INTERESTING_FIELDS.has(rule.field) ? rule.field : (type === 'domain' ? 'url' : 'content');
     const severity = ['low', 'medium', 'high', 'block'].includes(rule.severity) ? rule.severity : 'medium';
     const value = String(rule.value || '').trim();
@@ -168,6 +168,16 @@
     }
   }
 
+  function scanDomReplies() {
+    if (!isTweetDetailPage()) return;
+    for (const art of replyArticles()) {
+      const id = getTweetIdFromArticle(art);
+      if (!id || decisions.has(id)) continue;
+      const raw = extractDomTweet(art, id);
+      if (raw?.id) decisions.set(raw.id, { ...classify(raw), raw });
+    }
+  }
+
   function extractTweet(result) {
     const tweet = result?.tweet || result;
     const legacy = tweet?.legacy;
@@ -208,6 +218,41 @@
     for (const u of userLegacy?.entities?.url?.urls || []) add(u);
     for (const u of userLegacy?.entities?.description?.urls || []) add(u);
     return [...new Set(out)].filter(Boolean);
+  }
+
+  function textOf(node) {
+    return String(node?.textContent || '').trim();
+  }
+
+  function extractDomTweet(art, id = getTweetIdFromArticle(art)) {
+    if (!art || !id) return null;
+    const nameNode = art.querySelector?.('[data-testid="User-Name"]');
+    const textNode = art.querySelector?.('[data-testid="tweetText"]');
+    const links = Array.from(art.querySelectorAll?.('a[href]') || []);
+    const urls = links
+      .map((a) => a?.href || a?.getAttribute?.('href') || '')
+      .filter((href) => href && !/\/status\/\d+/.test(href));
+    const userText = textOf(nameNode);
+    const handle = (userText.match(/@([A-Za-z0-9_]+)/) || [])[1] || '';
+    const name = userText.replace(/@[\w_]+.*/s, '').trim();
+    return {
+      id,
+      content: textOf(textNode),
+      createdAt: '',
+      urls: [...new Set(urls)],
+      author: {
+        id: '',
+        name,
+        handle,
+        bio: '',
+        location: '',
+        avatar: art.querySelector?.('img[src*="profile_images"]')?.src || '',
+        following: false,
+      },
+      possiblySensitive: false,
+      promoted: false,
+      source: 'dom-fallback',
+    };
   }
 
   function reclassifyAll() {
@@ -285,8 +330,19 @@
     } else if (rule.type === 'domain') {
       const want = normalizeHost(rule.value);
       hit = raw.urls.map(normalizeHost).some((h) => h === want || h.endsWith(`.${want}`));
+    } else if (rule.type === 'short-symbol') {
+      hit = isShortSymbolSpam(text);
     }
     return hit ? { id: rule.id, field: rule.field, severity: rule.severity, label: rule.value } : null;
+  }
+
+  function isShortSymbolSpam(text) {
+    const s = String(text || '').replace(/\s+/g, '');
+    if (!s || s.length > 30) return false;
+    if ((s.match(/[\u4e00-\u9fff]/g) || []).length >= 2) return false;
+    const alnum = (s.match(/[A-Za-z0-9]/g) || []).length;
+    const symbols = (s.match(/[\u0F00-\u0FFF\u2000-\u206F\u2600-\u27BF\uFE00-\uFE0F\u{1F000}-\u{1FAFF}]/gu) || []).length;
+    return symbols >= 3 && symbols >= alnum;
   }
 
   function cellForArticle(art) {
@@ -315,6 +371,7 @@
       updateSummary();
       return;
     }
+    scanDomReplies();
     const arts = replyArticles();
     for (const art of arts) {
       const id = getTweetIdFromArticle(art);

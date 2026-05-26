@@ -72,7 +72,7 @@ function attrNode(kind) {
   };
 }
 
-function contentFilterDomHarness() {
+function contentFilterDomHarness({ domName = 'Spam @spam', domContent = 'hello' } = {}) {
   const root = {
     children: [],
     firstChild: null,
@@ -90,6 +90,8 @@ function contentFilterDomHarness() {
   const article = attrNode('article');
   const mainLink = { getAttribute: () => '/rwayne/status/2059141230542671887' };
   const link = { getAttribute: () => '/spam/status/1' };
+  const nameNode = { textContent: domName };
+  const textNode = { textContent: domContent };
   mainCell.parentElement = root;
   cell.parentElement = root;
   root.children = [mainCell, cell];
@@ -98,7 +100,13 @@ function contentFilterDomHarness() {
   mainArticle.querySelector = (selector) => (selector.includes('/status/') ? mainLink : null);
   mainCell.querySelector = (selector) => (selector === 'article[data-testid="tweet"]' ? mainArticle : null);
   article.closest = (selector) => (selector === '[data-testid="cellInnerDiv"]' ? cell : null);
-  article.querySelector = (selector) => (selector.includes('/status/') ? link : null);
+  article.querySelector = (selector) => {
+    if (selector.includes('/status/')) return link;
+    if (selector === '[data-testid="User-Name"]') return nameNode;
+    if (selector === '[data-testid="tweetText"]') return textNode;
+    return null;
+  };
+  article.querySelectorAll = (selector) => (selector === 'a[href]' ? [{ href: 'https://t.me/sample', getAttribute: () => 'https://t.me/sample' }, link] : []);
   cell.querySelector = (selector) => (selector === 'article[data-testid="tweet"]' ? article : null);
   const document = {
     documentElement: { appendChild() {} },
@@ -187,7 +195,7 @@ describe('#123 XVM content filter v1', () => {
       expect(rulesJson.levels[level].length).toBeGreaterThan(0);
     }
     for (const rule of rulesJson.rules) {
-      expect(['keyword', 'regex', 'domain']).toContain(rule.type);
+      expect(['keyword', 'regex', 'domain', 'short-symbol']).toContain(rule.type);
       expect(['name', 'screen_name', 'bio', 'location', 'content', 'url']).toContain(rule.field);
       expect(['low', 'medium', 'high', 'block']).toContain(rule.severity);
       expect(rule.id).toBeTruthy();
@@ -337,6 +345,48 @@ describe('#123 XVM content filter v1', () => {
     expect(api._debug.classify(resourceOk).hide).toBe(false);
   });
 
+  it('covers rwayne page name funnels and short symbol spam in standard mode', () => {
+    const api = loadDebug();
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+
+    const commission = {
+      id: 'rwayne-1',
+      content: '普通回复',
+      urls: [],
+      author: { handle: 'igrusia', name: '50返佣', bio: '', location: '' },
+    };
+    const avatarFunnel = {
+      id: 'rwayne-2',
+      content: '普通回复',
+      urls: [],
+      author: { handle: 'RKinnear7273', name: '互联网赚（点头像）', bio: '', location: '' },
+    };
+    const symbolSpam = {
+      id: 'rwayne-3',
+      content: '༺࿌༈💋💦༈࿌༻',
+      urls: [],
+      author: { handle: 'sym', name: 'Normal', bio: '', location: '' },
+    };
+    const normalShort = {
+      id: 'ok-short',
+      content: '确实不错',
+      urls: [],
+      author: { handle: 'ok', name: 'Normal', bio: '', location: '' },
+    };
+    const resourceOk = {
+      id: 'fp-1',
+      content: '分享一份资料',
+      urls: [],
+      author: { handle: 'iBigQiang', name: '大强', bio: '高质量资料和工具整理', location: '' },
+    };
+
+    expect(api._debug.classify(commission).matches.some((m) => m.id === 'spam-name-funnel-high')).toBe(true);
+    expect(api._debug.classify(avatarFunnel).matches.some((m) => m.id === 'spam-name-funnel-high')).toBe(true);
+    expect(api._debug.classify(symbolSpam).matches.some((m) => m.id === 'spam-short-symbol-content-high')).toBe(true);
+    expect(api._debug.classify(normalShort).hide).toBe(false);
+    expect(api._debug.classify(resourceOk).hide).toBe(false);
+  });
+
   it('extracts sample-style X reply fields used by content filtering', () => {
     const api = loadDebug();
     const result = {
@@ -432,6 +482,15 @@ describe('#123 XVM content filter v1', () => {
     expect(detail.root.children[0]).toBe(detail.mainCell);
     expect(detail.root.children[1].id).toBe('xvm-content-filter-summary');
     expect(detail.root.children[2]).toBe(detail.cell);
+  });
+
+  it('uses DOM fallback for reply names when GraphQL fields are missing', () => {
+    const h = contentFilterDomHarness({ domName: '互联网赚（点头像） @RKinnear7273', domContent: 'hello' });
+    const api = loadDebug({ document: h.document, window: { location: { pathname: '/rwayne/status/2059141230542671887' } } });
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+    api._debug.applyHidesNow();
+    expect(h.article.hasAttribute('data-xvm-content-filter-hidden')).toBe(true);
+    expect(h.cell.style.display).toBe('none');
   });
 
   it('ignores summary DOM mutations and debounces external observer work', () => {

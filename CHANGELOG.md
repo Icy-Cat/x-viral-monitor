@@ -5,6 +5,19 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.7.7] - 2026-05-26
+
+### Changed
+
+- Expanded Standard content-filter rules for reply-name funnel patterns such as "返佣", "互联网赚", and "点头像".
+- Added a high-severity short-symbol reply rule for emoji/symbol-only spam while preserving normal short Chinese replies.
+
+### Added
+
+- Added a reply-only DOM fallback classifier for tweet detail pages so visible reply name/content/url can still be filtered when GraphQL author fields are incomplete.
+
+---
+
 ## [1.7.6] - 2026-05-26
 
 ### Changed

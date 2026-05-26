@@ -13,6 +13,8 @@
       "spam-gambling-high",
       "spam-phishing-airdrop-high",
       "spam-name-click-profile-high",
+      "spam-name-funnel-high",
+      "spam-short-symbol-content-high",
       "spam-bio-zhongtui-high",
       "spam-content-zhongtui-high"
     ],
@@ -25,6 +27,8 @@
       "spam-gambling-high",
       "spam-phishing-airdrop-high",
       "spam-name-click-profile-high",
+      "spam-name-funnel-high",
+      "spam-short-symbol-content-high",
       "spam-bio-zhongtui-high",
       "spam-content-zhongtui-high",
       "adult-bio-medium",
@@ -102,6 +106,20 @@
       "type": "regex",
       "field": "name",
       "value": "(点击主页|点主页|看主页|主页看|主页有)",
+      "severity": "high"
+    },
+    {
+      "id": "spam-name-funnel-high",
+      "type": "regex",
+      "field": "name",
+      "value": "(点(我)?(头像|主页)|点击(头像|主页)|看(我)?(头像|主页)|互联网赚|网赚|返佣|费破|免费.{0,4}(破|约)|约见|约P|固炮|同城上门)",
+      "severity": "high"
+    },
+    {
+      "id": "spam-short-symbol-content-high",
+      "type": "short-symbol",
+      "field": "content",
+      "value": "short-symbol-or-emoji",
       "severity": "high"
     },
     {
