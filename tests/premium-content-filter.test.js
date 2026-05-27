@@ -510,6 +510,33 @@ describe('#123 XVM content filter v1', () => {
     }
   });
 
+  it('catches 全网首创线下社交匹配 / 一至五线 / 免费约P offline-match bio family', () => {
+    const api = loadDebug();
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+
+    const positives = [
+      '🏅全网独创线下社交匹配🔥本地免费约P（一至五线）🌍，海外城市同步上新🌪️真实可靠，无 App 安装，专注资源对接👠附近速配',
+      '🏅全网首创线下社交匹配🌈覆盖一至五线本地免费约P🌍',
+      '🏅全网首家线下社交匹配平台🔆覆盖一至五线城市本地免费约P🥹',
+      '🏅首发线下约P社交平台🎀覆盖全国一至五线城市🌿',
+    ];
+    for (const b of positives) {
+      const r = api._debug.classify({ id: 'p', content: '', urls: [], author: { handle: 'a', name: 'N', bio: b, location: '' } });
+      expect(r.hide, `expected HIDE for bio: ${b.slice(0, 40)}`).toBe(true);
+      expect(r.matches.some((m) => m.id === 'adult-bio-offline-match-high')).toBe(true);
+    }
+    // Negatives — generic terms that share a word but aren't spam.
+    const negatives = [
+      '线下社交活动志愿者',
+      '在做线下社交方向的产品',
+      '一三五线城市都跑过',
+    ];
+    for (const b of negatives) {
+      const r = api._debug.classify({ id: 'n', content: '', urls: [], author: { handle: 'a', name: 'N', bio: b, location: '' } });
+      expect(r.hide, `expected PASS for bio: ${b}`).toBe(false);
+    }
+  });
+
   it('catches 🔞 + 性癖 / 盗图死全家 / 全网仅此一号 bio templates', () => {
     const api = loadDebug();
     api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });

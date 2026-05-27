@@ -20,6 +20,7 @@
       "spam-content-zhongtui-high",
       "adult-bio-funnel-platform-high",
       "adult-bio-profile-template-high",
+      "adult-bio-offline-match-high",
       "adult-content-page-funnel-high"
     ],
     "strict": [
@@ -38,6 +39,7 @@
       "spam-content-zhongtui-high",
       "adult-bio-funnel-platform-high",
       "adult-bio-profile-template-high",
+      "adult-bio-offline-match-high",
       "adult-content-page-funnel-high",
       "adult-bio-medium",
       "spam-telegram-domain-medium",
@@ -156,6 +158,13 @@
       "type": "regex",
       "field": "bio",
       "value": "(🔞.{0,40}(性癖|约|联系|私聊|主页|不飞|可飞|加我|🇨🇳)|性癖|盗图死全家|盗图.{0,4}死全家|全网仅此一号|无门无电报|不可飞.{0,8}盗图|这里只有.{0,4}性癖|bbw.{0,8}(bi|tomboy|virgin|sub|dom))",
+      "severity": "high"
+    },
+    {
+      "id": "adult-bio-offline-match-high",
+      "type": "regex",
+      "field": "bio",
+      "value": "(全网[独首]?[创发家].{0,16}(线下|社交|约|匹配)|线下.{0,4}社交.{0,4}匹配|线下.{0,4}约[pP社]|社交.{0,4}匹配.{0,4}平台|一至五线|覆盖.{0,8}一至五线|免费约[pP]|附近.{0,4}速配|资源.{0,4}牵线|靠谱.{0,2}中介|资源.{0,2}对接.{0,4}附近|无.{0,2}App.{0,12}(中介|牵线|约|资源))",
       "severity": "high"
     },
     {
