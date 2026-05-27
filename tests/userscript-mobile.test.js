@@ -16,7 +16,7 @@ describe('iOS mobile userscript build', () => {
     expect(mobileScript).toContain('@version      0.1.15');
     expect(mobileScript).toContain('@match        https://mobile.x.com/*');
     expect(desktopScript).toContain('@name         X Viral Monitor Minimal Badge');
-    expect(desktopScript).toContain('@version      0.1.13');
+    expect(desktopScript).toContain('@version      0.1.14');
     expect(desktopScript).not.toContain('@name         X Viral Monitor Mobile Badge');
   });
 
@@ -54,5 +54,18 @@ describe('iOS mobile userscript build', () => {
     expect(userscriptReadme).toContain('x-viral-monitor.mobile.user.js');
     expect(userscriptReadme).toContain('x-viral-monitor.debug.user.js');
     expect(userscriptReadme).toContain('https://raw.githubusercontent.com/Icy-Cat/x-viral-monitor/main/userscript/x-viral-monitor.mobile.user.js');
+  });
+});
+
+describe('desktop userscript Tampermonkey compatibility', () => {
+  it('uses a CSP-safe Tampermonkey hook path for Firefox page objects', () => {
+    expect(desktopScript).toContain('@sandbox      JavaScript');
+    expect(desktopScript).toContain('function getPageWindow()');
+    expect(desktopScript).toContain('wrappedJSObject');
+    expect(desktopScript).toContain('function exportToPage(fn)');
+    expect(desktopScript).toContain('exportFunction(fn, host)');
+    expect(desktopScript).toContain('function captureGraphqlText(url, text, source)');
+    expect(desktopScript).toContain('response.clone().text()');
+    expect(desktopScript).not.toContain('pageWindow.postMessage({');
   });
 });
