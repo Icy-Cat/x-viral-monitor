@@ -485,6 +485,31 @@ describe('#123 XVM content filter v1', () => {
     expect(normal.hide).toBe(false);
   });
 
+  it('catches 30+ 体制内 / sao的很 / 玩的就是返差 funnel templates', () => {
+    const api = loadDebug();
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+
+    const positives = [
+      '@x 30+的b 体制内老师 sao的很 @y 5 t',
+      '@x 30+的p 体制内老师 玩的就是返差 @y 0 z',
+      '@x sao的很，加 V',
+    ];
+    for (const c of positives) {
+      const r = api._debug.classify({ id: 'p', content: c, urls: [], author: { handle: 'a', name: 'N', bio: '', location: '' } });
+      expect(r.hide, `expected HIDE for ${c}`).toBe(true);
+      expect(r.matches.some((m) => m.id === 'adult-content-page-funnel-high')).toBe(true);
+    }
+    const negatives = [
+      '30+的人都在体制内工作，挺好',
+      '作为体制内老师，我建议大家多看书',
+      '30 岁了还在体制内',
+    ];
+    for (const c of negatives) {
+      const r = api._debug.classify({ id: 'n', content: c, urls: [], author: { handle: 'a', name: 'N', bio: '', location: '' } });
+      expect(r.hide, `expected PASS for ${c}`).toBe(false);
+    }
+  });
+
   it('catches 🔞 + 性癖 / 盗图死全家 / 全网仅此一号 bio templates', () => {
     const api = loadDebug();
     api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
