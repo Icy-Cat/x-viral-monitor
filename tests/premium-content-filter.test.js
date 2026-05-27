@@ -701,8 +701,11 @@ describe('#123 XVM content filter v1', () => {
     expect(classified.matches.some((m) => m.id === 'spam-bio-zhongtui-high')).toBe(true);
   });
 
-  it('rate filter and leaderboard know about the content-filter hide marker', () => {
-    expect(rateFilter).toMatch(/data-xvm-content-filter-hidden/);
+  it('leaderboard still references the content-filter hide marker for its own rendering', () => {
+    // rate-filter now drives hides via a root-attribute CSS toggle and
+    // no longer needs to coordinate with content-filter's inline style.
+    // content.js (leaderboard render) still respects the marker so a
+    // content-filter-hidden tweet isn't counted into the visible list.
     expect(content).toMatch(/data-xvm-content-filter-hidden/);
   });
 

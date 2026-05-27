@@ -111,12 +111,15 @@ describe('#45 M1 step 1 — premium gate scaffold', () => {
       ).toBe(false);
     });
 
-    it('rate-filter revoke/keep only owns its own hide marker', () => {
+    it('rate-filter hide is CSS-driven through its own root flag', () => {
+      // Post-refactor: rate-filter no longer reaches into other XVM
+      // modules' inline styles. CSS hides marked nodes only while the
+      // root flag is set; flipping it off is a single style recalc.
       expect(filter).toMatch(/HIDE_ATTR\s*=\s*['"]data-xvm-rate-hidden['"]/);
-      expect(filter).toMatch(/OTHER_HIDE_ATTRS\s*=\s*\[['"]data-xvm-content-filter-hidden['"]\]/);
-      expect(filter).toMatch(/hasOtherXvmHideMarker/);
-      expect(filter).toMatch(/restoreCellIfNoOtherXvmMarker/);
-      expect(filter).toMatch(/if\s*\(\s*!\s*hasOtherXvmHideMarker\(art\)\s*\)\s*cell\.style\.display\s*=\s*['"]['"]/);
+      expect(filter).toMatch(/FILTER_ROOT_ATTR\s*=\s*['"]data-xvm-rate-filter-on['"]/);
+      expect(filter).toMatch(/setRootFilterActive/);
+      // No more inline cell.style.display writes from rate-filter.
+      expect(filter).not.toMatch(/cell\.style\.display\s*=\s*['"]none['"]/);
     });
 
     it('reset() clears the subscribed flag (for hot-reload + tests)', () => {
@@ -137,8 +140,12 @@ describe('#45 M1 step 1 — premium gate scaffold', () => {
       expect(/scopeEnabled\s*\(\s*d\.scope\s*\)/.test(apply[0]),
         'applyHidesNow() must check scopeEnabled(d.scope) per cached decision'
       ).toBe(true);
-      expect(/revoke\s*\(\s*\)\s*;/.test(apply[0]),
-        'applyHidesNow() must revoke hidden cells when the gate is closed (tier revoke)'
+      // After the CSS-driven hide refactor, applyHidesNow toggles the
+      // root attribute via setRootFilterActive instead of walking every
+      // article for a revoke pass — much smoother when the user flips
+      // a scope off with many tweets already hidden.
+      expect(/setRootFilterActive\s*\(/.test(apply[0]),
+        'applyHidesNow() must toggle the root filter attribute to drive CSS hide/show'
       ).toBe(true);
       expect(/decisions\.clear\s*\(\s*\)/.test(apply[0]),
         'turning OFF must not clear cached decisions; turning ON should be instant'

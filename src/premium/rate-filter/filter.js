@@ -102,7 +102,6 @@
   }
   const counted = new Set();
   const HIDE_ATTR = 'data-xvm-rate-hidden';
-  const OTHER_HIDE_ATTRS = ['data-xvm-content-filter-hidden'];
 
   // Listen for settings pushed from isolated.js (popup wrote
   // chrome.storage.local.xvm_rate_filter_v1 → isolated.js relays).
@@ -241,11 +240,14 @@
   function extractRaw(result) {
     const tweet = result.tweet || result;
     const legacy = tweet?.legacy;
-    if (!legacy) return null;
+    if (!legacy?.id_str) return null;
     const rt = legacy.retweeted_status_result?.result;
     if (rt) return extractRaw(rt);
+    // Tweets whose view counter is disabled / missing used to slip
+    // through the filter entirely (return null). Treat them as 0 views
+    // so the rate threshold catches them — a tweet hiding its view
+    // count is a strong negative signal for a velocity filter.
     const views = parseInt(tweet.views?.count, 10) || 0;
-    if (tweet.views?.state !== 'EnabledWithCount') return null;
     return {
       id: legacy.id_str,
       views,
@@ -286,14 +288,28 @@
   // (Codex dev3 bb-browser repro). The data-attribute marker stays on the
   // article so tracking selectors (e.g. revoke's [data-xvm-rate-hidden])
   // keep working.
+  // Root attribute toggle: a single style invalidation reveals/conceals
+  // every marked article instead of N inline-style writes. The class
+  // marker stays on per-tweet attributes; only the root flag is touched
+  // on user-driven on/off, eliminating the layout thrash we used to get
+  // when revoke() walked dozens of articles synchronously.
+  const FILTER_ROOT_ATTR = 'data-xvm-rate-filter-on';
+  function setRootFilterActive(active) {
+    const html = document.documentElement;
+    if (active) {
+      if (html.getAttribute(FILTER_ROOT_ATTR) !== '1') html.setAttribute(FILTER_ROOT_ATTR, '1');
+    } else if (html.hasAttribute(FILTER_ROOT_ATTR)) {
+      html.removeAttribute(FILTER_ROOT_ATTR);
+    }
+  }
+
   function applyHidesNow() {
-    // Fast paths matching the old smooth behavior:
-    //  1. Pro gate closed → revoke everything we ever hid.
-    //  2. ALL scopes off → revoke everything (matches the user mental
-    //     model of "turn it off → all replies come back instantly"
-    //     without paying the per-decision iteration cost).
-    if (!gateOpen() || !anyScopeEnabled()) {
-      revoke();
+    const active = gateOpen() && anyScopeEnabled();
+    setRootFilterActive(active);
+    if (!active) {
+      // CSS handles the visual revoke instantly via the root flag;
+      // per-cell attributes stay so a future ON re-applies in one
+      // style recalc. No per-article iteration here.
       return;
     }
     const arts = document.querySelectorAll('article[data-testid="tweet"]');
@@ -305,25 +321,25 @@
       if (!d) continue;
       const cell = meta.cell;
       const isMarked = art.hasAttribute(HIDE_ATTR);
-      // Per-decision gating: each tweet remembers which endpoint provided
-      // it, so an interleaved HomeTimeline + ListLatestTweetsTimeline
-      // burst can't flap the gate.
       if (d.scope && !scopeEnabled(d.scope)) {
         if (isMarked) {
           art.removeAttribute(HIDE_ATTR);
-          restoreCellIfNoOtherXvmMarker(art, cell);
+          cell.removeAttribute(HIDE_ATTR);
         }
         continue;
       }
       if (d.hide) {
         if (!isMarked) {
-          cell.style.display = 'none';
           art.setAttribute(HIDE_ATTR, d.reason);
+          // Cell also gets the attribute so the CSS selector targets the
+          // wrapper (which hides both tweet + "show more replies" stub
+          // — see comment on cellForArticle).
+          cell.setAttribute(HIDE_ATTR, d.reason);
           if (!counted.has(tid)) counted.add(tid);
         }
       } else if (isMarked) {
         art.removeAttribute(HIDE_ATTR);
-        restoreCellIfNoOtherXvmMarker(art, cell);
+        cell.removeAttribute(HIDE_ATTR);
       }
     }
   }
@@ -347,22 +363,17 @@
   function articleTweetId(art) { return articleMeta(art).tid; }
   function cellForArticle(art) { return articleMeta(art).cell; }
 
-  function hasOtherXvmHideMarker(art) {
-    return OTHER_HIDE_ATTRS.some((attr) => art.hasAttribute(attr));
-  }
-
-  function restoreCellIfNoOtherXvmMarker(art, cell = cellForArticle(art)) {
-    if (!hasOtherXvmHideMarker(art)) cell.style.display = '';
-  }
-
   // === Tier revoke at runtime ===
   // If user's tier drops mid-session (trial expired / license revoked),
   // un-hide everything we previously hid so they regain Free behavior.
+  // Tier revoke (Pro → Free): the root flag alone hides the CSS effect
+  // instantly, but we also clear individual markers so leftover state
+  // doesn't reappear if the user re-upgrades and any in-flight scan
+  // mis-fires before reclassify catches up.
   function revoke() {
-    document.querySelectorAll(`article[${HIDE_ATTR}]`).forEach((art) => {
-      const cell = cellForArticle(art);
-      art.removeAttribute(HIDE_ATTR);
-      restoreCellIfNoOtherXvmMarker(art, cell);
+    setRootFilterActive(false);
+    document.querySelectorAll(`[${HIDE_ATTR}]`).forEach((node) => {
+      node.removeAttribute(HIDE_ATTR);
     });
   }
 

@@ -31,6 +31,18 @@
 .xvm-badge::before { content: attr(data-prefix); }
 .xvm-badge::after { content: attr(data-velocity) "/h"; }
 
+/* Rate filter hide is driven by ONE root attribute toggle so flipping
+   the leaderboard switch off doesn't iterate-and-mutate every hidden
+   article in JS (which used to layout-thrash and stall the page when
+   N hidden tweets returned). filter.js sets [data-xvm-rate-hidden] on
+   cell + article when classified to hide; flipping
+   data-xvm-rate-filter-on on <html> reveals/conceals them all in a
+   single style recalculation. */
+html[data-xvm-rate-filter-on] article[data-xvm-rate-hidden],
+html[data-xvm-rate-filter-on] [data-testid="cellInnerDiv"][data-xvm-rate-hidden] {
+  display: none !important;
+}
+
 .xvm-badge--green { color: #15803d; background: rgba(22, 163, 74, 0.25); }
 .xvm-badge--orange { color: #c2410c; background: rgba(234, 88, 12, 0.25); }
 .xvm-badge--red { color: #b91c1c; background: rgba(220, 38, 38, 0.25); }
