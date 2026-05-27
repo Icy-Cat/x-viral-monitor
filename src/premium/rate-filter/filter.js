@@ -171,12 +171,15 @@
       window.__xvmNet.onResponse(re, async ({ response, source }) => {
         if (!gateOpen()) return;
         // Always broadcast the active GraphQL scope so the leaderboard's
-        // hot toggle reflects the actual data source — not the URL path,
-        // which is wrong for pinned-list tabs on /home where the URL is
-        // /home but the data comes from ListLatestTweetsTimeline.
+        // hot toggle reflects the actual data source.
         _lastActiveScope = scope;
         window.postMessage({ type: 'XVM_RATE_FILTER_ACTIVE_SCOPE', scope }, '*');
-        if (!scopeEnabled(scope)) return;
+        // Always scan + populate decisions even when the scope is OFF.
+        // Otherwise toggling the scope ON later finds an empty decisions
+        // map (the responses that built the current DOM were discarded)
+        // and applyHidesNow can't hide already-rendered tweets — user
+        // sees toggle flip with no visual effect. Per-decision gating
+        // in applyHidesNow controls the visible hide/show.
         let data;
         try {
           if (source === 'fetch') data = await response.clone().json();

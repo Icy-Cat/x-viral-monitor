@@ -519,8 +519,14 @@ function renderArticleBlock(block, entityMap, mediaLookup = {}) {
       if (ranges.length) {
         try {
           const dump = ranges.map((r) => entityMap[r.key]).filter(Boolean);
-          console.warn('[XVM] article atomic: unsupported entity', JSON.stringify(dump).slice(0, 800));
-        } catch (_) { }
+          // Demoted to debug to avoid console-spamming users on every
+          // article we copy. Re-enable verbose logging in DevTools by
+          // setting `window.__xvmVerboseArticleAtomic = true` before the
+          // copy action.
+          if (window.__xvmVerboseArticleAtomic) {
+            console.debug('[XVM] article atomic: unsupported entity', JSON.stringify(dump).slice(0, 800));
+          }
+        } catch (_) {}
       }
       return '';
     }
@@ -567,6 +573,17 @@ function isVideoMedia(payload) {
 function renderArticleAtomicEntity(entity, mediaLookup = {}) {
   const rawType = String(entity.type || '').toUpperCase();
   const data = entity.data || {};
+
+  // X Article newer block kinds. MARKDOWN entities carry an inline
+  // markdown snippet (e.g. user-pasted code blocks); DIVIDER is a
+  // horizontal rule. Both used to warn-spam the console.
+  if (rawType === 'MARKDOWN') {
+    const md = String(data.markdown ?? data.text ?? data.content ?? '');
+    return md ? md.replace(/\n+$/, '') + '\n' : '';
+  }
+  if (rawType === 'DIVIDER' || rawType === 'HORIZONTAL_RULE' || rawType === 'HR') {
+    return '\n---\n';
+  }
 
   // MEDIA entities with only a mediaId reference — resolve via the
   // article-level lookup built in buildArticleMediaLookup. Multiple
