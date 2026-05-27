@@ -317,10 +317,12 @@ describe('#69/#72 user self-test polish', () => {
     expect(contentJs).not.toMatch(/XVM_LIST_MEMBER_FILTER_SET_ENABLED/);
     expect(contentJs).not.toMatch(/isReadyListMemberFilter/);
     expect(contentJs).not.toMatch(/contentLbListDisabledSub/);
-    expect(contentJs).toMatch(/LEADERBOARD_HIDE_ATTRS\s*=\s*\[['"]data-xvm-rate-hidden['"],\s*['"]data-xvm-content-filter-hidden['"]\]/);
+    // rate-filter marker is a soft hint; only gates the leaderboard
+    // when the root flag is currently set.
+    expect(contentJs).toMatch(/document\.documentElement\.hasAttribute\(['"]data-xvm-rate-filter-on['"]\)/);
+    expect(contentJs).toMatch(/['"]data-xvm-content-filter-hidden['"]/);
     expect(contentJs).toMatch(/function\s+isLeaderboardArticleHidden/);
     expect(contentJs).toMatch(/isLeaderboardArticleHidden\(article\)\)\s*continue/);
-    expect(contentJs).toMatch(/getComputedStyle\(cell\)\.display\s*===\s*['"]none['"]/);
     expect(contentJs).toMatch(/setTimeout\(renderLeaderboard,\s*80\)/);
     expect(contentJs).toMatch(/if\s*\(!top\.length\)\s*\{[\s\S]*?list\.innerHTML\s*=\s*['"]['"][\s\S]*?el\.style\.display\s*=\s*['"]none['"]/);
     expect(contentJs).toMatch(/closest\?\.\(['"]\.xvm-lb-controls, \.xvm-lb-hot, label, button, input, a['"]\)/);

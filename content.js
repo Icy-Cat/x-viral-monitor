@@ -1675,24 +1675,23 @@ function getTweetPermalinkFromArticle(article, tweetId = '') {
   return '';
 }
 
-const LEADERBOARD_HIDE_ATTRS = ['data-xvm-rate-hidden', 'data-xvm-content-filter-hidden'];
-
 function leaderboardCellForArticle(article) {
   return article.closest('[data-testid="cellInnerDiv"]') || article;
 }
 
+// `data-xvm-rate-hidden` is a SOFT marker — it stays on the article
+// even after the user turns the filter OFF, so the next ON can be a
+// single CSS root-flag flip rather than an N-article re-mark pass.
+// Whether the marker is actually hiding right now is gated by
+// html[data-xvm-rate-filter-on]. content-filter still uses an
+// always-active marker so it remains hard.
 function isLeaderboardArticleHidden(article) {
   if (!article) return true;
-  if (LEADERBOARD_HIDE_ATTRS.some((attr) => article.hasAttribute(attr))) return true;
+  if (article.hasAttribute('data-xvm-content-filter-hidden')) return true;
+  const rateFilterOn = document.documentElement.hasAttribute('data-xvm-rate-filter-on');
+  if (rateFilterOn && article.hasAttribute('data-xvm-rate-hidden')) return true;
   const cell = leaderboardCellForArticle(article);
   if (cell?.style?.display === 'none' || article.style?.display === 'none') return true;
-  if (typeof getComputedStyle === 'function') {
-    try {
-      if (getComputedStyle(cell).display === 'none' || getComputedStyle(article).display === 'none') return true;
-    } catch (_) {
-      // Best-effort guard for detached nodes in virtualized timelines.
-    }
-  }
   return false;
 }
 
