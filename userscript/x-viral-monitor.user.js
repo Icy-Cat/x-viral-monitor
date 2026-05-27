@@ -1,11 +1,12 @@
 // ==UserScript==
 // @name         X Viral Monitor Minimal Badge
 // @namespace    https://github.com/x-viral-monitor
-// @version      0.1.13
+// @version      0.1.14
 // @description  Minimal X velocity badges from GraphQL tweet metrics.
 // @match        https://x.com/*
 // @match        https://pro.x.com/*
 // @run-at       document-start
+// @sandbox      JavaScript
 // @grant        unsafeWindow
 // @grant        GM_registerMenuCommand
 // ==/UserScript==
@@ -140,6 +141,30 @@
     return I18N[currentLanguage]?.[key] || I18N.en[key] || key;
   }
 
+  function getScriptHostWindow() {
+    try {
+      if (typeof unsafeWindow === 'object' && unsafeWindow) return unsafeWindow;
+    } catch (_) {}
+    return window;
+  }
+
+  function getPageWindow() {
+    const host = getScriptHostWindow();
+    try {
+      return host.wrappedJSObject || host;
+    } catch (_) {
+      return host;
+    }
+  }
+
+  function exportToPage(fn) {
+    const host = getScriptHostWindow();
+    try {
+      if (typeof exportFunction === 'function') return exportFunction(fn, host);
+    } catch (_) {}
+    return fn;
+  }
+
   const COLUMN_LABELS = {
     rank: 'colRank',
     icon: 'colIcon',
@@ -152,7 +177,7 @@
   const settings = loadSettings();
   velocityThresholds.trending = settings.trending;
   velocityThresholds.viral = Math.max(settings.viral, settings.trending + 1);
-  const debugWindow = typeof unsafeWindow !== 'undefined' ? unsafeWindow : window;
+  const debugWindow = getScriptHostWindow();
 
   const debugState = {
     language: currentLanguage,
@@ -167,10 +192,45 @@
     lastMessageUrl: '',
     lastIgnoredReason: '',
     lastCapturedAt: 0,
+    lastHookError: '',
     getTweets: () => Array.from(tweetDataStore.values()),
   };
   window.__xvmTampermonkey = debugState;
   try { debugWindow.__xvmTampermonkey = debugState; } catch (_) {}
+
+  function captureGraphqlText(url, text, source) {
+    debugState.receivedMessages += 1;
+    debugState.lastMessageUrl = url || '';
+
+    if (!GRAPHQL_RE.test(url || '')) {
+      debugState.ignoredMessages += 1;
+      debugState.lastIgnoredReason = 'non-graphql-url';
+      return;
+    }
+    if (typeof text !== 'string' || !text) {
+      debugState.ignoredMessages += 1;
+      debugState.lastIgnoredReason = 'empty-response-text';
+      return;
+    }
+
+    let payload;
+    try {
+      payload = JSON.parse(text);
+    } catch (_) {
+      debugState.ignoredMessages += 1;
+      debugState.lastIgnoredReason = 'invalid-json';
+      return;
+    }
+
+    debugState.capturedGraphql += 1;
+    const found = scanForTweets(payload);
+    if (found) {
+      debugState.extractedTweets += found;
+      console.debug('[XVM-TM] GraphQL captured', source, 'tweets:', found);
+      scheduleRender();
+    }
+    debugState.lastCapturedAt = Date.now();
+  }
 
   function loadSettings() {
     try {
@@ -662,71 +722,77 @@ article[data-testid="tweet"].xvm-article-linked {
     (document.head || document.documentElement).appendChild(style);
   }
 
-  function installPageHook(targetWindow) {
-    const pageWindow = targetWindow || window;
-    if (pageWindow.__xvmTampermonkeyPageHook) return;
-    pageWindow.__xvmTampermonkeyPageHook = true;
-    const GRAPHQL_RE = /\/i\/api\/graphql\//;
+  function installPageHook() {
+    const pageWindow = getPageWindow();
+    if (!pageWindow) return;
+
+    try {
+      if (pageWindow.__xvmTampermonkeyPageHook) return;
+      pageWindow.__xvmTampermonkeyPageHook = true;
+    } catch (_) {}
 
     function extractUrl(input) {
-      if (pageWindow.Request && input instanceof pageWindow.Request) return input.url;
-      if (pageWindow.URL && input instanceof pageWindow.URL) return input.href;
-      if (input && typeof input.url === 'string') return input.url;
-      if (input && typeof input.href === 'string') return input.href;
-      return typeof input === 'string' ? input : '';
-    }
-
-    function opNameFromUrl(url) {
       try {
-        const path = new pageWindow.URL(url, pageWindow.location.origin).pathname;
-        return decodeURIComponent(path.split('/').filter(Boolean).pop() || '');
-      } catch (_) {
-        return '';
+        if (typeof input === 'string') return input;
+        if (input && typeof input === 'object') {
+          if (typeof input.url === 'string') return input.url;
+          if (typeof input.href === 'string') return input.href;
+        }
       }
-    }
-
-    function postGraphql(url, payload, source) {
-      if (!payload || typeof payload !== 'object') return;
-      pageWindow.postMessage({
-        type: 'XVM_TM_GRAPHQL_RESPONSE',
-        url,
-        opName: opNameFromUrl(url),
-        source,
-        payload,
-        capturedAt: Date.now(),
-      }, '*');
+      catch (_) {}
+      return '';
     }
 
     const originalFetch = pageWindow.fetch;
-    pageWindow.fetch = async function (...args) {
-      const url = extractUrl(args[0]);
-      const response = await originalFetch.apply(this, args);
-      if (url && GRAPHQL_RE.test(url)) {
-        response.clone().json().then((payload) => postGraphql(url, payload, 'fetch')).catch(() => {});
-      }
-      return response;
-    };
+    if (typeof originalFetch === 'function' && !originalFetch.__xvmTmWrapped) {
+      const wrappedFetch = exportToPage(function (...args) {
+        const url = extractUrl(args[0]);
+        const responsePromise = originalFetch.apply(this, args);
 
-    const xhrOpen = pageWindow.XMLHttpRequest.prototype.open;
-    pageWindow.XMLHttpRequest.prototype.open = function (method, url, ...rest) {
-      const urlStr = pageWindow.URL && url instanceof pageWindow.URL ? url.href : (typeof url === 'string' ? url : '');
-      this.__xvmTmUrl = urlStr;
-      if (urlStr && GRAPHQL_RE.test(urlStr)) {
-        this.addEventListener('load', function () {
-          try { postGraphql(urlStr, JSON.parse(this.responseText), 'xhr'); } catch (_) {}
-        });
-      }
-      return xhrOpen.call(this, method, url, ...rest);
-    };
+        if (url && GRAPHQL_RE.test(url)) {
+          Promise.resolve(responsePromise).then((response) => {
+            try {
+              response.clone().text()
+                .then((text) => captureGraphqlText(url, text, 'fetch'))
+                .catch(() => {});
+            } catch (_) {}
+          }).catch(() => {});
+        }
 
-    try { pageWindow.__xvmTampermonkey.hookInstalled = true; } catch (_) {}
+        return responsePromise;
+      });
+      try { wrappedFetch.__xvmTmWrapped = true; } catch (_) {}
+      pageWindow.fetch = wrappedFetch;
+    }
+
+    const xhrProto = pageWindow.XMLHttpRequest?.prototype;
+    if (xhrProto && !xhrProto.__xvmTmPatched) {
+      try { xhrProto.__xvmTmPatched = true; } catch (_) {}
+      const xhrOpen = xhrProto.open;
+      xhrProto.open = exportToPage(function (method, url, ...rest) {
+        const urlStr = extractUrl(url);
+        if (urlStr && GRAPHQL_RE.test(urlStr)) {
+          try {
+            this.addEventListener('load', exportToPage(function () {
+              try {
+                captureGraphqlText(urlStr, this.responseText, 'xhr');
+              } catch (_) {}
+            }));
+          } catch (_) {}
+        }
+        return xhrOpen.call(this, method, url, ...rest);
+      });
+    }
+
+    debugState.hookInstalled = true;
     console.debug('[XVM-TM] page GraphQL hook installed');
   }
 
   function injectPageHook() {
     try {
-      installPageHook(typeof unsafeWindow !== 'undefined' ? unsafeWindow : window);
+      installPageHook();
     } catch (err) {
+      debugState.lastHookError = err?.message || String(err);
       console.debug('[XVM-TM] page GraphQL hook install failed', err);
     }
   }

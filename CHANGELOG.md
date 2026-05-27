@@ -5,6 +5,12 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [Unreleased]
+
+### Fixed
+
+- Hardened the desktop Tampermonkey userscript GraphQL hook for Firefox/X CSP isolation by avoiding inline page injection assumptions, exporting page-context hook functions, and parsing GraphQL response text on the userscript side.
+
 ## [1.7.9] - 2026-05-27
 
 ### Fixed
