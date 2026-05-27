@@ -117,8 +117,8 @@ const DEFAULT_GROK_PROMPT_TEMPLATES = [
   { id: 'tieba-laoge', name: '贴吧老哥', prompt: '[推文内容]\n\n用贴吧老哥的语气为该推文生成10条评论。要求：\n- 每条评论用代码块包裹' },
 ];
 const DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES = [
-  { id: 'article-default', name: '文章评论', prompt: '以下是一篇 X 长文 / Article：\n\n[推文内容]\n\n为这篇长文生成10条评论。要求：每条评论引用文章中具体的观点或论据进行回应（赞同/质疑/补充），避免笼统的"很有启发"这类空话；语气自然像真人；每条评论用代码块包裹。' },
-  { id: 'article-deep', name: '深度回应', prompt: '以下是一篇长文：\n\n[推文内容]\n\n挑选这篇长文中最值得讨论的3-5个核心论点，针对每个论点给出1-2条有信息密度的评论（提出延伸思考、反例、或个人经验），每条评论用代码块包裹。' },
+  { id: 'article-default', name: '文章评论', prompt: '以下是一篇 X 长文 / Article：\n\n[推文内容]\n\n为这篇长文生成10条评论。要求：每条评论引用文章中具体的观点或论据进行回应（赞同/质疑/补充），避免笼统的"很有启发"这类空话；语气自然像真人；每条评论只包含可直接发布的评论正文，用代码块包裹。' },
+  { id: 'article-deep', name: '深度回应', prompt: '以下是一篇长文：\n\n[推文内容]\n\n挑选这篇长文中最值得讨论的3-5个核心论点，针对每个论点给出1-2条有信息密度的评论（提出延伸思考、反例、或个人经验），每条评论只包含可直接发布的评论正文，用代码块包裹。' },
 ];
 // Tweet length threshold separating "short tweet" templates from "long article"
 // templates. X tweets cap at 280 chars by default; longer (long-form posts /
@@ -520,7 +520,7 @@ function renderArticleBlock(block, entityMap, mediaLookup = {}) {
         try {
           const dump = ranges.map((r) => entityMap[r.key]).filter(Boolean);
           console.warn('[XVM] article atomic: unsupported entity', JSON.stringify(dump).slice(0, 800));
-        } catch (_) {}
+        } catch (_) { }
       }
       return '';
     }
@@ -583,7 +583,7 @@ function renderArticleAtomicEntity(entity, mediaLookup = {}) {
 
   // Embedded tweet — render as blockquote with author + link.
   if (rawType === 'TWEET' || rawType === 'EMBEDDED_TWEET' || rawType === 'TWEET_EMBED'
-      || data.tweet_results || data.tweetResults || data.tweet_id || data.tweetId) {
+    || data.tweet_results || data.tweetResults || data.tweet_id || data.tweetId) {
     const info = extractEmbeddedTweetInfo(entity);
     if (info?.url || info?.text) {
       const out = [];
@@ -600,7 +600,7 @@ function renderArticleAtomicEntity(entity, mediaLookup = {}) {
 
   // Image / video / GIF / generic media
   if (rawType === 'IMAGE' || rawType === 'MEDIA' || rawType === 'PHOTO'
-      || rawType === 'VIDEO' || rawType === 'GIF' || rawType === 'ANIMATED_GIF') {
+    || rawType === 'VIDEO' || rawType === 'GIF' || rawType === 'ANIMATED_GIF') {
     const src = extractMediaUrl(entity) || extractMediaUrl(entity.data);
     if (src) {
       if (isVideoMedia(entity) || isVideoMedia(entity.data) || /\.mp4(\?|$)/i.test(src)) {
@@ -612,7 +612,7 @@ function renderArticleAtomicEntity(entity, mediaLookup = {}) {
 
   // YouTube / generic oEmbed.
   if (rawType === 'YOUTUBE' || rawType === 'OEMBED' || rawType === 'EMBED'
-      || rawType === 'LINK_PREVIEW' || rawType === 'CARD') {
+    || rawType === 'LINK_PREVIEW' || rawType === 'CARD') {
     const href = data.url || data.href || data.embed_url || '';
     const label = data.title || data.name || rawType.toLowerCase();
     if (href) return `[🔗 ${label}](${href})\n`;
@@ -1522,7 +1522,7 @@ const LB_COLUMN_RENDERERS = {
   icon: (t) => {
     const tier = t.velocity >= velocityThresholds.viral ? 'red'
       : t.velocity >= velocityThresholds.trending ? 'orange'
-      : 'green';
+        : 'green';
     const icon = tier === 'red' ? '\u{1F525}' : tier === 'orange' ? '\u{1F680}' : '\u{1F331}';
     return `<span class="xvm-lb-icon">${icon}</span>`;
   },
@@ -1718,7 +1718,7 @@ function renderLeaderboard() {
     list.innerHTML = top.map((t, i) => {
       const tier = t.velocity >= velocityThresholds.viral ? 'red'
         : t.velocity >= velocityThresholds.trending ? 'orange'
-        : 'green';
+          : 'green';
       const cells = visibleCols.map((c) => LB_COLUMN_RENDERERS[c.id](t, i)).join('');
       return `<li class="xvm-lb-item xvm-lb-${tier}" data-id="${t.id}">${cells}</li>`;
     }).join('');
@@ -1952,7 +1952,7 @@ const observer = new MutationObserver((mutations) => {
       for (const node of mutation.removedNodes) {
         if (node.nodeType !== 1) continue;
         if (node.classList?.contains?.('xvm-grok-generate-btn')
-            || node.querySelector?.('.xvm-grok-generate-btn')) {
+          || node.querySelector?.('.xvm-grok-generate-btn')) {
           touchedComposer = true;
           break;
         }
@@ -2260,7 +2260,13 @@ function waitForGrokCapture() {
   setTimeout(() => window.removeEventListener('message', handler), 15000);
 }
 
-function isArticleLengthText(text) {
+function isArticleLengthText(text, article = null) {
+  if (article) {
+    const statusId = getStatusIdFromLocation();
+    const tweetId = getTweetIdFromArticle(article) || statusId;
+    const cached = tweetId ? tweetDataStore.get(tweetId) : null;
+    if (cached?.articleMd) return true;
+  }
   return typeof text === 'string' && text.length >= ARTICLE_LENGTH_THRESHOLD;
 }
 
@@ -2274,24 +2280,26 @@ function getGrokTemplatesForKind(kind) {
 function getSelectedGrokPromptTemplate(kind = 'tweet') {
   if (kind === 'article') {
     return grokArticlePromptTemplates.find((t) => t.id === grokSelectedArticleTemplateId)
-        || grokArticlePromptTemplates[0]
-        || DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES[0];
+      || grokArticlePromptTemplates[0]
+      || DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES[0];
   }
   return grokPromptTemplates.find((t) => t.id === grokSelectedTemplateId)
-      || grokPromptTemplates[0]
-      || DEFAULT_GROK_PROMPT_TEMPLATES[0];
+    || grokPromptTemplates[0]
+    || DEFAULT_GROK_PROMPT_TEMPLATES[0];
 }
 
 function getTweetTextFromArticle(article) {
   const statusId = getStatusIdFromLocation();
-  const statusCached = statusId ? tweetDataStore.get(statusId) : null;
-  if (statusCached?.text) return statusCached.text.trim();
-  if (statusCached?.articleMd) return statusCached.articleMd.trim();
+  const tweetId = article ? (getTweetIdFromArticle(article) || statusId) : statusId;
+  const cached = tweetId ? tweetDataStore.get(tweetId) : null;
+  if (cached?.articleMd) {
+    const url = article ? getTweetPermalinkFromArticle(article, tweetId) : '';
+    return (url || cached.articleMd).trim();
+  }
 
   if (!article) return '';
-  const tweetId = getTweetIdFromArticle(article) || statusId;
-  const cached = tweetId ? tweetDataStore.get(tweetId) : null;
-  let text = cached?.text || cached?.articleMd || '';
+
+  let text = cached?.text || '';
   if (!text) {
     text = Array.from(article.querySelectorAll('[data-testid="tweetText"], div[lang]'))
       .map((el) => (el.textContent || '').trim())
@@ -2706,7 +2714,13 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   const tweetText = (ogText && ogText !== replyText)
     ? `【原推文】\n${ogText}\n\n【对该推文的回复】\n${replyText}`
     : replyText;
-  const kind = isArticleLengthText(tweetText) ? 'article' : 'tweet';
+  const kind = (
+    isArticleLengthText(replyText, article)
+    || (ogArticle && isArticleLengthText(ogText, ogArticle))
+    || isArticleLengthText(tweetText)
+  )
+    ? 'article'
+    : 'tweet';
 
   btn.disabled = true;
   setGrokButtonLabel(btn, '生成中', true);
@@ -2772,7 +2786,7 @@ function injectGrokReplyButtons(root = document) {
       // different threads via SPA navigation.
       const refArticle = findReplyArticle(findReplyComposerRoot(editable));
       const refText = getTweetTextFromArticle(refArticle) || '';
-      const kind = isArticleLengthText(refText) ? 'article' : 'tweet';
+      const kind = isArticleLengthText(refText, refArticle) ? 'article' : 'tweet';
       const list = getGrokTemplatesForKind(kind);
       if (list.length > 1) {
         showGrokTemplateMenu(btn, editable, kind);
