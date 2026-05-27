@@ -68,9 +68,12 @@
     SETTINGS = merged;
     // Preserve d.scope across re-classify — otherwise per-decision gating
     // in applyHidesNow can't tell which scope a decision belongs to and
-    // the un-hide path for "toggle this scope off" never runs.
+    // the un-hide path for "toggle this scope off" never runs. Materialize
+    // a fallback to defend against any legacy entry missing scope.
     for (const [id, d] of decisions) {
-      if (d.raw) decisions.set(id, { ...classify(d.raw), raw: d.raw, scope: d.scope });
+      if (!d.raw) continue;
+      const resolved = d.scope || _lastActiveScope || scopeFromPath() || 'home';
+      decisions.set(id, { ...classify(d.raw), raw: d.raw, scope: resolved });
     }
     applyHidesNow();
   }
@@ -83,8 +86,20 @@
   }
 
   // === State ===
-  // tweetId -> { hide, isLong, reason, raw }
+  // tweetId -> { hide, isLong, reason, raw, scope }
+  // Map preserves insertion order; we use that for LRU eviction so long
+  // sessions on /home (TweetDetail fires per reply expansion) don't
+  // accumulate unbounded entries.
+  const DECISIONS_MAX = 5000;
   const decisions = new Map();
+  function rememberDecision(id, value) {
+    if (decisions.has(id)) decisions.delete(id);
+    decisions.set(id, value);
+    if (decisions.size > DECISIONS_MAX) {
+      const oldest = decisions.keys().next().value;
+      if (oldest !== undefined) decisions.delete(oldest);
+    }
+  }
   const counted = new Set();
   const HIDE_ATTR = 'data-xvm-rate-hidden';
   const OTHER_HIDE_ATTRS = ['data-xvm-content-filter-hidden'];
@@ -201,7 +216,12 @@
     if (obj.tweet_results?.result) {
       const raw = extractRaw(obj.tweet_results.result);
       if (raw && raw.id) {
-        decisions.set(raw.id, { ...classify(raw), raw, scope });
+        // Always materialize a non-undefined scope so the per-decision
+        // gate in applyHidesNow can't fall through to "no gate". Fall
+        // back chain handles edge cases where a legacy decision is
+        // re-scanned without an explicit caller-provided scope.
+        const resolved = scope || _lastActiveScope || scopeFromPath() || 'home';
+        rememberDecision(raw.id, { ...classify(raw), raw, scope: resolved });
       }
     }
     if (Array.isArray(obj)) {

@@ -1142,10 +1142,14 @@ const HOME_SUB_TAB_LABELS = new Set([
   '为你推荐', '正在关注', '订阅',
   'おすすめ', 'フォロー中', '購読中',
 ]);
-function detectScopeFromActiveTab() {
-  // Only meaningful when the page IS one that uses a tablist for scope
-  // switching (currently /home, where For you / Following / pinned lists
-  // share the URL). On other pages the URL is authoritative.
+// /home is the only page where a tablist drives scope choice today
+// (For you / Following / Subscribed / pinned-list tabs all share the
+// same URL). On other pages — list detail, profile, tweet detail —
+// the URL is authoritative. Keep the function name and early return
+// matched so future readers don't generalize this for other tablists
+// (list detail page also has Tweets / Replies / Media tabs that have
+// nothing to do with rate-filter scope).
+function detectHomeSubTabScope() {
   if (window.location.pathname !== '/home') return null;
   const tab = document.querySelector('[role="tablist"] [role="tab"][aria-selected="true"]');
   if (!tab) return null;
@@ -1156,7 +1160,7 @@ function detectScopeFromActiveTab() {
   return 'list';
 }
 function syncTabSelectedScope() {
-  const next = detectScopeFromActiveTab();
+  const next = detectHomeSubTabScope();
   if (next !== _tabSelectedScope) {
     _tabSelectedScope = next;
     setLeaderboardHotSwitchState();
@@ -1193,6 +1197,39 @@ function setLeaderboardHotSwitchState() {
 // the user's actual selected tab — not the URL (which is /home for
 // pinned-list tabs too) and not the most recent GraphQL response (which
 // may not fire when X serves a cached tab from memory).
+let _tabMo = null;
+let _tabObserved = null;
+let _bodyMo = null;
+function disconnectTabMo() {
+  if (_tabMo) { try { _tabMo.disconnect(); } catch (_) {} _tabMo = null; }
+  _tabObserved = null;
+}
+function attachTabObserver() {
+  const tl = document.querySelector('[role="tablist"]');
+  if (!tl) return false;
+  if (tl === _tabObserved) return true;
+  // Tablist re-mounted (SPA navigation) — drop the orphaned observer on
+  // the detached node so we don't leak one per navigation.
+  disconnectTabMo();
+  _tabObserved = tl;
+  _tabMo = new MutationObserver(syncTabSelectedScope);
+  _tabMo.observe(tl, { attributes: true, subtree: true, attributeFilter: ['aria-selected'] });
+  syncTabSelectedScope();
+  return true;
+}
+function armBodyTablistWatch() {
+  // Cheap one-shot: watch body until the tablist appears, then disconnect
+  // so we're not paying for every X mutation on the busy timeline.
+  if (_bodyMo) return;
+  if (!document.body) return;
+  _bodyMo = new MutationObserver(() => {
+    if (attachTabObserver()) {
+      try { _bodyMo.disconnect(); } catch (_) {}
+      _bodyMo = null;
+    }
+  });
+  _bodyMo.observe(document.body, { childList: true, subtree: true });
+}
 function installTabSelectedObserver() {
   // Click delegation: when the user clicks any role=tab, re-detect after
   // X swaps aria-selected. The setTimeout lets X's handler run first.
@@ -1202,26 +1239,7 @@ function installTabSelectedObserver() {
     setTimeout(syncTabSelectedScope, 50);
     setTimeout(syncTabSelectedScope, 250);
   }, true);
-
-  // Mutation observer: catches programmatic tab switches and the case
-  // where the tablist mounts after content.js runs. Idempotent — once
-  // we find the tablist we only observe it once.
-  let observed = null;
-  function attach() {
-    const tl = document.querySelector('[role="tablist"]');
-    if (!tl || tl === observed) return;
-    observed = tl;
-    const mo = new MutationObserver(syncTabSelectedScope);
-    mo.observe(tl, { attributes: true, subtree: true, attributeFilter: ['aria-selected'] });
-    syncTabSelectedScope();
-  }
-  attach();
-  // Watch document body for tablist appearing later.
-  if (!attach.__bodyMo) {
-    const bodyMo = new MutationObserver(() => attach());
-    if (document.body) bodyMo.observe(document.body, { childList: true, subtree: true });
-    attach.__bodyMo = bodyMo;
-  }
+  if (!attachTabObserver()) armBodyTablistWatch();
 }
 
 function installLeaderboardFilterStateSync() {
@@ -1258,8 +1276,13 @@ function installLeaderboardFilterStateSync() {
     // previous page's scope key.
     _activeScope = null;
     _tabSelectedScope = null;
+    // Drop the previous page's tablist observer; the new page may mount
+    // a different one (or none at all).
+    disconnectTabMo();
     setLeaderboardHotSwitchState();
-    // The new page may have its own tablist; re-detect ASAP.
+    // The new page may have its own tablist; try immediately, then arm
+    // a body-watcher in case it mounts a moment later.
+    if (!attachTabObserver()) armBodyTablistWatch();
     setTimeout(syncTabSelectedScope, 100);
     setTimeout(syncTabSelectedScope, 500);
   };
