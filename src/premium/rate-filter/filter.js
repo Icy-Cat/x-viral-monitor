@@ -296,11 +296,39 @@
   const FILTER_ROOT_ATTR = 'data-xvm-rate-filter-on';
   function setRootFilterActive(active) {
     const html = document.documentElement;
+    const prev = html.hasAttribute(FILTER_ROOT_ATTR);
     if (active) {
-      if (html.getAttribute(FILTER_ROOT_ATTR) !== '1') html.setAttribute(FILTER_ROOT_ATTR, '1');
-    } else if (html.hasAttribute(FILTER_ROOT_ATTR)) {
+      if (!prev) html.setAttribute(FILTER_ROOT_ATTR, '1');
+    } else if (prev) {
       html.removeAttribute(FILTER_ROOT_ATTR);
     }
+    // If we just changed visibility for a batch of cells, kick X's
+    // virtualizer to re-measure them immediately. Without this, X's
+    // ResizeObserver / scroll handler runs a frame or two later and the
+    // user sees cells briefly piled on the same translateY before the
+    // virtualizer redistributes them. Dispatching a synthetic scroll +
+    // bumping scrollTop by one pixel and back forces X to recompute
+    // per-cell translateY in the same frame the CSS reveal happens in.
+    if (prev !== active) nudgeXVirtualizer();
+  }
+  let _nudgeScheduled = false;
+  function nudgeXVirtualizer() {
+    if (_nudgeScheduled) return;
+    _nudgeScheduled = true;
+    const run = () => {
+      _nudgeScheduled = false;
+      try {
+        const scroller = document.scrollingElement || document.documentElement;
+        if (scroller) {
+          const y = scroller.scrollTop;
+          scroller.scrollTop = y + 1;
+          scroller.scrollTop = y;
+        }
+        window.dispatchEvent(new Event('scroll'));
+      } catch (_) {}
+    };
+    if (typeof requestAnimationFrame === 'function') requestAnimationFrame(run);
+    else setTimeout(run, 0);
   }
 
   function applyHidesNow() {
