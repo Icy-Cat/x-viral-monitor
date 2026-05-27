@@ -5,6 +5,14 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.7.9] - 2026-05-27
+
+### Fixed
+
+- Moved the content-filter summary banner to sit immediately after the main tweet cell, before any X separator cells.
+
+---
+
 ## [1.7.8] - 2026-05-26
 
 ### Fixed

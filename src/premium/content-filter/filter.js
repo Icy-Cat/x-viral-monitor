@@ -525,10 +525,13 @@
     const items = articleCells();
     const mainIdx = mainArticleIndex(items);
     if (mainIdx < 0) return null;
-    const mainId = getTweetIdFromArticle(items[mainIdx].art);
-    const reply = items.find((item, idx) => idx > mainIdx && getTweetIdFromArticle(item.art) !== mainId);
-    const before = reply?.cell || items[mainIdx + 1]?.cell || null;
-    return before?.parentElement ? { container: before.parentElement, before } : null;
+    const mainCell = items[mainIdx].cell;
+    const container = mainCell?.parentElement;
+    if (!container) return null;
+    const siblings = Array.from(container.children || []);
+    const siblingIdx = siblings.indexOf(mainCell);
+    const before = mainCell.nextSibling || (siblingIdx >= 0 ? siblings[siblingIdx + 1] : null) || null;
+    return { container, before };
   }
 
   function updateSummary() {

@@ -504,6 +504,24 @@ describe('#123 XVM content filter v1', () => {
     expect(detail.root.children[2]).toBe(detail.cell);
   });
 
+  it('anchors the summary immediately after the main tweet cell before separators', () => {
+    const detail = contentFilterDomHarness();
+    const separator = attrNode('separator');
+    separator.parentElement = detail.root;
+    detail.root.children = [detail.mainCell, separator, detail.cell];
+    detail.root.firstChild = detail.mainCell;
+
+    const detailApi = loadDebug({ document: detail.document, window: { location: { pathname: '/rwayne/status/2059141230542671887' } } });
+    detailApi.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+    detailApi._debug.scanForTweets({ tweet_results: { result: detail.tweet } });
+    detailApi._debug.applyHidesNow();
+
+    expect(detail.root.children[0]).toBe(detail.mainCell);
+    expect(detail.root.children[1].id).toBe('xvm-content-filter-summary');
+    expect(detail.root.children[2]).toBe(separator);
+    expect(detail.root.children[3]).toBe(detail.cell);
+  });
+
   it('uses DOM fallback for reply names when GraphQL fields are missing', () => {
     const h = contentFilterDomHarness({ domName: '互联网赚（点头像） @RKinnear7273', domContent: 'hello' });
     const api = loadDebug({ document: h.document, window: { location: { pathname: '/rwayne/status/2059141230542671887' } } });
