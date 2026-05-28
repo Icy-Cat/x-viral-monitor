@@ -29,6 +29,25 @@
 
 ---
 
+## 开源与官方版本
+
+本仓库包含 X Viral Monitor 的完整源码，包括 Pro 功能闸门和 license 逻辑。源码按 MIT 协议开放，你可以自行审计、修改和构建。
+
+Chrome Web Store 版本是**官方发行版**：提供一键安装、自动更新、license 激活和维护支持。自行从 GitHub 构建或通过开发者模式加载的版本属于 community/self-built build，按 MIT 协议以 "as-is" 方式提供，不包含 Chrome Web Store 自动更新和官方支持承诺。
+
+### 免费 / Pro 功能边界
+
+| 免费功能 | Pro / 试用解锁 |
+|---|---|
+| 流速徽章、流速排行榜、书签数显示 | 流速过滤：按 views/min 和总浏览量隐藏低流速推文 |
+| 图片查看增强、长图阅读 | 短推文 / 长文独立阈值 |
+| 内容过滤、远程规则更新、自定义规则 | Home / Lists / Profile / Tweet detail 分范围启用 |
+| AI 评论候选、Markdown 复制、感谢星图 | 后续高级监控、通知和自动化能力 |
+
+Pro license 只用于解锁官方版本里的高级体验。客户端代码本身不是 DRM 边界；真正的付费价值来自官方构建、自动更新、license 服务、支持和持续维护。
+
+---
+
 ## 流速分级
 
 | 图标 | 颜色 | 流速 | 含义 |
@@ -203,4 +222,4 @@ npm run sync:rules  # 只同步 rules.json → rules.js
 
 ## 许可证
 
-MIT
+MIT. See [LICENSE](LICENSE).

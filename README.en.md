@@ -21,6 +21,23 @@ Chrome extension that displays real-time impression velocity on every tweet in y
 - Supports English, Chinese, and Japanese
 - **Standalone userscript** — don't want the full extension? A lightweight Tampermonkey script is available in `userscript/` with badges + leaderboard + settings panel
 
+## Open Source and Official Builds
+
+This repository contains the full X Viral Monitor source code, including the Pro feature gates and license logic. The code is released under the MIT license, so you can audit, modify, and build it yourself.
+
+The Chrome Web Store version is the **official build**. It provides one-click installation, automatic updates, license activation, and maintainer support. Builds loaded manually from GitHub are community/self-built versions provided "as-is" under the MIT license; they do not include Chrome Web Store automatic updates or an official support commitment.
+
+### Free vs Pro
+
+| Free features | Pro / trial unlocks |
+|---|---|
+| Velocity badges, velocity leaderboard, bookmark count display | Velocity filter: hide low-velocity tweets by views/min and total views |
+| Image viewer enhancements and long-image reading | Separate thresholds for short tweets and long-form articles |
+| Content filtering, remote rule updates, custom rules | Scope controls for Home, Lists, Profiles, and Tweet detail pages |
+| AI reply drafts, copy as Markdown, Thank-You Star Chart | Future advanced monitoring, notification, and automation features |
+
+The Pro license unlocks premium behavior in the official build. The client code is not treated as a DRM boundary; the paid value is the official build, automatic updates, license service, support, and ongoing maintenance.
+
 ### Velocity Tiers
 
 | Icon | Color | Velocity | Meaning |
@@ -112,4 +129,4 @@ orbital field math, side-panel layout, and color palette ported from that projec
 
 ## License
 
-MIT
+MIT. See [LICENSE](LICENSE).

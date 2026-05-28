@@ -7,9 +7,23 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ## [Unreleased]
 
+---
+
+## [1.7.10] - 2026-05-28
+
 ### Fixed
 
 - Hardened the desktop Tampermonkey userscript GraphQL hook for Firefox/X CSP isolation by avoiding inline page injection assumptions, exporting page-context hook functions, and parsing GraphQL response text on the userscript side.
+- Fixed the velocity badge hover tooltip so it dismisses on focus loss, scroll, outside click, Escape, or leaving the tooltip.
+- Fixed Grok article reply generation so long-form X Articles use article-aware prompt selection and directly publishable reply text.
+
+### Documentation
+
+- Documented the open-source repository vs official Chrome Web Store build model, including the Free / Pro feature boundary.
+
+### Internal
+
+- Ignored local content-filter sample reports generated during debugging.
 
 ## [1.7.9] - 2026-05-27
 
