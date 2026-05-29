@@ -84,9 +84,9 @@
     }
     .app-logo {
       width: 28px; height: 28px; border-radius: 8px;
-      background: linear-gradient(135deg, var(--accent), #0e7490);
-      color: #0b1120; font-weight: 800; font-size: 14px;
-      display: grid; place-items: center;
+      display: block;
+      object-fit: cover;
+      box-shadow: 0 1px 0 rgba(255,255,255,.14) inset, 0 6px 14px rgba(0,0,0,.18);
     }
     .app-title { flex: 1; }
     .app-title .name { display: block; font-size: 13px; font-weight: 700; color: var(--text); }
@@ -111,7 +111,17 @@
       display: inline-flex; align-items: center; justify-content: center;
       cursor: pointer;
     }
+    .language-toggle {
+      width: 28px; height: 28px; padding: 0;
+      border-radius: 999px; border: 1px solid var(--border-hi);
+      background: var(--surface); color: var(--text-2);
+      display: inline-flex; align-items: center; justify-content: center;
+      cursor: pointer;
+      font-size: 10px; font-weight: 800;
+      letter-spacing: 0;
+    }
     .theme-toggle:hover { color: var(--text); border-color: var(--accent); }
+    .language-toggle:hover { color: var(--text); border-color: var(--accent); }
     .theme-toggle svg { width: 14px; height: 14px; }
     /* Theme toggle shows the icon matching the USER PREFERENCE
        (light/dark/system), not the resolved theme — so when the
@@ -126,6 +136,8 @@
     body:not([data-theme-pref]) .theme-toggle .ico-moon { display: none; }
     body:not([data-theme-pref])[data-theme="light"] .theme-toggle .ico-sun  { display: inline; }
     body:not([data-theme-pref])[data-theme="dark"]  .theme-toggle .ico-moon { display: inline; }
+
+    .language-toggle .language-toggle-text { transform: translateY(.2px); }
 
     /* === Main tab bar === */
     .tabbar {
@@ -615,12 +627,15 @@
 
     <!-- ============ Compact header ============ -->
     <header class="app-header">
-      <div class="app-logo">X</div>
+      <img class="app-logo" src="icons/icon_origin.svg" alt="X Viral Monitor">
       <div class="app-title">
         <span class="name">X-Viral-Monitor</span>
         <span class="sub" data-i18n="popupSubtitle">Real-time impression velocity on X tweets</span>
       </div>
       <span id="tier-chip">FREE</span>
+      <button type="button" id="language-toggle" class="language-toggle" aria-label="Language" title="Language">
+        <span class="language-toggle-text">A</span>
+      </button>
       <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle theme" title="Toggle theme">
         <svg class="ico-sun"><use href="#icon-sun"/></svg>
         <svg class="ico-moon"><use href="#icon-moon"/></svg>

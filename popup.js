@@ -6,6 +6,12 @@ const LANGUAGE_LABELS = {
   en: 'English',
   ja: '日本語',
 };
+const LANGUAGE_TOGGLE_TEXT = {
+  auto: 'A',
+  zh_CN: '中',
+  en: 'EN',
+  ja: '日',
+};
 
 function normalizeLanguage(raw) {
   return SUPPORTED_LANGUAGE_IDS.includes(raw) ? raw : 'auto';
@@ -347,6 +353,7 @@ const bookmarkCountToggle = document.getElementById('feat-bookmark-count');
 const leaderboardCountInput = document.getElementById('lb-count');
 const badgeStyleSelect = document.getElementById('badge-style');
 const languageSelect = document.getElementById('language-select');
+const languageToggle = document.getElementById('language-toggle');
 const colListEl = document.getElementById('lb-col-list');
 const grokTemplateSelect = document.getElementById('grok-template-select');
 const grokTemplateNameInput = document.getElementById('grok-template-name');
@@ -376,6 +383,53 @@ setCustomSelectOptions(languageSelect, [
   { value: 'en', label: tr('languageEn') || LANGUAGE_LABELS.en },
   { value: 'ja', label: tr('languageJa') || LANGUAGE_LABELS.ja },
 ], initialLanguagePref);
+
+function getLanguageDisplayName(language) {
+  const normalized = normalizeLanguage(language);
+  const key = normalized === 'auto' ? 'languageAuto'
+    : normalized === 'zh_CN' ? 'languageZh'
+    : normalized === 'ja' ? 'languageJa'
+    : 'languageEn';
+  return tr(key) || LANGUAGE_LABELS[normalized] || LANGUAGE_LABELS.auto;
+}
+
+function updateLanguageToggle(language) {
+  if (!languageToggle) return;
+  const normalized = normalizeLanguage(language);
+  const label = getLanguageDisplayName(normalized);
+  languageToggle.querySelector('.language-toggle-text').textContent = LANGUAGE_TOGGLE_TEXT[normalized] || LANGUAGE_TOGGLE_TEXT.auto;
+  languageToggle.title = `${tr('languageLabel')}: ${label}`;
+  languageToggle.setAttribute('aria-label', `${tr('languageLabel')}: ${label}`);
+}
+
+function buildLanguageStoragePatch(language) {
+  const normalized = normalizeLanguage(language);
+  const effective = getEffectiveLanguageId(normalized);
+  const next = { language: normalized };
+  if (isUnmodifiedBundledGrokTemplateSet(grokTemplatesState, 'promptTemplates')) {
+    const defs = getLocalizedGrokDefaults(effective);
+    next.grokCommentPrompt = defs.grokCommentPrompt;
+    next.grokPromptTemplates = defs.grokPromptTemplates;
+    next.grokSelectedPromptId = defs.grokSelectedPromptId;
+  }
+  if (isUnmodifiedBundledGrokTemplateSet(grokArticleTemplatesState, 'articlePromptTemplates')) {
+    const defs = getLocalizedGrokDefaults(effective);
+    next.grokArticlePromptTemplates = defs.grokArticlePromptTemplates;
+    next.grokSelectedArticlePromptId = defs.grokSelectedArticlePromptId;
+  }
+  return next;
+}
+
+function applyLanguageChange(language) {
+  const normalized = normalizeLanguage(language);
+  updateLanguageToggle(normalized);
+  setCustomSelectValue(languageSelect, normalized);
+  try { localStorage.setItem(LANGUAGE_KEY, normalized); } catch (_) {}
+  chrome.storage.sync.set(buildLanguageStoragePatch(normalized), () => {
+    location.reload();
+  });
+}
+updateLanguageToggle(initialLanguagePref);
 
 let columnsState = normalizeColumns(null);
 let grokTemplatesState = DEFAULT_FEATURES.grokPromptTemplates.map((tpl) => ({ ...tpl }));
@@ -456,6 +510,7 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
     return;
   }
   setCustomSelectValue(languageSelect, storedLanguage);
+  updateLanguageToggle(storedLanguage);
   grokTemplatesState = normalizeGrokTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
   grokSelectedTemplateId = items.grokSelectedPromptId || grokTemplatesState[0]?.id || 'default';
   if (!grokTemplatesState.some((tpl) => tpl.id === grokSelectedTemplateId)) {
@@ -731,24 +786,14 @@ badgeStyleSelect.addEventListener('change', () => {
 });
 
 languageSelect?.addEventListener('change', () => {
-  const language = normalizeLanguage(languageSelect.value);
-  const effective = getEffectiveLanguageId(language);
-  const next = { language };
-  if (isUnmodifiedBundledGrokTemplateSet(grokTemplatesState, 'promptTemplates')) {
-    const defs = getLocalizedGrokDefaults(effective);
-    next.grokCommentPrompt = defs.grokCommentPrompt;
-    next.grokPromptTemplates = defs.grokPromptTemplates;
-    next.grokSelectedPromptId = defs.grokSelectedPromptId;
-  }
-  if (isUnmodifiedBundledGrokTemplateSet(grokArticleTemplatesState, 'articlePromptTemplates')) {
-    const defs = getLocalizedGrokDefaults(effective);
-    next.grokArticlePromptTemplates = defs.grokArticlePromptTemplates;
-    next.grokSelectedArticlePromptId = defs.grokSelectedArticlePromptId;
-  }
-  try { localStorage.setItem(LANGUAGE_KEY, language); } catch (_) {}
-  chrome.storage.sync.set(next, () => {
-    location.reload();
-  });
+  applyLanguageChange(languageSelect.value);
+});
+
+languageToggle?.addEventListener('click', () => {
+  const current = normalizeLanguage(languageSelect?.value || initialLanguagePref);
+  const idx = SUPPORTED_LANGUAGE_IDS.indexOf(current);
+  const next = SUPPORTED_LANGUAGE_IDS[(Math.max(idx, 0) + 1) % SUPPORTED_LANGUAGE_IDS.length];
+  applyLanguageChange(next);
 });
 
 form.addEventListener('submit', (e) => {

@@ -48,8 +48,10 @@ describe('#45 popup tabs structure (mock A)', () => {
     }
   });
 
-  it('header includes tier chip + theme toggle button', () => {
+  it('header includes the SVG app icon, tier chip, language button, and theme toggle button', () => {
+    expect(/<img class="app-logo" src="icons\/icon_origin\.svg" alt="X Viral Monitor">/.test(html)).toBe(true);
     expect(/id="tier-chip"/.test(html)).toBe(true);
+    expect(/id="language-toggle"/.test(html)).toBe(true);
     expect(/id="theme-toggle"/.test(html)).toBe(true);
     expect(/<symbol id="icon-sun"/.test(html)).toBe(true);
     expect(/<symbol id="icon-moon"/.test(html)).toBe(true);
@@ -94,7 +96,8 @@ describe('#45 popup tabs structure (mock A)', () => {
                       'lb-reset-pos', 'lb-reset-msg',
                       'grok-template-select', 'grok-prompt', 'grok-prompt-save',
                       'grok-article-template-select', 'grok-article-prompt',
-                      'language-select', 'rate-filter-section', 'xvm-pro-section']) {
+                      'language-select', 'language-toggle',
+                      'rate-filter-section', 'xvm-pro-section']) {
       expect(new RegExp(`id="${id}"`).test(html), `popup.html must keep id="${id}"`).toBe(true);
     }
   });
@@ -273,6 +276,8 @@ describe('#45 i18n keys (mock A + dual theme)', () => {
   });
 
   it('keeps custom Grok prompt edits when switching languages', () => {
+    expect(/function\s+applyLanguageChange/.test(popupJs)).toBe(true);
+    expect(/languageToggle\?\.addEventListener\(['"]click['"]/.test(popupJs)).toBe(true);
     expect(/function\s+isUnmodifiedBundledGrokTemplateSet/.test(popupJs)).toBe(true);
     expect(/isUnmodifiedBundledGrokTemplateSet\(grokTemplatesState,\s*['"]promptTemplates['"]\)/.test(popupJs)).toBe(true);
     expect(/isUnmodifiedBundledGrokTemplateSet\(grokArticleTemplatesState,\s*['"]articlePromptTemplates['"]\)/.test(popupJs)).toBe(true);
