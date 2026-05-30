@@ -56,6 +56,12 @@
   "featureLeaderboardDesc": {
     "message": "可拖拽的浮动面板，显示当前页面里增长最快的推文。点击某一行可滚动到对应推文。"
   },
+  "featureLeaderboardEdgeHideTitle": {
+    "message": "贴边隐藏"
+  },
+  "featureLeaderboardEdgeHideDesc": {
+    "message": "开启后，将流速榜拖到屏幕边缘并松开即可收起。"
+  },
   "featureLeaderboardShowTop": {
     "message": "显示前"
   },
@@ -116,6 +122,12 @@
   "contentLeaderboardBackToPrevious": {
     "message": "返回之前的滚动位置"
   },
+  "contentLeaderboardEdgeHide": {
+    "message": "贴边隐藏"
+  },
+  "contentLeaderboardEdgeShow": {
+    "message": "展开"
+  },
   "contentLeaderboardTotalViews": {
     "message": "总浏览量"
   },
@@ -145,6 +157,12 @@
   },
   "flashLeaderboardOff": {
     "message": "流速榜已关闭"
+  },
+  "flashLeaderboardEdgeHideOn": {
+    "message": "贴边隐藏已开启 ✓"
+  },
+  "flashLeaderboardEdgeHideOff": {
+    "message": "贴边隐藏已关闭"
   },
   "flashCopyMdOn": {
     "message": "Markdown 复制已开启 ✓"

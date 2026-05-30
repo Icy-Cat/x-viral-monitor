@@ -9,6 +9,7 @@ let velocityThresholds = { ...DEFAULT_THRESHOLDS };
 // === i18n ===
 let localizedStrings = {};
 function i18n(key) { return localizedStrings[key] || key; }
+function i18nOr(key, fallback) { return localizedStrings[key] || fallback; }
 
 function applyLocalizedUi() {
   if (!leaderboardEl) return;
@@ -21,6 +22,7 @@ function applyLocalizedUi() {
     back.title = i18n('contentLeaderboardBackToPrevious');
     back.setAttribute('aria-label', i18n('contentLeaderboardBackToPrevious'));
   }
+  setLeaderboardEdgeToggleState();
 }
 
 function normalizeThresholds(raw) {
@@ -51,6 +53,7 @@ let badgeStyle = 'pill-solid';
 let copyAsMarkdownEnabled = true;
 let starChartEnabled = true;
 let showBookmarkCount = true;
+let leaderboardEdgeHideEnabled = true;
 
 function applyBadgeStyle() {
   document.documentElement.dataset.xvmBadgeStyle = badgeStyle;
@@ -80,6 +83,12 @@ window.addEventListener('message', (event) => {
     badge.remove();
   });
   renderBadges();
+
+  const prevEdgeHideEnabled = leaderboardEdgeHideEnabled;
+  leaderboardEdgeHideEnabled = event.data.leaderboardEdgeHideEnabled !== false;
+  if (prevEdgeHideEnabled !== leaderboardEdgeHideEnabled) {
+    updateLeaderboardEdgeHideUi();
+  }
 
   const nextLb = !!event.data.featureVelocityLeaderboard;
   const nextCount = Number.isFinite(event.data.leaderboardCount) ? event.data.leaderboardCount : 10;
@@ -1018,6 +1027,7 @@ function ensureLeaderboard() {
   leaderboardEl.innerHTML = `
     <div class="xvm-lb-head" title="${i18n('contentLeaderboardDragToMove')}">
       <span class="xvm-lb-grip">⋮⋮</span>
+      <button class="xvm-lb-edge-toggle" type="button" title="${i18nOr('contentLeaderboardEdgeHide', '贴边隐藏')}" aria-label="${i18nOr('contentLeaderboardEdgeHide', '贴边隐藏')}">›</button>
       <span class="xvm-lb-title">🔥 ${i18n('contentLeaderboardTitle')}</span>
       <button class="xvm-lb-back" type="button" title="${i18n('contentLeaderboardBackToPrevious')}" aria-label="${i18n('contentLeaderboardBackToPrevious')}" hidden>
         <svg viewBox="0 0 20 20" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round">
@@ -1065,6 +1075,8 @@ function ensureLeaderboard() {
   installLeaderboardDrag();
   installLeaderboardResize();
   installLeaderboardResizeHeight();
+  installLeaderboardEdgeToggle();
+  updateLeaderboardEdgeHideUi();
   installLeaderboardBackButton();
   // v1.7.0 #2 — sync leaderboard theme + tier with popup.
   installLeaderboardThemeSync();
@@ -1417,7 +1429,138 @@ function installLeaderboardBackButton() {
 
 // === Leaderboard drag + persisted position ===
 const LB_POS_KEY = 'xvmLeaderboardPos';
+const LB_EDGE_PEEK = 34;
+const LB_EDGE_SNAP = 32;
 let leaderboardPos = null; // {left, top} in px from top-left of viewport
+let leaderboardHiddenEdge = null;
+let leaderboardExpandedPos = null;
+let suppressLeaderboardEdgeExpandClick = false;
+
+function setLeaderboardEdgeToggleState() {
+  const btn = leaderboardEl?.querySelector?.('.xvm-lb-edge-toggle');
+  if (!btn) return;
+  const label = leaderboardHiddenEdge
+    ? i18nOr('contentLeaderboardEdgeShow', '展开')
+    : i18nOr('contentLeaderboardEdgeHide', '贴边隐藏');
+  btn.textContent = leaderboardHiddenEdge ? '‹' : '›';
+  btn.title = label;
+  btn.setAttribute('aria-label', label);
+  btn.setAttribute('aria-expanded', String(!leaderboardHiddenEdge));
+}
+
+function updateLeaderboardEdgeHideUi() {
+  if (!leaderboardEl) return;
+  leaderboardEl.dataset.edgeHide = leaderboardEdgeHideEnabled ? '1' : '0';
+  if (!leaderboardEdgeHideEnabled && leaderboardHiddenEdge) {
+    setLeaderboardEdgeHidden(false);
+  } else {
+    setLeaderboardEdgeToggleState();
+  }
+}
+
+function positionHiddenLeaderboard(edge = leaderboardHiddenEdge || 'right') {
+  if (!leaderboardEl) return;
+  const rect = leaderboardEl.getBoundingClientRect();
+  const left = clampToViewport(rect.left || (leaderboardExpandedPos?.left ?? window.innerWidth - rect.width - 16), 'x');
+  const top = clampToViewport(rect.top || (leaderboardExpandedPos?.top ?? 72), 'y');
+  if (edge === 'left') {
+    leaderboardEl.style.left = Math.min(0, LB_EDGE_PEEK - rect.width) + 'px';
+    leaderboardEl.style.top = top + 'px';
+  } else if (edge === 'top') {
+    leaderboardEl.style.left = left + 'px';
+    leaderboardEl.style.top = Math.min(0, LB_EDGE_PEEK - rect.height) + 'px';
+  } else if (edge === 'bottom') {
+    leaderboardEl.style.left = left + 'px';
+    leaderboardEl.style.top = Math.max(0, window.innerHeight - LB_EDGE_PEEK) + 'px';
+  } else {
+    leaderboardEl.style.left = Math.max(0, window.innerWidth - LB_EDGE_PEEK) + 'px';
+    leaderboardEl.style.top = top + 'px';
+  }
+  leaderboardEl.style.right = 'auto';
+}
+
+function setLeaderboardEdgeHidden(hidden, edge = 'right') {
+  if (!leaderboardEl) return;
+  if (hidden && !leaderboardEdgeHideEnabled) return;
+  const nextEdge = hidden ? (edge || 'right') : null;
+  if (nextEdge === leaderboardHiddenEdge) {
+    if (nextEdge) positionHiddenLeaderboard(nextEdge);
+    setLeaderboardEdgeToggleState();
+    return;
+  }
+  if (nextEdge) {
+    const rect = leaderboardEl.getBoundingClientRect();
+    leaderboardExpandedPos = {
+      left: clampToViewport(rect.left, 'x'),
+      top: clampToViewport(rect.top, 'y'),
+    };
+    leaderboardHiddenEdge = nextEdge;
+    leaderboardEl.classList.add('xvm-lb-edge-hidden');
+    leaderboardEl.dataset.edge = nextEdge;
+    positionHiddenLeaderboard(nextEdge);
+  } else {
+    leaderboardHiddenEdge = null;
+    leaderboardEl.classList.remove('xvm-lb-edge-hidden');
+    delete leaderboardEl.dataset.edge;
+    if (leaderboardExpandedPos) {
+      leaderboardPos = { ...leaderboardExpandedPos };
+    }
+    applyLeaderboardPosition();
+  }
+  setLeaderboardEdgeToggleState();
+  if (linkState) updateLinkGeometry();
+}
+
+function getLeaderboardSnapEdge(rect) {
+  if (!rect || rect.width <= 0 || rect.height <= 0) return null;
+  const gaps = [
+    ['left', rect.left],
+    ['right', window.innerWidth - rect.right],
+    ['top', rect.top],
+    ['bottom', window.innerHeight - rect.bottom],
+  ];
+  let best = null;
+  for (const [edge, gap] of gaps) {
+    if (!Number.isFinite(gap) || gap > LB_EDGE_SNAP) continue;
+    if (!best || gap < best.gap) best = { edge, gap };
+  }
+  return best?.edge || null;
+}
+
+function getPointerSnapEdge(clientX, clientY) {
+  const x = Number(clientX);
+  const y = Number(clientY);
+  if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+  const gaps = [
+    ['left', x],
+    ['right', window.innerWidth - x],
+    ['top', y],
+    ['bottom', window.innerHeight - y],
+  ];
+  let best = null;
+  for (const [edge, gap] of gaps) {
+    if (!Number.isFinite(gap) || gap > LB_EDGE_SNAP) continue;
+    if (!best || gap < best.gap) best = { edge, gap };
+  }
+  return best?.edge || null;
+}
+
+function safeSetPointerCapture(el, pointerId) {
+  if (!el?.setPointerCapture || !Number.isFinite(pointerId)) return;
+  try {
+    el.setPointerCapture(pointerId);
+  } catch (_) {}
+}
+
+function safeReleasePointerCapture(el, pointerId) {
+  if (!el?.releasePointerCapture || !Number.isFinite(pointerId)) return;
+  try {
+    if (!el.hasPointerCapture || el.hasPointerCapture(pointerId)) {
+      el.releasePointerCapture(pointerId);
+    }
+  } catch (_) {}
+}
+
 function clampLeaderboardWidth(width) {
   const safeWidth = Number.isFinite(width) ? width : LB_DEFAULT_WIDTH;
   const maxByViewport = Math.max(LB_MIN_WIDTH, Math.min(LB_MAX_WIDTH, window.innerWidth - 16));
@@ -1452,6 +1595,10 @@ function applyLeaderboardHeight() {
 }
 function applyLeaderboardPosition() {
   if (!leaderboardEl) return;
+  if (leaderboardHiddenEdge) {
+    positionHiddenLeaderboard();
+    return;
+  }
   if (leaderboardPos && Number.isFinite(leaderboardPos.left) && Number.isFinite(leaderboardPos.top)) {
     applyLeaderboardWidth();
     leaderboardEl.style.left = clampToViewport(leaderboardPos.left, 'x') + 'px';
@@ -1498,49 +1645,109 @@ function installLeaderboardDrag() {
   let dragRaf = 0;
   let pendingClientX = 0;
   let pendingClientY = 0;
+  let pendingSnapEdge = null;
 
   const flushDrag = () => {
     dragRaf = 0;
     if (!dragState) return;
     const left = clampToViewport(pendingClientX - dragState.offsetX, 'x');
     const top = clampToViewport(pendingClientY - dragState.offsetY, 'y');
+    const rect = leaderboardEl.getBoundingClientRect();
     leaderboardEl.style.left = left + 'px';
     leaderboardEl.style.top = top + 'px';
     leaderboardEl.style.right = 'auto';
     leaderboardPos = { left, top };
+    leaderboardExpandedPos = { left, top };
+    pendingSnapEdge = getPointerSnapEdge(pendingClientX, pendingClientY)
+      || getLeaderboardSnapEdge({
+        left,
+        top,
+        right: left + rect.width,
+        bottom: top + rect.height,
+        width: rect.width,
+        height: rect.height,
+      });
     if (linkState) updateLinkGeometry();
   };
 
-  head.addEventListener('mousedown', (e) => {
+  head.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.isPrimary === false) return;
     if (e.button !== 0) return;
     if (e.target?.closest?.('.xvm-lb-controls, .xvm-lb-hot, label, button, input, a')) return;
+    if (leaderboardHiddenEdge) {
+      setLeaderboardEdgeHidden(false);
+      return;
+    }
     const rect = leaderboardEl.getBoundingClientRect();
     dragState = {
+      pointerId: e.pointerId,
       offsetX: e.clientX - rect.left,
       offsetY: e.clientY - rect.top,
     };
+    pendingClientX = e.clientX;
+    pendingClientY = e.clientY;
+    pendingSnapEdge = null;
     leaderboardEl.classList.add('xvm-lb-dragging');
+    safeSetPointerCapture(head, e.pointerId);
     e.preventDefault();
   });
-  window.addEventListener('mousemove', (e) => {
+  const onDragMove = (e) => {
     if (!dragState) return;
+    if (e.pointerId !== dragState.pointerId) return;
     pendingClientX = e.clientX;
     pendingClientY = e.clientY;
     if (dragRaf) return;
     dragRaf = requestAnimationFrame(flushDrag);
-  }, { passive: true });
-  window.addEventListener('mouseup', () => {
+  };
+  document.addEventListener('pointermove', onDragMove, { capture: true, passive: true });
+  window.addEventListener('pointermove', onDragMove, { passive: true });
+
+  const stopDrag = (e) => {
     if (!dragState) return;
-    dragState = null;
+    if (e?.pointerId != null && e.pointerId !== dragState.pointerId) return;
+    const pointerId = dragState.pointerId;
+    const releaseSnapEdge = Number.isFinite(e?.clientX) && Number.isFinite(e?.clientY)
+      ? getPointerSnapEdge(e.clientX, e.clientY)
+      : null;
+    if (Number.isFinite(e?.clientX) && Number.isFinite(e?.clientY)) {
+      pendingClientX = e.clientX;
+      pendingClientY = e.clientY;
+      pendingSnapEdge = releaseSnapEdge || pendingSnapEdge;
+    }
     if (dragRaf) {
       cancelAnimationFrame(dragRaf);
       dragRaf = 0;
     }
+    if (Number.isFinite(pendingClientX) && Number.isFinite(pendingClientY)) {
+      flushDrag();
+    }
+    if (!dragState) return;
+    dragState = null;
     leaderboardEl.classList.remove('xvm-lb-dragging');
+    safeReleasePointerCapture(head, pointerId);
+    const edge = leaderboardEdgeHideEnabled
+      ? (releaseSnapEdge || pendingSnapEdge || getLeaderboardSnapEdge(leaderboardEl.getBoundingClientRect()))
+      : null;
+    pendingSnapEdge = null;
+    if (edge) {
+      e?.stopPropagation?.();
+      e?.preventDefault?.();
+      suppressLeaderboardEdgeExpandClick = true;
+      setTimeout(() => {
+        suppressLeaderboardEdgeExpandClick = false;
+      }, 650);
+      setLeaderboardEdgeHidden(true, edge);
+      return;
+    }
     if (leaderboardPos) {
       window.postMessage({ type: 'XVM_LB_POS_SAVE', pos: leaderboardPos }, '*');
     }
-  });
+  };
+  document.addEventListener('pointerup', stopDrag, true);
+  document.addEventListener('pointercancel', stopDrag, true);
+  window.addEventListener('pointerup', stopDrag);
+  window.addEventListener('pointercancel', stopDrag);
 }
 
 function installLeaderboardResize() {
@@ -1560,32 +1767,43 @@ function installLeaderboardResize() {
     if (linkState) updateLinkGeometry();
   };
 
-  handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.isPrimary === false) return;
+    if (leaderboardHiddenEdge) return;
     resizeState = {
+      pointerId: e.pointerId,
       startWidth: leaderboardEl.getBoundingClientRect().width,
       startClientX: e.clientX,
     };
     leaderboardEl.classList.add('xvm-lb-resizing');
+    safeSetPointerCapture(handle, e.pointerId);
     e.stopPropagation();
     e.preventDefault();
   });
-  window.addEventListener('mousemove', (e) => {
+  window.addEventListener('pointermove', (e) => {
     if (!resizeState) return;
+    if (e.pointerId !== resizeState.pointerId) return;
     pendingClientX = e.clientX;
     if (resizeRaf) return;
     resizeRaf = requestAnimationFrame(flushResize);
   }, { passive: true });
-  window.addEventListener('mouseup', () => {
+
+  const stopResize = (e) => {
     if (!resizeState) return;
+    if (e?.pointerId != null && e.pointerId !== resizeState.pointerId) return;
+    const pointerId = resizeState.pointerId;
     resizeState = null;
     if (resizeRaf) {
       cancelAnimationFrame(resizeRaf);
       resizeRaf = 0;
     }
     leaderboardEl.classList.remove('xvm-lb-resizing');
+    safeReleasePointerCapture(handle, pointerId);
     window.postMessage({ type: 'XVM_LB_SIZE_SAVE', width: leaderboardWidth }, '*');
-  });
+  };
+  window.addEventListener('pointerup', stopResize);
+  window.addEventListener('pointercancel', stopResize);
 }
 
 function installLeaderboardResizeHeight() {
@@ -1604,33 +1822,65 @@ function installLeaderboardResizeHeight() {
     if (linkState) updateLinkGeometry();
   };
 
-  handle.addEventListener('mousedown', (e) => {
-    if (e.button !== 0) return;
+  handle.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    if (e.isPrimary === false) return;
+    if (leaderboardHiddenEdge) return;
     const list = leaderboardEl.querySelector('.xvm-lb-list');
     resizeState = {
+      pointerId: e.pointerId,
       startHeight: list ? list.getBoundingClientRect().height : leaderboardHeight,
       startClientY: e.clientY,
     };
     leaderboardEl.classList.add('xvm-lb-resizing');
+    safeSetPointerCapture(handle, e.pointerId);
     e.stopPropagation();
     e.preventDefault();
   });
-  window.addEventListener('mousemove', (e) => {
+  window.addEventListener('pointermove', (e) => {
     if (!resizeState) return;
+    if (e.pointerId !== resizeState.pointerId) return;
     pendingClientY = e.clientY;
     if (resizeRaf) return;
     resizeRaf = requestAnimationFrame(flushResize);
   }, { passive: true });
-  window.addEventListener('mouseup', () => {
+
+  const stopResize = (e) => {
     if (!resizeState) return;
+    if (e?.pointerId != null && e.pointerId !== resizeState.pointerId) return;
+    const pointerId = resizeState.pointerId;
     resizeState = null;
     if (resizeRaf) {
       cancelAnimationFrame(resizeRaf);
       resizeRaf = 0;
     }
     leaderboardEl.classList.remove('xvm-lb-resizing');
+    safeReleasePointerCapture(handle, pointerId);
     window.postMessage({ type: 'XVM_LB_HEIGHT_SAVE', height: leaderboardHeight }, '*');
+  };
+  window.addEventListener('pointerup', stopResize);
+  window.addEventListener('pointercancel', stopResize);
+}
+
+function installLeaderboardEdgeToggle() {
+  if (!leaderboardEl) return;
+  const btn = leaderboardEl.querySelector('.xvm-lb-edge-toggle');
+  if (!btn) return;
+  setLeaderboardEdgeToggleState();
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (!leaderboardEdgeHideEnabled) return;
+    setLeaderboardEdgeHidden(!leaderboardHiddenEdge, 'right');
   });
+  leaderboardEl.addEventListener('click', (e) => {
+    if (!leaderboardHiddenEdge) return;
+    e.stopPropagation();
+    e.preventDefault();
+    if (suppressLeaderboardEdgeExpandClick) {
+      return;
+    }
+    setLeaderboardEdgeHidden(false);
+  }, true);
 }
 
 window.addEventListener('resize', () => {
@@ -2127,7 +2377,7 @@ function bootGrokInjectorRetries() {
 // navigations that reuse stale node references, etc.). Cost: one DOM lookup
 // every 2s, no-op when button is already there.
 setInterval(() => {
-  const composer = document.querySelector('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+  const composer = document.querySelector(COMPOSER_SEL);
   if (composer && !document.querySelector('.xvm-grok-generate-btn')) {
     injectGrokReplyButtons();
   }
@@ -2470,7 +2720,7 @@ function findReplyComposerRoot(editable) {
   if (dialog?.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')) return dialog;
 
   let node = editable;
-  for (let depth = 0; node && depth < 24; depth++, node = node.parentElement) {
+  for (let depth = 0; node && depth < 32; depth++, node = node.parentElement) {
     if (node.querySelector?.('[data-testid="tweetButton"], [data-testid="tweetButtonInline"]')) return node;
     if (node.matches?.('article[data-testid="tweet"]')) break;
   }
@@ -2488,7 +2738,7 @@ function findReplyArticle(composerRoot) {
 }
 
 function findReplyEditable(root = document) {
-  return root.querySelector?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"]');
+  return root.querySelector?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]');
 }
 
 const GROK_SUBMIT_SELECTOR = '[data-testid="tweetButton"], [data-testid="tweetButtonInline"]';
@@ -2517,6 +2767,13 @@ function findGrokButtonHost(editable, composerRoot) {
 
   const submitBtn = scope.querySelector?.(GROK_SUBMIT_SELECTOR);
   const candidates = [];
+  if (window.innerWidth <= 640 && location.pathname === '/compose/post') {
+    const draftBtn = scope.querySelector?.('[data-testid="unsentButton"]');
+    const draftHost = draftBtn?.parentElement;
+    if (!isInvalidGrokButtonHost(draftHost, editable)) {
+      return { host: draftHost, submitBtn, insertBefore: draftBtn, placement: 'mobile-top' };
+    }
+  }
   if (submitBtn) {
     candidates.push(submitBtn.parentElement);
     let node = submitBtn.parentElement;
@@ -2912,6 +3169,9 @@ function injectGrokReplyButtons(root = document) {
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.className = 'xvm-grok-generate-btn';
+    if (target.placement === 'mobile-top') {
+      btn.classList.add('xvm-grok-generate-btn--mobile-top');
+    }
     setGrokButtonLabel(btn);
     btn.title = '使用提示词模板生成评论';
     btn.addEventListener('click', (ev) => {
@@ -2930,7 +3190,10 @@ function injectGrokReplyButtons(root = document) {
         handleGrokGenerate(btn, editable);
       }
     });
-    if (submitBtn?.parentElement === host) {
+    if (target.insertBefore?.parentElement === host) {
+      host.classList.add('xvm-grok-actions-host');
+      host.insertBefore(btn, target.insertBefore);
+    } else if (submitBtn?.parentElement === host) {
       host.classList.add('xvm-grok-actions-host');
       host.insertBefore(btn, submitBtn);
     } else {

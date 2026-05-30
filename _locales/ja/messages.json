@@ -56,6 +56,12 @@
   "featureLeaderboardDesc": {
     "message": "現在のページで最も伸びている投稿を表示するドラッグ可能なフローティングパネルです。行をクリックすると投稿までスクロールします。"
   },
+  "featureLeaderboardEdgeHideTitle": {
+    "message": "端に隠す"
+  },
+  "featureLeaderboardEdgeHideDesc": {
+    "message": "有効にすると、リーダーボードを画面端までドラッグして離したときに収納します。"
+  },
   "featureLeaderboardShowTop": {
     "message": "上位"
   },
@@ -116,6 +122,12 @@
   "contentLeaderboardBackToPrevious": {
     "message": "前のスクロール位置に戻る"
   },
+  "contentLeaderboardEdgeHide": {
+    "message": "端に隠す"
+  },
+  "contentLeaderboardEdgeShow": {
+    "message": "展開"
+  },
   "contentLeaderboardTotalViews": {
     "message": "総表示回数"
   },
@@ -145,6 +157,12 @@
   },
   "flashLeaderboardOff": {
     "message": "リーダーボードを無効化"
+  },
+  "flashLeaderboardEdgeHideOn": {
+    "message": "端に隠す機能を有効化 ✓"
+  },
+  "flashLeaderboardEdgeHideOff": {
+    "message": "端に隠す機能を無効化"
   },
   "flashCopyMdOn": {
     "message": "Markdown コピーを有効化 ✓"

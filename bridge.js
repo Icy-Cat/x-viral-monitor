@@ -130,6 +130,8 @@ const CONTENT_MESSAGE_KEYS = [
   'contentLeaderboardTitle',
   'contentLeaderboardDragToMove',
   'contentLeaderboardBackToPrevious',
+  'contentLeaderboardEdgeHide',
+  'contentLeaderboardEdgeShow',
   'contentLeaderboardTotalViews',
   'contentCopyMdLabel',
   'contentCopyMdDone',
@@ -188,6 +190,7 @@ const DEFAULT_FEATURES = {
   featureCopyAsMarkdown: true,
   featureStarChart: true,
   showBookmarkCount: true,
+  leaderboardEdgeHideEnabled: true,
   badgeStyle: 'pill-solid',
   leaderboardCount: 10,
   leaderboardColumns: DEFAULT_COLUMNS,
@@ -283,6 +286,7 @@ async function pushSettings(raw) {
     featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
     featureStarChart: raw?.featureStarChart !== false,
     showBookmarkCount: raw?.showBookmarkCount !== false,
+    leaderboardEdgeHideEnabled: raw?.leaderboardEdgeHideEnabled !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
     leaderboardColumns: normalizeLeaderboardColumns(raw?.leaderboardColumns),
     badgeStyle: raw?.badgeStyle === 'inline-classic' ? 'inline-classic' : 'pill-solid',
@@ -522,7 +526,7 @@ safeChromeCall(() => {
       window.postMessage({ type: 'XVM_THEME_UPDATE', pref }, '*');
     }
     const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat || changes.language;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.showBookmarkCount && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.language && !grokTouched) return;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.showBookmarkCount && !changes.leaderboardEdgeHideEnabled && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.language && !grokTouched) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {

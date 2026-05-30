@@ -58,6 +58,12 @@
   "featureLeaderboardDesc": {
     "message": "Draggable floating panel showing the fastest-growing tweets visible on the current page. Click a row to scroll to the tweet."
   },
+  "featureLeaderboardEdgeHideTitle": {
+    "message": "Edge-hide leaderboard"
+  },
+  "featureLeaderboardEdgeHideDesc": {
+    "message": "When enabled, drag the leaderboard to a screen edge and release to tuck it away."
+  },
   "featureLeaderboardShowTop": {
     "message": "Show top"
   },
@@ -118,6 +124,12 @@
   "contentLeaderboardBackToPrevious": {
     "message": "Return to previous scroll position"
   },
+  "contentLeaderboardEdgeHide": {
+    "message": "Hide at edge"
+  },
+  "contentLeaderboardEdgeShow": {
+    "message": "Expand"
+  },
   "contentLeaderboardTotalViews": {
     "message": "Total views"
   },
@@ -147,6 +159,12 @@
   },
   "flashLeaderboardOff": {
     "message": "Leaderboard OFF"
+  },
+  "flashLeaderboardEdgeHideOn": {
+    "message": "Edge-hide ON ✓"
+  },
+  "flashLeaderboardEdgeHideOff": {
+    "message": "Edge-hide OFF"
   },
   "flashCopyMdOn": {
     "message": "Copy-as-Markdown ON ✓"

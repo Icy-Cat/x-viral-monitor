@@ -117,6 +117,7 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
   background: linear-gradient(180deg, rgba(191, 90, 42, 0.06), rgba(191, 90, 42, 0));
   cursor: grab;
   user-select: none;
+  touch-action: none;
 }
 .xvm-lb-head:active,
 .xvm-lb.xvm-lb-dragging .xvm-lb-head { cursor: grabbing; }
@@ -152,6 +153,28 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
 }
 .xvm-lb-back[hidden] { display: none; }
 
+.xvm-lb-edge-toggle {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: none;
+  border-radius: 6px;
+  background: rgba(191, 90, 42, 0.10);
+  color: #8f3d17;
+  font-size: 16px;
+  font-weight: 800;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.xvm-lb[data-edge-hide="0"] .xvm-lb-edge-toggle {
+  display: none;
+}
+
 .xvm-lb-list {
   list-style: none;
   margin: 0;
@@ -173,6 +196,7 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
   width: 12px;
   height: 100%;
   cursor: ew-resize;
+  touch-action: none;
 }
 .xvm-lb-resize::before {
   content: "";
@@ -198,6 +222,7 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
   width: 100%;
   height: 12px;
   cursor: ns-resize;
+  touch-action: none;
 }
 .xvm-lb-resize-v::before {
   content: "";
@@ -214,6 +239,33 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
 .xvm-lb:hover .xvm-lb-resize-v::before,
 .xvm-lb.xvm-lb-resizing .xvm-lb-resize-v::before {
   background: rgba(191, 90, 42, 0.35);
+}
+
+.xvm-lb.xvm-lb-edge-hidden {
+  box-shadow: 0 8px 18px rgba(36, 24, 15, 0.24);
+  cursor: pointer;
+}
+
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-head {
+  border-bottom-color: transparent;
+}
+
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-title,
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-back,
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-controls,
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-list,
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-resize,
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-resize-v {
+  pointer-events: none;
+  visibility: hidden;
+}
+
+@media (max-width: 640px) {
+  .xvm-lb {
+    right: 8px;
+    top: 64px;
+    max-width: calc(100vw - 16px);
+  }
 }
 
 .xvm-lb-item {
@@ -1223,6 +1275,15 @@ article[data-testid="tweet"].xvm-article-linked {
 
 .xvm-grok-actions-host {
   gap: 8px;
+}
+
+.xvm-grok-generate-btn--mobile-top {
+  height: 30px;
+  margin: 0 6px 0 0;
+  padding: 0 9px;
+  border-color: rgba(29, 155, 240, 0.28);
+  border-radius: 999px;
+  color: rgb(15, 20, 25);
 }
 
 @keyframes xvm-grok-pulse {
