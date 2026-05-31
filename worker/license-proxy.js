@@ -13,8 +13,8 @@
 //        CREEM_API_KEY     = "creem_live_xxxxx..."   (Encrypt = on)
 //        CREEM_PRODUCT_IDS = "prod_month,prod_year" (comma-separated, required)
 //        ENTITLEMENT_SIGNING_PRIVATE_JWK = '{"kty":"EC",...}' (Secret)
-//        ALLOWED_ORIGIN    = "chrome-extension://jfopmepbbdmhidjafcebokfmdkphfmpl"
-//                            (required in production; do not use "*")
+//        ALLOWED_ORIGIN    = "chrome-extension://STORE_ID,chrome-extension://DEV_ID"
+//                            (comma-separated; required in production; do not use "*")
 //   4. Deploy. Worker URL will be like:
 //        https://xvm-license.YOUR-SUBDOMAIN.workers.dev
 //   5. Paste that URL into src/premium/license/{isolated,popup-pro}.js

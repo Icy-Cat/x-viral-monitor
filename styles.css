@@ -1584,9 +1584,17 @@ img.xvm-liv-img {
 .xvm-lb[data-theme="dark"] .xvm-lb-title { color: #f8fafc; }
 .xvm-lb[data-theme="dark"] .xvm-lb-back { color: #cbd5e1; border-color: #334155; }
 .xvm-lb[data-theme="dark"] .xvm-lb-back:hover { color: #f8fafc; border-color: #06b6d4; }
+.xvm-lb[data-theme="dark"] .xvm-lb-edge-toggle {
+  background: rgba(6, 182, 212, 0.16);
+  color: #67e8f9;
+}
 .xvm-lb[data-theme="dark"] .xvm-lb-resize,
 .xvm-lb[data-theme="dark"] .xvm-lb-resize-v { background: rgba(148, 163, 184, 0.12); }
 .xvm-lb[data-theme="dark"] .xvm-lb-list li { color: #cbd5e1; border-bottom-color: rgba(148, 163, 184, 0.12); }
+.xvm-lb[data-theme="dark"] .xvm-lb-rank { color: #94a3b8; }
+.xvm-lb[data-theme="dark"] .xvm-lb-handle { color: #e2e8f0; }
+.xvm-lb[data-theme="dark"] .xvm-lb-preview { color: #cbd5e1; }
+.xvm-lb[data-theme="dark"] .xvm-lb-views { color: #94a3b8; }
 /* P1 polish: stronger dark-mode hover feedback + a soft cyan left
    indicator so the user clearly sees which row is being aimed at */
 .xvm-lb[data-theme="dark"] .xvm-lb-list li:hover {
@@ -1594,13 +1602,17 @@ img.xvm-liv-img {
   color: #f8fafc;
   box-shadow: inset 3px 0 0 #06b6d4;
 }
+.xvm-lb[data-theme="dark"] .xvm-lb-list li:hover .xvm-lb-handle,
+.xvm-lb[data-theme="dark"] .xvm-lb-list li:hover .xvm-lb-preview {
+  color: #f8fafc;
+}
 .xvm-lb[data-theme="dark"] .xvm-lb-item-selected {
   background: rgba(6, 182, 212, 0.22);
   box-shadow: inset 3px 0 0 #22d3ee;
 }
-.xvm-lb[data-theme="dark"] .xvm-lb-red    { color: #f87171; }
-.xvm-lb[data-theme="dark"] .xvm-lb-orange { color: #fb923c; }
-.xvm-lb[data-theme="dark"] .xvm-lb-green  { color: #4ade80; }
+.xvm-lb[data-theme="dark"] .xvm-lb-green .xvm-lb-vel { color: #4ade80; }
+.xvm-lb[data-theme="dark"] .xvm-lb-orange .xvm-lb-vel { color: #fb923c; }
+.xvm-lb[data-theme="dark"] .xvm-lb-red .xvm-lb-vel { color: #ff6b4a; }
 
 /* ============================================================
    "仅看热帖" Pro-feature in-page toggle (v1.7.0 #4).

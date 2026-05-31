@@ -35,6 +35,8 @@
 
   const STORAGE_KEY = 'xvm_license_v1';
   const TRIAL_KEY = 'xvm_trial_v1';
+  const DEVICE_ID_KEY = 'xvm_device_id';
+  const REVALIDATE_RETRY_MS = 5 * 60 * 1000;
   const KEY_RE = /^[A-Za-z0-9_\-]{8,128}$/;
 
   // chrome.i18n wrapper — falls back to the key itself if the locale file
@@ -70,14 +72,130 @@
     });
   }
 
+  async function callProxy(action, body) {
+    if (LICENSE_PROXY_URL === '__XVM_LICENSE_WORKER__') {
+      throw new Error('worker_url_unset');
+    }
+    const res = await fetch(`${LICENSE_PROXY_URL}/${action}`, {
+      method: 'POST',
+      headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    return res.json();
+  }
+
+  async function getDeviceId() {
+    let deviceId = await storageGet(DEVICE_ID_KEY, null);
+    if (!deviceId) {
+      deviceId = crypto.randomUUID();
+      await storageSet({ [DEVICE_ID_KEY]: deviceId });
+    }
+    return deviceId;
+  }
+
+  async function buildLicenseRecord({ key, envelope, deviceId, fallback = {} }) {
+    if (!envelope?.ok) return { ok: false, error: 'activation_failed', detail: envelope };
+    const data = envelope.data || {};
+    if (!isXvmProduct(data.product_id)) {
+      return { ok: false, error: 'wrong_product', detail: { actual: data.product_id } };
+    }
+    const inst = data.instance || {};
+    const instanceId = inst.id || fallback.instanceId || null;
+    const entitlement = await verifyEntitlementEnvelope(envelope, {
+      productId: data.product_id,
+      instanceId: instanceId || '',
+      key,
+    }, isXvmProduct);
+    if (!entitlement.ok) {
+      return { ok: false, error: entitlement.error, detail: entitlement.detail || null };
+    }
+    return {
+      ok: true,
+      record: {
+        ...fallback,
+        key,
+        instanceId,
+        instanceName: inst.name || fallback.instanceName || null,
+        deviceId: deviceId || fallback.deviceId || null,
+        activatedAt: fallback.activatedAt || Date.now(),
+        lastChecked: Date.now(),
+        lastTriedAt: Date.now(),
+        status: data.status || fallback.status || 'active',
+        activationLimit: data.activation_limit ?? fallback.activationLimit ?? null,
+        activationUsage: data.activation ?? fallback.activationUsage ?? null,
+        expiresAt: data.expires_at ? new Date(data.expires_at).getTime() : fallback.expiresAt ?? null,
+        productId: data.product_id || fallback.productId || null,
+        entitlementPayload: envelope.entitlement_payload || '',
+        entitlementSig: envelope.entitlement_sig || '',
+        entitlementExpiresAt: entitlement.entitlement.exp * 1000,
+      },
+    };
+  }
+
+  function shouldRevalidate(info, stored) {
+    if (!stored?.key || !stored?.instanceId) return false;
+    if (!['offline-grace', 'invalid_entitlement', 'missing_product'].includes(info?.source)) return false;
+    return Date.now() - (stored.lastTriedAt || 0) > REVALIDATE_RETRY_MS;
+  }
+
+  async function revalidateStoredLicense(stored) {
+    try {
+      const envelope = await callProxy('validate', { key: stored.key, instance_id: stored.instanceId });
+      if (envelope?.ok && !isXvmProduct(envelope.data?.product_id)) {
+        await storageRemove(STORAGE_KEY);
+        return { ok: false, error: 'wrong_product' };
+      }
+      const built = await buildLicenseRecord({
+        key: stored.key,
+        envelope,
+        deviceId: stored.deviceId,
+        fallback: stored,
+      });
+      if (!built.ok) {
+        if (envelope?.data) {
+          const data = envelope.data;
+          await storageSet({
+            [STORAGE_KEY]: {
+              ...stored,
+              status: data.status || stored.status,
+              activationLimit: data.activation_limit ?? stored.activationLimit,
+              activationUsage: data.activation ?? stored.activationUsage,
+              expiresAt: data.expires_at ? new Date(data.expires_at).getTime() : stored.expiresAt,
+              productId: data.product_id || stored.productId,
+              lastTriedAt: Date.now(),
+            },
+          });
+        }
+        if (built.error === 'wrong_product' || built.error === 'bad_entitlement_signature' || built.error === 'wrong_license_key') {
+          await storageRemove(STORAGE_KEY);
+          return built;
+        }
+        if (!envelope?.data) await storageSet({ [STORAGE_KEY]: { ...stored, lastTriedAt: Date.now() } });
+        return built;
+      }
+      await storageSet({ [STORAGE_KEY]: built.record });
+      return { ok: true, record: built.record };
+    } catch (e) {
+      await storageSet({ [STORAGE_KEY]: { ...stored, lastTriedAt: Date.now() } });
+      return { ok: false, error: 'network', message: String(e?.message || e) };
+    }
+  }
+
   // ─── Tier resolver — delegates to tier-logic.js pure helpers ────────
-  async function resolveTier() {
+  async function resolveTier({ revalidate = true } = {}) {
     const stored = await storageGet(STORAGE_KEY, null);
     const trial  = await storageGet(TRIAL_KEY, null);
     // Non-blocker #3 fix: tier-logic.js threads lic.source (expired /
     // wrong_product / etc.) through the free path, so popup diagnostics
     // are now accurate.
-    return resolveTierFrom(stored, trial, Date.now());
+    const info = resolveTierFrom(stored, trial, Date.now());
+    if (!revalidate || !shouldRevalidate(info, stored)) return info;
+    await revalidateStoredLicense(stored);
+    return resolveTierFrom(
+      await storageGet(STORAGE_KEY, null),
+      await storageGet(TRIAL_KEY, null),
+      Date.now(),
+    );
   }
 
   // ─── Activate via Worker proxy ──────────────────────────────────────
@@ -87,50 +205,17 @@
     if (LICENSE_PROXY_URL === '__XVM_LICENSE_WORKER__') {
       return { ok: false, error: 'worker_url_unset' };
     }
-    let deviceId = await storageGet('xvm_device_id', null);
-    if (!deviceId) {
-      deviceId = crypto.randomUUID();
-      await storageSet({ xvm_device_id: deviceId });
-    }
+    const deviceId = await getDeviceId();
     let envelope;
     try {
-      const res = await fetch(`${LICENSE_PROXY_URL}/activate`, {
-        method: 'POST',
-        headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
-        body: JSON.stringify({ key, instance_name: `Popup — ${deviceId.slice(0, 8)}` }),
-      });
-      envelope = await res.json();
+      envelope = await callProxy('activate', { key, instance_name: `Popup — ${deviceId.slice(0, 8)}` });
     } catch (e) {
       return { ok: false, error: 'network', message: String(e?.message || e) };
     }
-    if (!envelope?.ok) return { ok: false, error: 'activation_failed', detail: envelope };
-    const data = envelope.data || {};
-    if (!isXvmProduct(data.product_id)) {
-      return { ok: false, error: 'wrong_product', detail: { actual: data.product_id } };
-    }
-    const entitlement = await verifyEntitlementEnvelope(envelope, {
-      productId: data.product_id,
-      instanceId: data.instance?.id || '',
-      key,
-    }, isXvmProduct);
-    if (!entitlement.ok) {
-      return { ok: false, error: entitlement.error, detail: entitlement.detail || null };
-    }
-    const inst = data.instance || {};
-    const record = {
-      key, instanceId: inst.id || null, instanceName: inst.name || null,
-      deviceId, activatedAt: Date.now(), lastChecked: Date.now(), lastTriedAt: Date.now(),
-      status: data.status || 'active',
-      activationLimit: data.activation_limit ?? null,
-      activationUsage: data.activation ?? null,
-      expiresAt: data.expires_at ? new Date(data.expires_at).getTime() : null,
-      productId: data.product_id || null,
-      entitlementPayload: envelope.entitlement_payload || '',
-      entitlementSig: envelope.entitlement_sig || '',
-      entitlementExpiresAt: entitlement.entitlement.exp * 1000,
-    };
-    await storageSet({ [STORAGE_KEY]: record });
-    return { ok: true, record };
+    const built = await buildLicenseRecord({ key, envelope, deviceId });
+    if (!built.ok) return built;
+    await storageSet({ [STORAGE_KEY]: built.record });
+    return { ok: true, record: built.record };
   }
 
   async function deactivate() {

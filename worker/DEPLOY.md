@@ -18,7 +18,7 @@ The script uploads Worker secrets, then deploys `worker/wrangler.toml`.
 
 Plaintext vars in `worker/wrangler.toml`:
 
-- `ALLOWED_ORIGIN=chrome-extension://jfopmepbbdmhidjafcebokfmdkphfmpl`
+- `ALLOWED_ORIGIN=chrome-extension://dkplofpecmjmbhgjgleeflcnfgfkdfpd,chrome-extension://jfopmepbbdmhidjafcebokfmdkphfmpl`
 - `CREEM_PRODUCT_IDS=prod_7f7t9EHK3RJlOK37DWr7J,prod_69yTiXGXb04DKm46DNVbN9`
 
 Secrets in Cloudflare:
@@ -34,7 +34,7 @@ Current Worker URL:
 
 ```powershell
 curl -i https://xvm-license.lengkuxiaomao.workers.dev/validate `
-  -H "Origin: chrome-extension://jfopmepbbdmhidjafcebokfmdkphfmpl" `
+  -H "Origin: chrome-extension://dkplofpecmjmbhgjgleeflcnfgfkdfpd" `
   -H "Content-Type: application/json" `
   --data "{\"key\":\"fake-key\",\"instance_id\":\"fake\"}"
 ```

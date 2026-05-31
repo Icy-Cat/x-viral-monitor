@@ -89,6 +89,12 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(/id="theme-toggle-about"/.test(about)).toBe(true);
   });
 
+  it('About footer links to the project and maintainer X profile', () => {
+    const about = html.match(/data-tab-panel="about"[\s\S]*?(?=<\/div>\s*<div id="xvm-toast")/)?.[0] || '';
+    expect(/https:\/\/github\.com\/Icy-Cat\/x-viral-monitor/.test(about)).toBe(true);
+    expect(/https:\/\/x\.com\/intent\/follow\?screen_name=lngkximo/.test(about)).toBe(true);
+  });
+
   it('keeps all legacy IDs popup.js / popup-rate-filter.js / popup-pro.js depend on', () => {
     for (const id of ['settings-form', 'trending', 'viral', 'badge-style', 'reset',
                       'feat-leaderboard', 'feat-copy-md', 'feat-starchart',
@@ -368,6 +374,13 @@ describe('#69/#72 user self-test polish', () => {
     expect(bridgeJs).not.toMatch(/xvm_list_member_filter_v1/);
     expect(/\.xvm-lb-hot\[data-tier="free"\]\s+\.xvm-lb-pro-badge\s*\{[\s\S]*?display:\s*inline-flex/.test(stylesCss)).toBe(true);
     expect(/\.xvm-lb-hot\[aria-disabled="true"\]\s*\{[\s\S]*?cursor:\s*not-allowed/.test(stylesCss)).toBe(true);
+  });
+
+  it('dark leaderboard overrides nested text colors, not only the row color', () => {
+    expect(/\.xvm-lb\[data-theme="dark"\]\s+\.xvm-lb-handle\s*\{[\s\S]*?color:\s*#e2e8f0/.test(stylesCss)).toBe(true);
+    expect(/\.xvm-lb\[data-theme="dark"\]\s+\.xvm-lb-preview\s*\{[\s\S]*?color:\s*#cbd5e1/.test(stylesCss)).toBe(true);
+    expect(/\.xvm-lb\[data-theme="dark"\]\s+\.xvm-lb-views\s*\{[\s\S]*?color:\s*#94a3b8/.test(stylesCss)).toBe(true);
+    expect(/\.xvm-lb\[data-theme="dark"\]\s+\.xvm-lb-red\s+\.xvm-lb-vel\s*\{[\s\S]*?color:\s*#ff6b4a/.test(stylesCss)).toBe(true);
   });
 
   it('keeps the floating leaderboard list at the configured height when few tweets remain', () => {

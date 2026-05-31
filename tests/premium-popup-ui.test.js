@@ -74,9 +74,17 @@ describe('#45 step 3 — popup pro UI', () => {
       'popup-pro.js must NOT define its own trialStatus()'
     ).toBe(false);
     expect(/function\s+resolveTier(?:From)?\s*\(/.test(js)
-      && !/async\s+function\s+resolveTier\s*\(\s*\)/.test(js),
+      && !/async\s+function\s+resolveTier\s*\([^)]*\)/.test(js),
       'popup-pro.js may only have the async resolveTier wrapper, not a pure resolveTierFrom redefinition'
     ).toBe(false);
+  });
+
+  it('popup-pro.js revalidates stale or expired entitlement records through the Worker', () => {
+    expect(/callProxy\(['"]validate['"]/.test(js),
+      'popup-pro.js should call Worker /validate instead of waiting for an x.com content script'
+    ).toBe(true);
+    expect(/shouldRevalidate/.test(js)).toBe(true);
+    expect(/REVALIDATE_RETRY_MS/.test(js)).toBe(true);
   });
 
   it('popup-pro.js wires both Creem payment URLs', () => {
