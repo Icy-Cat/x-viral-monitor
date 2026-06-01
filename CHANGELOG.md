@@ -9,6 +9,25 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.7.13] - 2026-06-01
+
+### Added
+
+- Added a Premium bookmark-folder hover menu on X bookmark buttons, with localized copy, native-style folder rows, and dark-mode styling.
+- Added cross-tab bookmark-folder invalidation so X bookmark folder pages refresh after folder membership changes instead of showing stale cached timelines.
+
+### Fixed
+
+- Fixed removing a tweet from a bookmark folder by using X's current `RemoveTweetFromBookmarkFolder` GraphQL operation name.
+- Fixed already-bookmarked tweets not reliably appearing in a target bookmark folder until manual refresh.
+- Improved X dark-mode leaderboard contrast for readable titles, metadata, hover, and active states.
+
+### Internal
+
+- Added regression coverage for bookmark-folder i18n, dark styling, operation mapping, and folder-page cache invalidation.
+
+---
+
 ## [1.7.10] - 2026-05-28
 
 ### Fixed
