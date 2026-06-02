@@ -87,12 +87,15 @@ describe('#45 step 3 — popup pro UI', () => {
     expect(/REVALIDATE_RETRY_MS/.test(js)).toBe(true);
   });
 
-  it('popup-pro.js wires both Creem payment URLs', () => {
-    expect(/prod_7f7t9EHK3RJlOK37DWr7J/.test(js),
-      'popup-pro.js must reference Monthly product (prod_7f7...)'
-    ).toBe(true);
-    expect(/prod_69yTiXGXb04DKm46DNVbN9/.test(js),
-      'popup-pro.js must reference Annual product (prod_69y...)'
+  it('popup-pro.js does not expose direct payment links in the popup', () => {
+    expect(/creem\.io\/payment/.test(js),
+      'popup-pro.js should route purchase education to the product website, not Creem checkout'
+    ).toBe(false);
+    expect(/prod_7f7t9EHK3RJlOK37DWr7J|prod_69yTiXGXb04DKm46DNVbN9/.test(js),
+      'popup-pro.js should not contain checkout product ids'
+    ).toBe(false);
+    expect(/PRODUCT_SITE_URL/.test(js),
+      'popup-pro.js should link to the product website for Pro details'
     ).toBe(true);
   });
 
@@ -125,7 +128,7 @@ describe('#45 step 3 — popup pro UI', () => {
     const required = [
       'proBannerFree', 'proBannerPro', 'proBannerTrial', 'proBannerTrialOne',
       'proNudgeTrialEnd', 'proNudgeTrialEndOne',
-      'proCtaMonthly', 'proCtaAnnual',
+      'proScopeTitle', 'proScopeBody', 'proFreeTitle', 'proFreeBody', 'proWebsiteLink',
       'proActivateLabel', 'proActivateBtn', 'proActivating', 'proActivatedOk',
       'proActErrFormat', 'proActErrWorkerUnset', 'proActErrGeneric',
       'proLicenseField', 'proActivatedField', 'proExpiresField',
@@ -141,8 +144,6 @@ describe('#45 step 3 — popup pro UI', () => {
   it('price copy escapes literal dollar signs for chrome.i18n', () => {
     const locales = ['en', 'zh_CN', 'ja'];
     const priceKeys = [
-      'proCtaMonthly', 'proCtaAnnual',
-      'heroCtaUpgradeAnnual', 'heroCtaUpgradeMonthly',
       'contentLbHotMonthly', 'contentLbHotAnnual',
     ];
     for (const locale of locales) {

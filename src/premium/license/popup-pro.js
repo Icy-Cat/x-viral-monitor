@@ -8,14 +8,9 @@
 // tier rules must be made in BOTH places, which the license-slice tests
 // will catch via duplicated invariant assertions).
 //
-// Buy URLs (Creem checkout).
-//   Monthly $2.9 display — prod_7f7t9EHK3RJlOK37DWr7J
-//   Annual  $29 display  — prod_69yTiXGXb04DKm46DNVbN9
-
 (() => {
   const LICENSE_PROXY_URL = 'https://xvm-license.lengkuxiaomao.workers.dev';
-  const BUY_URL_MONTHLY = 'https://www.creem.io/payment/prod_7f7t9EHK3RJlOK37DWr7J';
-  const BUY_URL_ANNUAL  = 'https://www.creem.io/payment/prod_69yTiXGXb04DKm46DNVbN9';
+  const PRODUCT_SITE_URL = 'https://icy-cat.github.io/x-viral-monitor/#pro';
 
   // All tier-resolution logic lives in tier-logic.js (loaded BEFORE us via
   // <script> in popup.html). Single source of truth; eliminates mirror
@@ -245,6 +240,32 @@
     return `${k.slice(0, 4)}••••${k.slice(-4)}`;
   }
 
+  function appendProScope(container) {
+    const scope = document.createElement('div');
+    scope.className = 'pro-scope';
+
+    const paid = document.createElement('div');
+    paid.className = 'pro-scope-block';
+    const paidTitle = document.createElement('div');
+    paidTitle.className = 'pro-scope-title';
+    paidTitle.textContent = t('proScopeTitle');
+    const paidBody = document.createElement('p');
+    paidBody.textContent = t('proScopeBody');
+    paid.append(paidTitle, paidBody);
+
+    const free = document.createElement('div');
+    free.className = 'pro-scope-block free';
+    const freeTitle = document.createElement('div');
+    freeTitle.className = 'pro-scope-title';
+    freeTitle.textContent = t('proFreeTitle');
+    const freeBody = document.createElement('p');
+    freeBody.textContent = t('proFreeBody');
+    free.append(freeTitle, freeBody);
+
+    scope.append(paid, free);
+    container.appendChild(scope);
+  }
+
   // ─── Render (Pro tab banner, mock A) ───────────────────────────────
   // Inside #xvm-pro-section (.pro-banner): big TIER label + sub + CTA
   // row (or Pro meta when active). Tabs are the navigation, so no 3-dot
@@ -285,22 +306,19 @@
     }
     container.appendChild(sub);
 
+    if (!isCommunityDev) {
+      appendProScope(container);
+    }
+
     if (tier !== 'pro' && !isCommunityDev) {
       const row = document.createElement('div');
       row.className = 'pro-cta-row';
-      // Primary CTA = annual (save 17%)
-      const annual = document.createElement('a');
-      annual.className = 'pro-cta';
-      annual.href = BUY_URL_ANNUAL; annual.target = '_blank'; annual.rel = 'noopener';
-      annual.innerHTML = `<svg><use href="#icon-sparkles"/></svg> <span></span>`;
-      annual.querySelector('span').textContent = t('heroCtaUpgradeAnnual');
-      row.appendChild(annual);
-      // Secondary CTAs
-      const monthly = document.createElement('a');
-      monthly.className = 'pro-cta secondary';
-      monthly.href = BUY_URL_MONTHLY; monthly.target = '_blank'; monthly.rel = 'noopener';
-      monthly.textContent = t('heroCtaUpgradeMonthly');
-      row.appendChild(monthly);
+      const site = document.createElement('a');
+      site.className = 'pro-cta';
+      site.href = PRODUCT_SITE_URL; site.target = '_blank'; site.rel = 'noopener';
+      site.innerHTML = `<svg><use href="#icon-sparkles"/></svg> <span></span>`;
+      site.querySelector('span').textContent = t('proWebsiteLink');
+      row.appendChild(site);
       // "Activate existing license" — opens inline form
       const actLink = document.createElement('button');
       actLink.type = 'button';
@@ -316,9 +334,9 @@
       row.className = 'pro-cta-row';
       const manage = document.createElement('a');
       manage.className = 'pro-cta secondary';
-      manage.href = 'https://www.creem.io/dashboard';
+      manage.href = PRODUCT_SITE_URL;
       manage.target = '_blank'; manage.rel = 'noopener';
-      manage.textContent = t('proManageBtn');
+      manage.textContent = t('proWebsiteLink');
       row.appendChild(manage);
       container.appendChild(row);
 

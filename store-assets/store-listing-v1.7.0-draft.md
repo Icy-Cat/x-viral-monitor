@@ -20,7 +20,7 @@ NEW IN 1.7.0 — XVM PRO
 - Separate settings for short posts and long X Articles.
 - Scope controls for Home, Lists, Profiles, and Tweet detail pages.
 - Floating panel switch: toggle Hot only directly on X, synced with the popup.
-- Pro gating: Free users see disabled Pro switches; Trial and Pro users can enable the filters.
+- Free users see Pro feature hints; trial and Pro users can enable the matching filters.
 
 CORE FEATURES
 
@@ -70,7 +70,7 @@ v1.7.0 新增 — XVM Pro
 - 短推和 X Article 长文可分别设置阈值。
 - 首页、List、博主主页、推文详情页可独立配置作用域。
 - 悬浮面板开关: 在 X 页面直接切换“仅看热帖”, 与 popup 双向同步。
-- Pro gating: Free 用户可看到灰色 Pro 开关; Trial 和 Pro 用户可启用过滤。
+- 免费用户会看到 Pro 功能提示；试用和 Pro 用户可以启用对应过滤。
 
 核心功能
 
@@ -86,7 +86,7 @@ v1.7.0 新增 — XVM Pro
 - 免费功能完全在本地浏览器运行。
 - 无分析埋点、无跟踪像素、无第三方数据采集。
 - 只读取你正在浏览的 x.com / pro.x.com 页面。
-- Pro license 校验只通过 Cloudflare Worker 代理发送 license key。
+- Pro License 校验只通过 Cloudflare Worker 代理发送 License Key。
 - 开源地址: https://github.com/Icy-Cat/x-viral-monitor
 
 兼容性

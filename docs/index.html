@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>X Viral Monitor - X 爆款监测插件</title>
-  <meta name="description" content="X Viral Monitor 在 X 时间线上显示推文流速、热榜、长图阅读、内容过滤和 Pro 流速过滤。支持 Chrome 扩展、Tampermonkey 油猴脚本和 iOS Safari UserScripts。" />
+  <meta name="description" content="X Viral Monitor 在 X 时间线上显示推文流速、热榜、长图阅读和内容过滤。基础功能免费开放，官方 Chrome 扩展支持 Pro 流速过滤。" />
   <meta name="theme-color" content="#0b1016" />
   <meta property="og:title" content="X Viral Monitor" />
   <meta property="og:description" content="把 X 时间线变成爆款捕捉、阅读和过滤控制台。" />
@@ -592,7 +592,7 @@
         <div class="hero-content">
           <span class="kicker">X timeline intelligence</span>
           <h1>X Viral Monitor</h1>
-          <p class="lead">在 X 时间线上实时识别推文流速、爆帖指数和当前页面热榜。Chrome 官方版支持 Pro 订阅；GitHub 社区版和油猴脚本保持开源可自建。</p>
+          <p class="lead">在 X 时间线上实时识别推文流速、爆帖指数和当前页面热榜。Chrome 官方版支持 Pro 订阅；GitHub 社区版和脚本版保持开源，可自行安装和构建。</p>
           <div class="cta-row">
             <a class="btn primary" href="https://chromewebstore.google.com/detail/x-viral-monitor/dkplofpecmjmbhgjgleeflcnfgfkdfpd">安装 Chrome 扩展</a>
             <a class="btn" href="#install">选择安装方式</a>
@@ -611,7 +611,7 @@
             <div>
               <span class="tag">Recommended</span>
               <strong>Chrome / Edge 扩展</strong>
-              <p>完整功能入口：流速徽章、热榜、内容过滤、长图阅读、Grok 回复辅助和 Pro 流速过滤。</p>
+              <p>完整功能入口：流速徽章、热榜、内容过滤、长图阅读、Grok 回复辅助，并支持 Pro 流速过滤。</p>
               <ol class="steps">
                 <li>打开 Chrome Web Store 页面</li>
                 <li>点击添加到 Chrome</li>
@@ -655,11 +655,11 @@
     <section id="pro">
       <div class="wrap">
         <h2>Pro 订阅</h2>
-        <p class="section-lead">Pro 面向 Chrome Web Store 官方版，当前解锁流速过滤：按 views/min 和总浏览量隐藏低流速推文，并分别控制 Home、Lists、Profile、Tweet detail 范围。</p>
+        <p class="section-lead">X Viral Monitor 的基础功能免费开放。Pro 面向更进阶的使用场景，目前主要是流速过滤；以后如果调整付费范围，会在本页同步说明。</p>
         <div class="pricing">
           <article class="price-card">
-            <strong>按现有价格购买</strong>
-            <p>购买后会获得 license key，在 Chrome 扩展的 Pro 页面激活。价格和结账状态以支付页显示为准。</p>
+            <strong>购买 Pro</strong>
+            <p>购买后会获得 License Key，可在 Chrome 扩展的 Pro 页面激活。最终价格以支付页显示为准。</p>
             <div class="price-row">
               <div class="price">
                 <b>$2.9</b>
@@ -676,9 +676,9 @@
             </div>
           </article>
           <article class="price-card">
-            <strong>免费功能不会被拿走</strong>
-            <p>流速徽章、当前页面热榜、书签数显示、图片查看增强、长图阅读、内容过滤、Markdown 复制、感谢星图和 Grok 回复辅助仍是免费能力。</p>
-            <p style="margin-top:16px">Pro license 只用于官方 Chrome 扩展内的高级体验。客户端源码开放，付费价值来自官方构建、自动更新、license 服务、支持和持续维护。</p>
+            <strong>基础功能免费开放</strong>
+            <p>流速徽章、当前页面热榜、书签数显示、图片查看增强、长图阅读、内容过滤、Markdown 复制、感谢星图和 Grok 回复辅助等常用功能，不需要开通 Pro。</p>
+            <p style="margin-top:16px">Pro License 仅用于官方 Chrome 扩展内的 Pro 功能。客户端源码开放，付费部分主要覆盖官方构建、自动更新、License 服务、维护支持和持续更新。</p>
           </article>
         </div>
       </div>
@@ -687,20 +687,20 @@
     <section id="versions">
       <div class="wrap">
         <h2>官方版 vs GitHub 社区版</h2>
-        <p class="section-lead">同一套源码按 MIT 协议开放。Chrome Web Store 版本是官方发行版；GitHub 构建、自行加载、油猴脚本和 Safari UserScripts 属于社区/自建路径。</p>
+        <p class="section-lead">同一套源码按 MIT 协议开放。Chrome Web Store 版本是官方发行版；GitHub 构建、自行加载、油猴脚本和 Safari UserScripts 属于社区版或自行安装路径。</p>
         <table class="matrix">
           <tbody>
             <tr>
               <th>安装和更新</th>
-              <td>Chrome Web Store 官方版提供一键安装和自动更新。GitHub 社区版需要自行下载 release、开发者模式加载或安装脚本。</td>
+              <td>Chrome Web Store 官方版提供一键安装和自动更新。GitHub 社区版需要自行下载 Release、开发者模式加载或安装脚本。</td>
             </tr>
             <tr>
               <th>Pro 激活</th>
-              <td>Pro 订阅面向官方 Chrome 扩展，支持 license 激活和状态校验。自建版本可审计和修改源码，但不承诺官方 license 服务支持。</td>
+              <td>Pro 订阅面向官方 Chrome 扩展，支持 License 激活和状态校验。自建版本可审计和修改源码，但不包含官方 License 服务支持。</td>
             </tr>
             <tr>
-              <th>支持范围</th>
-              <td>官方版包含维护支持和持续发行。社区版按 MIT 协议 as-is 提供，适合开发者审计、二次开发和提交 PR。</td>
+              <th>维护支持</th>
+              <td>官方版包含维护支持和持续更新。社区版按 MIT 协议原样提供，适合开发者审计、二次开发和提交 PR。</td>
             </tr>
             <tr>
               <th>脚本版本</th>
@@ -734,7 +734,7 @@
             no analytics<br>
             no tracking pixel<br>
             local settings in chrome.storage<br>
-            Pro license check through xvm-license Worker<br>
+            Pro License check via xvm-license Worker<br>
             source available on GitHub
           </div>
         </div>
@@ -757,34 +757,34 @@
       zh: {
         lang: 'zh-CN',
         title: 'X Viral Monitor - X 爆款监测插件',
-        description: 'X Viral Monitor 在 X 时间线上显示推文流速、热榜、长图阅读、内容过滤和 Pro 流速过滤。支持 Chrome 扩展、Tampermonkey 油猴脚本和 iOS Safari UserScripts。',
+        description: 'X Viral Monitor 在 X 时间线上显示推文流速、热榜、长图阅读和内容过滤。基础功能免费开放，官方 Chrome 扩展支持 Pro 流速过滤。',
         nav: ['安装', 'Pro', '版本区别', '隐私', 'GitHub'],
         kicker: 'X timeline intelligence',
         heroTitle: 'X Viral Monitor',
-        heroLead: '在 X 时间线上实时识别推文流速、爆帖指数和当前页面热榜。Chrome 官方版支持 Pro 订阅；GitHub 社区版和油猴脚本保持开源可自建。',
+        heroLead: '在 X 时间线上实时识别推文流速、爆帖指数和当前页面热榜。Chrome 官方版支持 Pro 订阅；GitHub 社区版和脚本版保持开源，可自行安装和构建。',
         heroCtas: ['安装 Chrome 扩展', '选择安装方式', '查看源码'],
         installTitle: '三种安装方式',
         installLead: '桌面 Chrome 用户推荐官方扩展。只需要基础徽章和排行榜，可以使用 Tampermonkey。iPhone / iPad 用户走 Safari UserScripts 移动版。',
         installCards: [
-          ['Recommended', 'Chrome / Edge 扩展', '完整功能入口：流速徽章、热榜、内容过滤、长图阅读、Grok 回复辅助和 Pro 流速过滤。', ['打开 Chrome Web Store 页面', '点击添加到 Chrome', '在 X 页面右上角打开插件设置'], '去应用商店安装'],
+          ['Recommended', 'Chrome / Edge 扩展', '完整功能入口：流速徽章、热榜、内容过滤、长图阅读、Grok 回复辅助，并支持 Pro 流速过滤。', ['打开 Chrome Web Store 页面', '点击添加到 Chrome', '在 X 页面右上角打开插件设置'], '去应用商店安装'],
           ['Free script', 'Tampermonkey 油猴脚本', '桌面精简版，适合只想要流速徽章和当前页面热榜的用户。', ['安装 Tampermonkey 或 Violentmonkey', '打开脚本 raw 地址', '在脚本管理器中确认安装'], '安装桌面脚本'],
           ['iOS Safari', 'Safari UserScripts', '移动版脚本使用 DOM fallback，默认保留徽章，关闭浮动排行榜以适配小屏。', ['安装 Userscripts App', '在 Safari 扩展设置中启用', '导入移动版脚本'], '安装移动脚本'],
         ],
         proTitle: 'Pro 订阅',
-        proLead: 'Pro 面向 Chrome Web Store 官方版，当前解锁流速过滤：按 views/min 和总浏览量隐藏低流速推文，并分别控制 Home、Lists、Profile、Tweet detail 范围。',
-        priceMainTitle: '按现有价格购买',
-        priceMainText: '购买后会获得 license key，在 Chrome 扩展的 Pro 页面激活。价格和结账状态以支付页显示为准。',
+        proLead: 'X Viral Monitor 的基础功能免费开放。Pro 面向更进阶的使用场景，目前主要是流速过滤；以后如果调整付费范围，会在本页同步说明。',
+        priceMainTitle: '购买 Pro',
+        priceMainText: '购买后会获得 License Key，可在 Chrome 扩展的 Pro 页面激活。最终价格以支付页显示为准。',
         priceMonthly: ['月度订阅', '适合短期试用或阶段性使用。', '购买月度'],
         priceAnnual: ['年度订阅，约省 17%', '适合长期监控 X 时间线的用户。', '购买年度'],
-        freeTitle: '免费功能不会被拿走',
-        freeText1: '流速徽章、当前页面热榜、书签数显示、图片查看增强、长图阅读、内容过滤、Markdown 复制、感谢星图和 Grok 回复辅助仍是免费能力。',
-        freeText2: 'Pro license 只用于官方 Chrome 扩展内的高级体验。客户端源码开放，付费价值来自官方构建、自动更新、license 服务、支持和持续维护。',
+        freeTitle: '基础功能免费开放',
+        freeText1: '流速徽章、当前页面热榜、书签数显示、图片查看增强、长图阅读、内容过滤、Markdown 复制、感谢星图和 Grok 回复辅助等常用功能，不需要开通 Pro。',
+        freeText2: 'Pro License 仅用于官方 Chrome 扩展内的 Pro 功能。客户端源码开放，付费部分主要覆盖官方构建、自动更新、License 服务、维护支持和持续更新。',
         versionsTitle: '官方版 vs GitHub 社区版',
-        versionsLead: '同一套源码按 MIT 协议开放。Chrome Web Store 版本是官方发行版；GitHub 构建、自行加载、油猴脚本和 Safari UserScripts 属于社区/自建路径。',
+        versionsLead: '同一套源码按 MIT 协议开放。Chrome Web Store 版本是官方发行版；GitHub 构建、自行加载、油猴脚本和 Safari UserScripts 属于社区版或自行安装路径。',
         matrix: [
-          ['安装和更新', 'Chrome Web Store 官方版提供一键安装和自动更新。GitHub 社区版需要自行下载 release、开发者模式加载或安装脚本。'],
-          ['Pro 激活', 'Pro 订阅面向官方 Chrome 扩展，支持 license 激活和状态校验。自建版本可审计和修改源码，但不承诺官方 license 服务支持。'],
-          ['支持范围', '官方版包含维护支持和持续发行。社区版按 MIT 协议 as-is 提供，适合开发者审计、二次开发和提交 PR。'],
+          ['安装和更新', 'Chrome Web Store 官方版提供一键安装和自动更新。GitHub 社区版需要自行下载 Release、开发者模式加载或安装脚本。'],
+          ['Pro 激活', 'Pro 订阅面向官方 Chrome 扩展，支持 License 激活和状态校验。自建版本可审计和修改源码，但不包含官方 License 服务支持。'],
+          ['维护支持', '官方版包含维护支持和持续更新。社区版按 MIT 协议原样提供，适合开发者审计、二次开发和提交 PR。'],
           ['脚本版本', 'Tampermonkey 和 Safari UserScripts 是免费轻量路径，重点覆盖流速徽章和移动端可用性，不等同于完整 Chrome 扩展。'],
         ],
         featureTitle: '核心能力',
@@ -815,20 +815,20 @@
           ['iOS Safari', 'Safari UserScripts', 'The mobile build uses DOM fallback, keeps badges on, and disables the floating leaderboard by default for small screens.', ['Install the Userscripts App', 'Enable it in Safari extension settings', 'Import the mobile script'], 'Install mobile script'],
         ],
         proTitle: 'Pro subscription',
-        proLead: 'Pro is for the official Chrome Web Store build. It currently unlocks velocity filtering: hide low-velocity tweets by views/min and total views, scoped separately for Home, Lists, Profiles, and Tweet detail pages.',
+        proLead: 'Most everyday X Viral Monitor features are free. Pro is reserved for a small set of advanced extras, currently centered on velocity filtering. If the paid scope changes, this page will keep the latest details.',
         priceMainTitle: 'Current pricing',
-        priceMainText: 'After purchase, activate your license key in the Chrome extension Pro tab. Final price and checkout status follow the payment page.',
+        priceMainText: 'After purchase, activate your License Key in the Chrome extension Pro tab. Final pricing is shown on the checkout page.',
         priceMonthly: ['Monthly subscription', 'Good for short trials or temporary monitoring.', 'Buy monthly'],
         priceAnnual: ['Annual subscription, about 17% off', 'Best for long-running X timeline monitoring.', 'Buy annual'],
-        freeTitle: 'Free features stay free',
-        freeText1: 'Velocity badges, current-page hot list, bookmark counts, image viewer upgrades, long-image reading, content filtering, Markdown copy, Thank-You Star Chart, and Grok reply drafts remain free.',
-        freeText2: 'The Pro license unlocks premium behavior in the official Chrome extension. The client source is open; paid value comes from the official build, auto-updates, license service, support, and ongoing maintenance.',
+        freeTitle: 'Most features are free',
+        freeText1: 'Velocity badges, current-page hot list, bookmark counts, image viewer upgrades, long-image reading, content filtering, Markdown copy, Thank-You Star Chart, Grok reply drafts, and other everyday tools are free to use.',
+        freeText2: 'The Pro License applies only to Pro features in the official Chrome extension. The client source stays open; the paid part mainly covers the official build, auto-updates, License service, support, and ongoing maintenance.',
         versionsTitle: 'Official build vs GitHub community build',
         versionsLead: 'The same codebase is MIT licensed. Chrome Web Store is the official distribution; GitHub builds, manual installs, userscripts, and Safari UserScripts are community or self-built paths.',
         matrix: [
           ['Install and updates', 'The Chrome Web Store build has one-click install and automatic updates. GitHub/community builds require downloading releases, loading unpacked builds, or installing scripts yourself.'],
-          ['Pro activation', 'Pro subscriptions target the official Chrome extension with license activation and status validation. Self-built versions can be audited and modified, but official license-service support is not promised.'],
-          ['Support scope', 'The official build includes maintainer support and ongoing releases. Community builds are provided as-is under MIT, suitable for auditing, forks, and PRs.'],
+          ['Pro activation', 'Pro subscriptions target the official Chrome extension with License activation and status validation. Self-built versions can be audited and modified, but they do not include official License service support.'],
+          ['Support scope', 'The official build includes maintainer support and ongoing releases. Community builds are provided under the MIT license as self-built paths, suitable for auditing, forks, and PRs.'],
           ['Script builds', 'Tampermonkey and Safari UserScripts are free lightweight paths focused on velocity badges and mobile availability, not the full Chrome extension.'],
         ],
         featureTitle: 'Core features',
@@ -859,20 +859,20 @@
           ['iOS Safari', 'Safari UserScripts', 'モバイル版は DOM fallback を使い、小画面向けにバッジを残してフローティングランキングを既定でオフにします。', ['Userscripts App を入れる', 'Safari 拡張設定で有効化', 'モバイル版スクリプトを読み込む'], 'モバイル版を入れる'],
         ],
         proTitle: 'Pro サブスクリプション',
-        proLead: 'Pro は公式 Chrome Web Store 版向けです。現在は views/min と総表示数で低流速投稿を隠す流速フィルターを解放し、Home、Lists、Profiles、Tweet detail ごとに適用範囲を切り替えられます。',
+        proLead: 'X Viral Monitor の日常的な機能の多くは無料で使えます。Pro は一部の高度な追加機能向けで、現在は主に流速フィルターを対象にしています。対象範囲が変わる場合は、このページで最新情報を案内します。',
         priceMainTitle: '現在の価格',
-        priceMainText: '購入後、Chrome 拡張の Pro タブで license key を有効化します。最終価格と決済状態は決済ページの表示に従います。',
+        priceMainText: '購入後、Chrome 拡張の Pro タブで License Key を有効化します。最終価格は決済ページの表示に従います。',
         priceMonthly: ['月額サブスク', '短期間の試用や一時的な監視に向いています。', '月額で購入'],
         priceAnnual: ['年額サブスク、約 17% お得', '長期的に X タイムラインを監視する人向けです。', '年額で購入'],
-        freeTitle: '無料機能はそのまま',
-        freeText1: '流速バッジ、ページ内注目リスト、ブックマーク数表示、画像ビューア強化、長尺画像閲覧、コンテンツフィルター、Markdown コピー、Thank-You Star Chart、Grok 返信補助は無料機能です。',
-        freeText2: 'Pro license は公式 Chrome 拡張内の高度な体験を解放します。クライアントソースは公開され、課金価値は公式ビルド、自動更新、ライセンスサービス、サポート、継続保守にあります。',
+        freeTitle: 'ほとんどの機能は無料',
+        freeText1: '流速バッジ、ページ内注目リスト、ブックマーク数表示、画像ビューア強化、長尺画像閲覧、コンテンツフィルター、Markdown コピー、Thank-You Star Chart、Grok 返信補助などの日常機能は無料で使えます。',
+        freeText2: 'Pro License は公式 Chrome 拡張内の Pro 機能にのみ適用されます。クライアントソースは公開され、課金部分は主に公式ビルド、自動更新、License サービス、サポート、継続保守を対象にしています。',
         versionsTitle: '公式版 vs GitHub コミュニティ版',
         versionsLead: '同じコードベースを MIT ライセンスで公開しています。Chrome Web Store は公式配布、GitHub ビルド、手動読み込み、userscript、Safari UserScripts はコミュニティ / 自己ビルドの経路です。',
         matrix: [
-          ['インストールと更新', 'Chrome Web Store 公式版はワンクリックインストールと自動更新に対応します。GitHub 版は release のダウンロード、展開版読み込み、またはスクリプト導入が必要です。'],
-          ['Pro 有効化', 'Pro サブスクは公式 Chrome 拡張向けで、license の有効化と状態確認に対応します。自己ビルド版は監査と改変ができますが、公式 license サービスのサポートは保証しません。'],
-          ['サポート範囲', '公式版には保守サポートと継続リリースが含まれます。コミュニティ版は MIT に基づき as-is で提供され、監査、fork、PR に向いています。'],
+          ['インストールと更新', 'Chrome Web Store 公式版はワンクリックインストールと自動更新に対応します。GitHub 版は Release のダウンロード、展開版読み込み、またはスクリプト導入が必要です。'],
+          ['Pro 有効化', 'Pro サブスクは公式 Chrome 拡張向けで、License の有効化と状態確認に対応します。自己ビルド版は監査と改変ができますが、公式 License サービスのサポートは含まれません。'],
+          ['サポート範囲', '公式版には保守サポートと継続リリースが含まれます。コミュニティ版は MIT ライセンスに基づく自己ビルド経路で、監査、fork、PR に向いています。'],
           ['スクリプト版', 'Tampermonkey と Safari UserScripts は無料の軽量経路で、流速バッジとモバイル利用性に重点を置き、完全な Chrome 拡張とは異なります。'],
         ],
         featureTitle: '主な機能',
