@@ -9,6 +9,15 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.7.15] - 2026-06-03
+
+### Fixed
+
+- Removed the remaining hardcoded Telegram URL block path that surfaced as `url:block` / "URL blocked".
+- Telegram mirrors or discussion links now stay visible unless paired with explicit spam, adult, or funnel wording.
+
+---
+
 ## [1.7.14] - 2026-06-03
 
 ### Fixed

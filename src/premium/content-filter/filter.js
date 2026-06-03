@@ -304,7 +304,7 @@
       matches.push({ id: 'hard-promoted', field: 'content', severity: 'block', label: 'promoted' });
     }
     if (telegramFunnel(raw)) {
-      matches.push({ id: 'hard-telegram-group-funnel', field: 'url', severity: 'block', label: 'telegram funnel' });
+      matches.push({ id: 'hard-telegram-group-funnel', field: 'content', severity: 'block', label: 'telegram funnel' });
     }
     for (const rule of activeRules()) {
       const m = matchRule(rule, raw);
@@ -325,14 +325,14 @@
     return hosts.some((h) => SETTINGS.whitelistDomains.includes(h));
   }
 
-  // Defense-in-depth duplicate of the `hard-telegram-group-funnel` rule in
-  // rules.json. Hardcoded here so a malformed / stale remote payload can't
-  // disable our most important spam class. If you ever remove the rule
-  // from rules.json this function still fires.
+  // Defense-in-depth duplicate of the high-confidence Telegram funnel rule.
+  // Keep this stricter than "Telegram URL exists"; otherwise legitimate
+  // creators who mirror posts to Telegram get hidden as url:block.
   function telegramFunnel(raw) {
     const text = `${raw.content || ''} ${raw.author?.bio || ''} ${raw.urls.join(' ')}`.toLowerCase();
-    return /(t\.me|telegram|电报|飞机)/i.test(text)
-      && /(中推|中文推特|群|频道|福利|资源|私信|加|宝宝|点这里|靠谱|选人|教程|同城|线下|上门|约p|约炮|曰泡|join|channel)/i.test(text);
+    const hasTelegram = /(t\.me|telegram|电报|飞机)/i.test(text);
+    const hasFunnel = /(中推|中文推特|福利(资源|视频|社群|社区|导航|群|频道)|成人(资源|视频)|成人视频|私信(加入|加群|进群|领取|获取)|加(群|频道)|进群|群里.{0,8}(福利|资源|视频|约|广告)|频道.{0,8}(福利|资源|视频|广告)|同城.{0,8}(线下|上门|可约)|线下.{0,8}(约|上门|见面)|上门|约p|约炮|曰泡|宝宝.{0,6}(点这里|主页|私信))/i.test(text);
+    return hasTelegram && hasFunnel;
   }
 
   function activeRules() {

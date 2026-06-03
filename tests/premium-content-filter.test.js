@@ -297,6 +297,12 @@ describe('#123 XVM content filter v1', () => {
       urls: ['https://t.me/example'],
       author: { handle: 'spam', name: 'promo', bio: '电报福利资源频道', location: '' },
     };
+    const telegramDiscussion = {
+      id: 'telegram-discussion',
+      content: '技术文章同步到 t.me/example 讨论群，方便读者订阅',
+      urls: ['https://t.me/example'],
+      author: { handle: 'creator', name: 'normal', bio: 'Telegram mirror', location: '' },
+    };
     const marketingOnly = {
       id: 'medium-2',
       content: '合作微信，推广案例和网盘拉新',
@@ -326,13 +332,16 @@ describe('#123 XVM content filter v1', () => {
     api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
     expect(api._debug.classify(tmeOnly).hide).toBe(false);
     expect(api._debug.classify(telegramOnly).hide).toBe(false);
+    expect(api._debug.classify(telegramDiscussion).hide).toBe(false);
     expect(api._debug.classify(telegramFunnel).hide).toBe(true);
+    expect(api._debug.classify(telegramFunnel).matches.some((m) => m.field === 'content' && m.severity === 'block')).toBe(true);
     expect(api._debug.classify(marketingOnly).hide).toBe(false);
     expect(api._debug.classify(highName).hide).toBe(true);
     expect(api._debug.classify(broadResource).hide).toBe(false);
     api.updateSettings({ enabled: true, level: 'strict', whitelistFollowing: false });
     expect(api._debug.classify(tmeOnly).hide).toBe(false);
     expect(api._debug.classify(telegramOnly).hide).toBe(false);
+    expect(api._debug.classify(telegramDiscussion).hide).toBe(false);
     expect(api._debug.classify(telegramFunnel).hide).toBe(true);
     expect(api._debug.classify(marketingOnly).hide).toBe(true);
     expect(api._debug.classify(lowOnly).hide).toBe(false);
