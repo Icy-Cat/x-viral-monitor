@@ -60,6 +60,11 @@
        per-theme if needed. */
     * { box-sizing: border-box; margin: 0; }
     html, body { scrollbar-gutter: stable; }
+    /* scrollbar-gutter only applies to scroll containers (overflow != visible);
+       html defaults to overflow:visible, so the gutter above was a no-op and the
+       popup width jittered 6px when a tab's content needed a scrollbar. Making
+       html a scroll container lets the stable gutter actually reserve the space. */
+    html { overflow-y: scroll; }
     body {
       width: 360px;            /* fixed-width popup per mock A (polish #1) */
       min-width: 360px;
