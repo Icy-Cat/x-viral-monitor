@@ -147,6 +147,13 @@ describe('#45 popup tabs structure (mock A)', () => {
       ).toBe(true);
     }
   });
+
+  it('keeps popup scrollbar gutter effective across tabs with different heights', () => {
+    expect(/html,\s*body\s*\{[^}]*scrollbar-gutter:\s*stable/.test(html)).toBe(true);
+    expect(/html\s*\{[^}]*overflow-y:\s*scroll/.test(html),
+      'scrollbar-gutter only reserves space on scroll containers; html must not stay overflow: visible'
+    ).toBe(true);
+  });
 });
 
 describe('#45 dual theme (light warm default + dark slate)', () => {

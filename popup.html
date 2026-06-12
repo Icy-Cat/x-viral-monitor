@@ -60,6 +60,9 @@
        per-theme if needed. */
     * { box-sizing: border-box; margin: 0; }
     html, body { scrollbar-gutter: stable; }
+    /* scrollbar-gutter only applies to scroll containers. Keep html scrollable
+       so the popup reserves the gutter before a taller tab needs it. */
+    html { overflow-y: scroll; }
     body {
       width: 360px;            /* fixed-width popup per mock A (polish #1) */
       min-width: 360px;
