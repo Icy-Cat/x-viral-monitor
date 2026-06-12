@@ -173,6 +173,7 @@ const DEFAULT_FEATURES = {
   grokSelectedPromptId: LOCALIZED_GROK_DEFAULTS.grokSelectedPromptId,
   grokSelectedArticlePromptId: LOCALIZED_GROK_DEFAULTS.grokSelectedArticlePromptId,
   grokTemporaryChat: true,
+  grokEnterToReply: false,
   language: initialLanguagePref,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
@@ -367,6 +368,7 @@ const grokPromptResetBtn = document.getElementById('grok-prompt-reset');
 const grokPromptAddBtn = document.getElementById('grok-prompt-add');
 const grokPromptDeleteBtn = document.getElementById('grok-prompt-delete');
 const grokTempChatToggle = document.getElementById('grok-temp-chat');
+const grokEnterReplyToggle = document.getElementById('grok-enter-reply');
 // Parallel set for article-length sources.
 const grokArticleTemplateSelect = document.getElementById('grok-article-template-select');
 const grokArticleTemplateNameInput = document.getElementById('grok-article-template-name');
@@ -531,6 +533,7 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
     grokSelectedArticleTemplateId = grokArticleTemplatesState[0]?.id || 'article-default';
   }
   if (grokTempChatToggle) grokTempChatToggle.checked = items.grokTemporaryChat !== false;
+  if (grokEnterReplyToggle) grokEnterReplyToggle.checked = items.grokEnterToReply === true;
   renderGrokTemplateEditor();
   renderGrokArticleTemplateEditor();
   columnsState = normalizeColumns(items.leaderboardColumns);
@@ -696,6 +699,12 @@ bookmarkCountToggle.addEventListener('change', () => {
 grokTempChatToggle?.addEventListener('change', () => {
   chrome.storage.sync.set({ grokTemporaryChat: grokTempChatToggle.checked }, () => {
     flash(tr(grokTempChatToggle.checked ? 'flashGrokTempChatOn' : 'flashGrokTempChatOff'));
+  });
+});
+
+grokEnterReplyToggle?.addEventListener('change', () => {
+  chrome.storage.sync.set({ grokEnterToReply: grokEnterReplyToggle.checked }, () => {
+    flash(tr(grokEnterReplyToggle.checked ? 'flashGrokEnterReplyOn' : 'flashGrokEnterReplyOff'));
   });
 });
 

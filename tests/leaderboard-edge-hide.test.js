@@ -28,4 +28,19 @@ describe('leaderboard edge-hide release behavior', () => {
     expect(contentJs).toContain('if (suppressLeaderboardEdgeExpandClick)');
     expect(contentJs).toContain('}, true);');
   });
+
+  it('temporarily expanded edge-hidden panels re-hide on outside pointerdown', () => {
+    expect(contentJs).toContain('let leaderboardTempExpandedEdge = null');
+    expect(contentJs).toContain('function armLeaderboardTempExpand(edge)');
+    expect(contentJs).toContain("document.addEventListener('pointerdown', onLeaderboardTempExpandOutsidePointerDown, true)");
+    expect(contentJs).toContain('function onLeaderboardTempExpandOutsidePointerDown(e)');
+    expect(contentJs).toContain('leaderboardEl?.contains?.(target) || leaderboardSettingsEl?.contains?.(target)');
+    expect(contentJs).toContain('setLeaderboardEdgeHidden(true, edge)');
+  });
+
+  it('arms temporary expand when a hidden leaderboard is clicked open', () => {
+    const installer = contentJs.match(/function installLeaderboardEdgeToggle\(\) \{[\s\S]*?function installLeaderboardPanelActions/)?.[0] || '';
+    expect(installer).toContain('const hiddenEdge = leaderboardHiddenEdge');
+    expect(installer).toContain('armLeaderboardTempExpand(hiddenEdge)');
+  });
 });

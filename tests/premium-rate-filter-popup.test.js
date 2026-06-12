@@ -135,6 +135,18 @@ describe('#45 rate-filter popup settings (dev1 gap fix)', () => {
     ).toBe(true);
   });
 
+  it('leaderboard hot-only switch keeps data-tier in sync for late-created settings panel', () => {
+    expect(/hot\.dataset\.tier\s*=\s*tier/.test(content),
+      'setLeaderboardHotSwitchState() must write the resolved tier back to data-tier; otherwise a trial user who opens the settings panel after tier sync still clicks a data-tier="free" switch'
+    ).toBe(true);
+  });
+
+  it('leaderboard hot-only click handlers use resolved trial/pro tier, not only stale DOM data-tier', () => {
+    expect(/const\s+tier\s*=\s*leaderboardTier\s*\|\|\s*hot\.dataset\.tier\s*\|\|\s*['"]free['"]/.test(content),
+      'hot-only click handlers must fall back to leaderboardTier so trial/pro users are not blocked by stale data-tier="free" markup'
+    ).toBe(true);
+  });
+
   it('rate-filter scope URL classifier covers home, list, profile, and tweet detail', () => {
     const debug = loadRateFilterDebug();
     expect(debug.scopeFromPath('/home')).toBe('home');

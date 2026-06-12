@@ -160,6 +160,7 @@ let grokArticlePromptTemplates = DEFAULT_GROK_ARTICLE_PROMPT_TEMPLATES.map((tpl)
 let grokSelectedTemplateId = 'default';
 let grokSelectedArticleTemplateId = 'article-default';
 let grokTemporaryChat = true;
+let grokEnterToReply = false;
 let grokLastReplyArticle = null;
 
 window.postMessage({ type: 'XVM_GROK_SETTINGS_REQUEST' }, '*');
@@ -189,6 +190,9 @@ window.addEventListener('message', (event) => {
   }
   if (typeof event.data.temporaryChat === 'boolean') {
     grokTemporaryChat = event.data.temporaryChat;
+  }
+  if (typeof event.data.enterToReply === 'boolean') {
+    grokEnterToReply = event.data.enterToReply;
   }
 });
 
@@ -1184,6 +1188,7 @@ let leaderboardTier = 'free';
 // GraphQL signal can lag or be entirely missing on cached navigations.
 let _activeScope = null;
 let _tabSelectedScope = null;
+let _rateFilterSettingsSeen = false;
 const HOME_SUB_TAB_LABELS = new Set([
   'For you', 'Following', 'Subscribed',
   '为你推荐', '正在关注', '订阅',
@@ -1231,6 +1236,7 @@ function setLeaderboardHotSwitchState() {
   const scope = currentLeaderboardScope();
   const supportedHere = !!scope;
   const on = tier !== 'free' && supportedHere && currentScopeEnabled();
+  hot.dataset.tier = tier;
   hot.dataset.on = on ? '1' : '0';
   hot.dataset.scope = scope || '';
   hot.setAttribute('aria-disabled', (tier === 'free' || !supportedHere) ? 'true' : 'false');
@@ -1298,13 +1304,22 @@ function installLeaderboardFilterStateSync() {
     if (ev.source !== window) return;
     if (ev.data?.type === 'XVM_RATE_SETTINGS_UPDATE' && ev.data.settings) {
       const s = ev.data.settings;
+      const wasSeen = _rateFilterSettingsSeen;
+      const wasEnabled = currentScopeEnabled();
       _rateFilterScopes = {
         scopeHome: s.scopeHome === true,
         scopeList: s.scopeList === true,
         scopeProfile: s.scopeProfile === true,
         scopeStatus: s.scopeStatus === true,
       };
+      _rateFilterSettingsSeen = true;
       setLeaderboardHotSwitchState();
+      if (wasSeen && !wasEnabled && currentScopeEnabled()) {
+        showToast(i18nOr(
+          'contentLbHotEnabledToast',
+          '仅看热帖已开启：未达到热帖标准的帖子会从页面移除并不显示。'
+        ), { position: 'top' });
+      }
       if (leaderboardEnabled) setTimeout(renderLeaderboard, 80);
     }
     if (ev.data?.type === 'XVM_RATE_FILTER_ACTIVE_SCOPE' && typeof ev.data.scope === 'string') {
@@ -1357,7 +1372,7 @@ function installLeaderboardFilterStateSync() {
 function onHotGateClick(ev) {
   const hot = getLeaderboardHotToggle();
   if (!hot) return;
-  const tier = hot.dataset.tier || 'free';
+  const tier = leaderboardTier || hot.dataset.tier || 'free';
   if (tier === 'free') {
     ev.preventDefault();
     showLeaderboardUpgradeBubble();
@@ -1368,7 +1383,7 @@ function onHotGateClick(ev) {
 function onHotToggleClick(ev) {
   const hot = getLeaderboardHotToggle();
   if (!hot) return;
-  const tier = hot.dataset.tier || 'free';
+  const tier = leaderboardTier || hot.dataset.tier || 'free';
   const scope = currentLeaderboardScope();
   if (tier === 'free') {
     ev.preventDefault();
@@ -1450,6 +1465,7 @@ const LB_EDGE_SNAP = 32;
 let leaderboardPos = null; // {left, top} in px from top-left of viewport
 let leaderboardHiddenEdge = null;
 let leaderboardExpandedPos = null;
+let leaderboardTempExpandedEdge = null;
 let suppressLeaderboardEdgeExpandClick = false;
 
 function setLeaderboardEdgeToggleState() {
@@ -1495,6 +1511,29 @@ function positionHiddenLeaderboard(edge = leaderboardHiddenEdge || 'right') {
   leaderboardEl.style.right = 'auto';
 }
 
+function clearLeaderboardTempExpand() {
+  leaderboardTempExpandedEdge = null;
+  document.removeEventListener('pointerdown', onLeaderboardTempExpandOutsidePointerDown, true);
+}
+
+function armLeaderboardTempExpand(edge) {
+  if (!edge || !leaderboardEdgeHideEnabled) return;
+  leaderboardTempExpandedEdge = edge;
+  document.addEventListener('pointerdown', onLeaderboardTempExpandOutsidePointerDown, true);
+}
+
+function onLeaderboardTempExpandOutsidePointerDown(e) {
+  if (!leaderboardTempExpandedEdge || leaderboardHiddenEdge || !leaderboardEdgeHideEnabled) {
+    clearLeaderboardTempExpand();
+    return;
+  }
+  const target = e.target;
+  if (leaderboardEl?.contains?.(target) || leaderboardSettingsEl?.contains?.(target)) return;
+  const edge = leaderboardTempExpandedEdge;
+  clearLeaderboardTempExpand();
+  setLeaderboardEdgeHidden(true, edge);
+}
+
 function setLeaderboardEdgeHidden(hidden, edge = 'right') {
   if (!leaderboardEl) return;
   if (hidden && !leaderboardEdgeHideEnabled) return;
@@ -1505,6 +1544,7 @@ function setLeaderboardEdgeHidden(hidden, edge = 'right') {
     return;
   }
   if (nextEdge) {
+    clearLeaderboardTempExpand();
     hideLeaderboardSettingsPanel();
     const rect = leaderboardEl.getBoundingClientRect();
     leaderboardExpandedPos = {
@@ -1516,6 +1556,7 @@ function setLeaderboardEdgeHidden(hidden, edge = 'right') {
     leaderboardEl.dataset.edge = nextEdge;
     positionHiddenLeaderboard(nextEdge);
   } else {
+    clearLeaderboardTempExpand();
     leaderboardHiddenEdge = null;
     leaderboardEl.classList.remove('xvm-lb-edge-hidden');
     delete leaderboardEl.dataset.edge;
@@ -1888,7 +1929,9 @@ function installLeaderboardEdgeToggle() {
   btn.addEventListener('click', (e) => {
     e.stopPropagation();
     if (!leaderboardEdgeHideEnabled) return;
-    setLeaderboardEdgeHidden(!leaderboardHiddenEdge, 'right');
+    const hiddenEdge = leaderboardHiddenEdge;
+    setLeaderboardEdgeHidden(!hiddenEdge, 'right');
+    if (hiddenEdge) armLeaderboardTempExpand(hiddenEdge);
   });
   leaderboardEl.addEventListener('click', (e) => {
     if (!leaderboardHiddenEdge) return;
@@ -1897,7 +1940,9 @@ function installLeaderboardEdgeToggle() {
     if (suppressLeaderboardEdgeExpandClick) {
       return;
     }
+    const hiddenEdge = leaderboardHiddenEdge;
     setLeaderboardEdgeHidden(false);
+    armLeaderboardTempExpand(hiddenEdge);
   }, true);
 }
 
@@ -2618,11 +2663,13 @@ setInterval(() => {
 
 if (document.body) {
   startObserver();
+  installEnterToReplyShortcut();
   injectGrokReplyButtons();
   bootGrokInjectorRetries();
 } else {
   document.addEventListener('DOMContentLoaded', () => {
     startObserver();
+    installEnterToReplyShortcut();
     injectGrokReplyButtons();
     bootGrokInjectorRetries();
   });
@@ -3029,6 +3076,37 @@ function findGrokButtonHost(editable, composerRoot) {
     }
   }
   return null;
+}
+
+function findReplySubmitButton(editable) {
+  const root = findReplyComposerRoot(editable);
+  const scope = root?.closest?.('[role="dialog"]') || root;
+  return scope?.querySelector?.(GROK_SUBMIT_SELECTOR) || null;
+}
+
+function installEnterToReplyShortcut() {
+  document.addEventListener('keydown', (event) => {
+    if (!grokEnterToReply) return;
+    if (event.key !== 'Enter') return;
+    if (event.shiftKey || event.metaKey || event.ctrlKey || event.altKey) return;
+    if (event.isComposing || event.keyCode === 229) return;
+
+    const editable = event.target?.closest?.(
+      '[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]'
+    );
+    if (!editable) return;
+
+    const composerRoot = findReplyComposerRoot(editable);
+    if (!composerRoot || !findReplyArticle(composerRoot)) return;
+
+    const submitBtn = findReplySubmitButton(editable);
+    if (!submitBtn || submitBtn.disabled || submitBtn.getAttribute('aria-disabled') === 'true') return;
+
+    event.preventDefault();
+    event.stopPropagation();
+    event.stopImmediatePropagation?.();
+    submitBtn.click();
+  }, true);
 }
 
 function cleanupMisplacedGrokButtons(editable, composerRoot = null) {

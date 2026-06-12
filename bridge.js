@@ -196,6 +196,7 @@ const CONTENT_MESSAGE_KEYS = [
   'contentLbHotOnly',
   'contentLbHotProTitle',
   'contentLbHotProSub',
+  'contentLbHotEnabledToast',
   'contentLbHotDetails',
   'contentLbHotOpenSite',
   'contentBookmarkMenuInFolder',
@@ -224,6 +225,7 @@ const DEFAULT_FEATURES = {
   grokSelectedPromptId: LOCALIZED_GROK_DEFAULTS.grokSelectedPromptId,
   grokSelectedArticlePromptId: LOCALIZED_GROK_DEFAULTS.grokSelectedArticlePromptId,
   grokTemporaryChat: true,
+  grokEnterToReply: false,
   language: 'auto',
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
@@ -568,6 +570,7 @@ window.addEventListener('message', (event) => {
         grokSelectedPromptId: DEFAULT_FEATURES.grokSelectedPromptId,
         grokSelectedArticlePromptId: DEFAULT_FEATURES.grokSelectedArticlePromptId,
         grokTemporaryChat: DEFAULT_FEATURES.grokTemporaryChat,
+        grokEnterToReply: DEFAULT_FEATURES.grokEnterToReply,
       }, (syncItems) => {
         chrome.storage.local.get({ xvmGrokCapturedTxId: null }, (localItems) => {
           const promptTemplates = normalizeGrokPromptTemplates(syncItems.grokPromptTemplates, syncItems.grokCommentPrompt);
@@ -580,6 +583,7 @@ window.addEventListener('message', (event) => {
             selectedPromptId: syncItems.grokSelectedPromptId || promptTemplates[0]?.id || 'default',
             selectedArticlePromptId: syncItems.grokSelectedArticlePromptId || (articlePromptTemplates[0]?.id) || DEFAULT_FEATURES.grokSelectedArticlePromptId,
             temporaryChat: syncItems.grokTemporaryChat !== false,
+            enterToReply: syncItems.grokEnterToReply === true,
             capturedTxId: localItems.xvmGrokCapturedTxId,
           }, '*');
         });
@@ -644,7 +648,7 @@ safeChromeCall(() => {
       const pref = changes.theme.newValue || 'system';
       window.postMessage({ type: 'XVM_THEME_UPDATE', pref }, '*');
     }
-    const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat || changes.language;
+    const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat || changes.grokEnterToReply || changes.language;
     if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.featureBookmarkFolders && !changes.showBookmarkCount && !changes.leaderboardEdgeHideEnabled && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.language && !grokTouched) return;
 
     safeChromeCall(() => {
@@ -662,6 +666,7 @@ safeChromeCall(() => {
           grokSelectedPromptId: DEFAULT_FEATURES.grokSelectedPromptId,
           grokSelectedArticlePromptId: DEFAULT_FEATURES.grokSelectedArticlePromptId,
           grokTemporaryChat: DEFAULT_FEATURES.grokTemporaryChat,
+          grokEnterToReply: DEFAULT_FEATURES.grokEnterToReply,
         }, (items) => {
           const promptTemplates = normalizeGrokPromptTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
           const articlePromptTemplates = normalizeGrokPromptTemplates(items.grokArticlePromptTemplates);
@@ -673,6 +678,7 @@ safeChromeCall(() => {
             selectedPromptId: items.grokSelectedPromptId || promptTemplates[0]?.id || 'default',
             selectedArticlePromptId: items.grokSelectedArticlePromptId || articlePromptTemplates[0]?.id || DEFAULT_FEATURES.grokSelectedArticlePromptId,
             temporaryChat: items.grokTemporaryChat !== false,
+            enterToReply: items.grokEnterToReply === true,
           }, '*');
         });
       }
