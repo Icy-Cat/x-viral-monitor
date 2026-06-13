@@ -60,10 +60,12 @@ describe('#45 rate-filter popup settings (dev1 gap fix)', () => {
     ).toBe(true);
   });
 
-  it('popup-rate-filter.js defaults match locked decisions (scope-per-page redesign)', () => {
-    // After the scope-per-page redesign, the master `enabled` toggle is
-    // gone. Each scope flag is independently opt-in (default false) so
-    // a fresh install never hides anything until the user toggles a scope.
+  it('popup-rate-filter.js defaults match locked decisions (global switch + scope settings)', () => {
+    // The floating leaderboard owns the global `enabled` switch. Popup and
+    // floating settings both edit scope flags, which stay independently
+    // opt-in so a fresh install never hides anything.
+    expect(/enabled:\s*false\b/.test(popupRf)).toBe(true);
+    expect(/__scopeMigratedV2:\s*true/.test(popupRf)).toBe(true);
     expect(/scopeHome:\s*false\b/.test(popupRf)).toBe(true);
     expect(/scopeList:\s*false\b/.test(popupRf)).toBe(true);
     expect(/scopeProfile:\s*false\b/.test(popupRf)).toBe(true);
@@ -84,6 +86,7 @@ describe('#45 rate-filter popup settings (dev1 gap fix)', () => {
     // filter.js DEFAULTS must mirror popup-rate-filter.js DEFAULTS so the
     // gap between activate() and the first XVM_RATE_SETTINGS_UPDATE can
     // never filter under stale all-true defaults.
+    expect(/enabled:\s*false\b/.test(filter)).toBe(true);
     expect(/scopeHome:\s*false\b/.test(filter)).toBe(true);
     expect(/scopeList:\s*false\b/.test(filter)).toBe(true);
     expect(/scopeProfile:\s*false\b/.test(filter)).toBe(true);

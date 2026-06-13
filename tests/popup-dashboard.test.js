@@ -19,6 +19,8 @@ const stylesCss = readFileSync(resolve(repo, 'styles.css'),         'utf8');
 const userScript = readFileSync(resolve(repo, 'userscript/x-viral-monitor.user.js'), 'utf8');
 const backgroundJs = readFileSync(resolve(repo, 'background.js'), 'utf8');
 const manifest = JSON.parse(readFileSync(resolve(repo, 'manifest.json'), 'utf8'));
+const pkg = JSON.parse(readFileSync(resolve(repo, 'package.json'), 'utf8'));
+const packageLock = JSON.parse(readFileSync(resolve(repo, 'package-lock.json'), 'utf8'));
 const buildDistJs = readFileSync(resolve(repo, 'scripts/build-dist.mjs'), 'utf8');
 
 describe('#45 popup tabs structure (mock A)', () => {
@@ -92,6 +94,8 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(/id="grok-prompt"/.test(about)).toBe(false);
     expect(/id="grok-article-prompt"/.test(about)).toBe(false);
     expect(/id="theme-toggle-about"/.test(about)).toBe(true);
+    expect(/id="show-update-notes"/.test(about)).toBe(true);
+    expect(/data-i18n="aboutShowUpdateNotes"/.test(about)).toBe(true);
   });
 
   it('places Enter-to-reply under Other features, not inside the Grok template editor', () => {
@@ -290,6 +294,15 @@ describe('#45 dual theme (light warm default + dark slate)', () => {
     ).toBe(true);
   });
 
+  it('About can manually trigger the release notes popup on the current X tab', () => {
+    expect(/show-update-notes/.test(dashJs)).toBe(true);
+    expect(/function\s+showReleaseNotesOnCurrentTab/.test(dashJs)).toBe(true);
+    expect(/chrome\.tabs\.query\(\{\s*active:\s*true,\s*currentWindow:\s*true\s*\}/.test(dashJs)).toBe(true);
+    expect(/chrome\.tabs\.sendMessage\(tabId,\s*\{[\s\S]*type:\s*['"]XVM_RELEASE_NOTES_SHOW_MANUAL['"]/.test(dashJs)).toBe(true);
+    expect(bridgeJs).toMatch(/XVM_RELEASE_NOTES_SHOW_MANUAL/);
+    expect(bridgeJs).toMatch(/window\.postMessage\(\{\s*type:\s*['"]XVM_RELEASE_NOTES_SHOW['"]/);
+  });
+
   it('theme toggle persists via chrome.storage.sync.set', () => {
     expect(/chrome\.storage\.sync\.set\s*\(\s*\{\s*\[THEME_KEY\]/.test(dashJs)).toBe(true);
   });
@@ -396,6 +409,8 @@ describe('#45 i18n keys (mock A + dual theme)', () => {
       'advAppearanceTitle',
       'languageLabel', 'languageHint', 'languageAuto',
       'languageZh', 'languageEn', 'languageJa',
+      'aboutUpdatesTitle', 'aboutUpdatesDesc', 'aboutShowUpdateNotes',
+      'aboutShowUpdateNotesSent', 'aboutShowUpdateNotesNoTab',
       'grokShortTemplateLabel', 'grokArticleTemplateLabel', 'grokArticleTemplateHint',
       'grokDefaultTemplateName', 'grokCustomTemplateName',
       'grokArticleFallbackName', 'grokArticleCustomTemplateName',
@@ -494,6 +509,17 @@ describe('#69/#72 user self-test polish', () => {
     expect(contentJs).toMatch(/M9\.671 4\.136a2\.34/);
     expect(contentJs).toMatch(/xvm-lb-settings-panel/);
     expect(contentJs).toMatch(/xvm-lb-settings-hot-row/);
+    expect(contentJs).toMatch(/xvm-lb-hot-scopes-section/);
+    expect(contentJs).toMatch(/xvm-lb-hot-scope-grid/);
+    expect(contentJs).toMatch(/LEADERBOARD_HOT_SCOPE_ITEMS/);
+    expect(contentJs).toMatch(/contentLbHotScopeHome/);
+    expect(contentJs).toMatch(/contentLbHotScopeList/);
+    expect(contentJs).toMatch(/contentLbHotScopeProfile/);
+    expect(contentJs).toMatch(/contentLbHotScopeStatus/);
+    expect(contentJs).toMatch(/contentLbHotScopeCurrent/);
+    expect(contentJs).toMatch(/data-role="scope-current"/);
+    expect(contentJs).toMatch(/function\s+updateLeaderboardHotScopeControls/);
+    expect(contentJs).toMatch(/function\s+onHotScopeToggleChange/);
     expect(contentJs).toMatch(/xvm-lb-settings-cols/);
     expect(contentJs).toMatch(/function\s+toggleLeaderboardSettingsPanel/);
     expect(contentJs).toMatch(/function\s+positionLeaderboardSettingsPanel/);
@@ -529,6 +555,9 @@ describe('#69/#72 user self-test polish', () => {
     expect(bridgeJs).toMatch(/type\s*===\s*['"]XVM_LEADERBOARD_DISABLE['"]/);
     expect(bridgeJs).toMatch(/chrome\.storage\.sync\.set\(\{\s*featureVelocityLeaderboard:\s*false\s*\}/);
     expect(bridgeJs).toMatch(/type\s*===\s*['"]XVM_LEADERBOARD_SETTINGS_SAVE['"]/);
+    expect(bridgeJs).toMatch(/XVM_RATE_FILTER_SET_ENABLED/);
+    expect(bridgeJs).toMatch(/XVM_RATE_FILTER_SET_SCOPE/);
+    expect(bridgeJs).toMatch(/XVM_RATE_SETTINGS_UPDATE/);
     expect(bridgeJs).toMatch(/patch\.leaderboardCount\s*=\s*normalizeLeaderboardCount/);
     expect(bridgeJs).toMatch(/patch\.leaderboardColumns\s*=\s*normalizeLeaderboardColumns/);
     expect(/\.xvm-lb-hot\[data-tier="free"\]\s+\.xvm-lb-pro-badge\s*\{[\s\S]*?display:\s*inline-flex/.test(stylesCss)).toBe(true);
@@ -537,6 +566,8 @@ describe('#69/#72 user self-test polish', () => {
     expect(/\.xvm-lb-action\s*\{[\s\S]*?width:\s*22px/.test(stylesCss)).toBe(true);
     expect(/\.xvm-lb-action\s+svg\s*\{[\s\S]*?width:\s*16px/.test(stylesCss)).toBe(true);
     expect(/\.xvm-lb-settings-panel\s*\{[\s\S]*?position:\s*fixed/.test(stylesCss)).toBe(true);
+    expect(/\.xvm-lb-hot-scope-grid\s*\{[\s\S]*?grid-template-columns:\s*1fr/.test(stylesCss)).toBe(true);
+    expect(/\.xvm-lb-hot-scope\s*\{[\s\S]*?grid-template-columns:\s*auto minmax\(0,\s*1fr\) auto/.test(stylesCss)).toBe(true);
     expect(/\.xvm-lb-settings-panel\[data-theme="dark"\]/.test(stylesCss)).toBe(true);
   });
 
@@ -576,7 +607,7 @@ describe('#69/#72 user self-test polish', () => {
     expect(contentJs).toContain('class="xvm-lb-hot-notice" hidden');
     expect(contentJs).toMatch(/function\s+updateLeaderboardHotNotice\(on\s*=\s*false\)/);
     expect(contentJs).toMatch(/contentLbHotActiveNotice/);
-    expect(contentJs).toMatch(/updateLeaderboardHotNotice\(on\)/);
+    expect(contentJs).toMatch(/updateLeaderboardHotNotice\(currentScopeEnabled\(\)\)/);
     expect(stylesCss).toContain('.xvm-lb-hot-notice');
     expect(stylesCss).toContain('.xvm-lb.xvm-lb-edge-hidden .xvm-lb-hot-notice');
   });
@@ -600,10 +631,11 @@ describe('update notice modal', () => {
   });
 
   it('explains where each release-note feature can be enabled or used', () => {
-    expect(contentJs).toContain('设置 → 其他功能 → 书签文件夹菜单');
-    expect(contentJs).toContain('设置 → 其他功能 → 显示书签数');
-    expect(contentJs).toContain('设置 → 其他功能 → 按 Enter 直接回复');
-    expect(contentJs).toContain('悬浮热度榜 → 设置 → 仅看热帖');
+    expect(contentJs).toContain('设置 → AI 生成评论');
+    expect(contentJs).toContain('新增评论时按 Enter 直接发送评论的功能');
+    expect(contentJs).toContain('生效范围可以在 Popup 或悬浮面板设置里勾选');
+    expect(contentJs).toContain('设置 → 其他功能里可以开启书签文件夹菜单和显示书签数');
+    expect(contentJs).toContain('微信 / Telegram 引流广告特征');
   });
 
   it('ships modal styles with clear backdrop, card, list, and primary button selectors', () => {
@@ -666,6 +698,13 @@ describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS 
     expect(missingEn, `popup.html references data-i18n keys missing from _locales/en: ${missingEn.join(', ')}`).toEqual([]);
     expect(missingZh, `popup.html references data-i18n keys missing from _locales/zh_CN: ${missingZh.join(', ')}`).toEqual([]);
     expect(missingJa, `popup.html references data-i18n keys missing from _locales/ja: ${missingJa.join(', ')}`).toEqual([]);
+  });
+
+  it('keeps package and extension versions in sync for v1.18.0', () => {
+    expect(manifest.version).toBe('1.18.0');
+    expect(pkg.version).toBe('1.18.0');
+    expect(packageLock.version).toBe('1.18.0');
+    expect(packageLock.packages?.['']?.version).toBe('1.18.0');
   });
 });
 

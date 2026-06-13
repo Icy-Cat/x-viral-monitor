@@ -250,6 +250,34 @@
     loadTheme();
   }
 
+  function showReleaseNotesOnCurrentTab() {
+    const version = (() => {
+      try { return chrome.runtime.getManifest().version || ''; } catch (_) { return ''; }
+    })();
+    try {
+      chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        const tabId = tabs?.[0]?.id;
+        if (!tabId) {
+          showToast(t('aboutShowUpdateNotesNoTab'));
+          return;
+        }
+        chrome.tabs.sendMessage(tabId, {
+          type: 'XVM_RELEASE_NOTES_SHOW_MANUAL',
+          version,
+        }, () => {
+          const err = chrome.runtime.lastError;
+          showToast(err ? t('aboutShowUpdateNotesNoTab') : t('aboutShowUpdateNotesSent'));
+        });
+      });
+    } catch (_) {
+      showToast(t('aboutShowUpdateNotesNoTab'));
+    }
+  }
+
+  function wireReleaseNotesButton() {
+    document.getElementById('show-update-notes')?.addEventListener('click', showReleaseNotesOnCurrentTab);
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     loadInitialTab(); // default — Filter is the primary Pro feature surface
     wireTabButtons();
@@ -257,6 +285,7 @@
     wireActivateCancel();
     syncTierChip();
     wireTheme();
+    wireReleaseNotesButton();
   });
 
   window.__xvmTabs = { setTab, showToast, TABS, applyTheme, ACTIVE_TAB_KEY };

@@ -77,10 +77,11 @@ let leaderboardEdgeHideEnabled = true;
 let pendingReleaseNotesVersion = '';
 
 const RELEASE_NOTE_ITEMS = [
-  ['contentUpdateItemBookmarkFoldersTitle', 'contentUpdateItemBookmarkFoldersBody', '书签文件夹菜单', '在设置 → 其他功能 → 书签文件夹菜单开启。开启后，把鼠标移到推文书签按钮上，可以选择文件夹、查看保存位置，或新建文件夹。'],
-  ['contentUpdateItemBookmarkCountTitle', 'contentUpdateItemBookmarkCountBody', '显示书签数', '在设置 → 其他功能 → 显示书签数开启。开启后，时间线里的推文会直接显示书签数量，方便判断内容质量。'],
-  ['contentUpdateItemEnterReplyTitle', 'contentUpdateItemEnterReplyBody', 'Enter 直接回复', '在设置 → 其他功能 → 按 Enter 直接回复开启。开启后，回复框中按 Enter 就能发送回复，不必再按 Command + Enter。'],
-  ['contentUpdateItemHotOnlyTitle', 'contentUpdateItemHotOnlyBody', '仅看热帖提示更清晰', '在悬浮热度榜 → 设置 → 仅看热帖开启。开启后会隐藏未达到热帖标准的帖子，并用绿色提示明确告知。'],
+  ['contentUpdateItemAiProviderTitle', 'contentUpdateItemAiProviderBody', 'AI 评论服务', '在设置 → AI 生成评论里选择服务来源：可以继续使用 X Grok，也可以接入 OpenAI 兼容接口、DeepSeek、OpenRouter 或本机 Ollama。'],
+  ['contentUpdateItemReplyToolsTitle', 'contentUpdateItemReplyToolsBody', 'Enter 直接回复', '新增评论时按 Enter 直接发送评论的功能。在设置 → 其他功能 → 按 Enter 直接回复开启后，回复框里不用再按 Command + Enter。'],
+  ['contentUpdateItemHotOnlyTitle', 'contentUpdateItemHotOnlyBody', '仅看热帖状态更清楚', '开启仅看热帖后，低于热帖标准的帖子会直接从页面移除；生效范围可以在 Popup 或悬浮面板设置里勾选。'],
+  ['contentUpdateItemBookmarkToolsTitle', 'contentUpdateItemBookmarkToolsBody', '书签功能别错过', '在设置 → 其他功能里可以开启书签文件夹菜单和显示书签数。开启后可选择保存文件夹、查看保存位置，并在时间线直接看到书签数量。'],
+  ['contentUpdateItemFilterRulesTitle', 'contentUpdateItemFilterRulesBody', '内容屏蔽更稳', '内容屏蔽减少了普通 Telegram 讨论的误判，同时补充更多微信 / Telegram 引流广告特征，减少漏掉的广告回复和个人简介引流。'],
 ];
 
 function applyBadgeStyle() {
@@ -1224,11 +1225,10 @@ function installLeaderboardTierSync() {
 }
 
 // ── Filter-state sync ──────────────────────────────────────────────────────
-// The hot-only toggle reflects the rate-filter's scope flag for the CURRENT
-// page (home / list / profile / status). Each scope is independent so a
-// user who enabled it on home but not on list will see the leaderboard
-// switch flip OFF when navigating to a list — and toggling it on then only
-// enables filtering for the list scope.
+// The hot-only switch is global. Scope flags (home / list / profile /
+// status) are configured separately and decide where the global switch has
+// an effect. The floating panel still marks the current scope so users can
+// tell whether this page is covered.
 const RESERVED_PROFILE_PATHS = new Set([
   'compose', 'explore', 'home', 'i', 'jobs', 'messages', 'notifications',
   'search', 'settings',
@@ -1243,7 +1243,14 @@ function scopeFromPath(pathname = window.location.pathname) {
   return null;
 }
 const SCOPE_KEY_FOR = { home: 'scopeHome', list: 'scopeList', profile: 'scopeProfile', status: 'scopeStatus' };
+const LEADERBOARD_HOT_SCOPE_ITEMS = [
+  { scope: 'home', key: 'scopeHome', labelKey: 'contentLbHotScopeHome', fallback: '首页 / 推荐流' },
+  { scope: 'list', key: 'scopeList', labelKey: 'contentLbHotScopeList', fallback: '列表' },
+  { scope: 'profile', key: 'scopeProfile', labelKey: 'contentLbHotScopeProfile', fallback: '个人主页' },
+  { scope: 'status', key: 'scopeStatus', labelKey: 'contentLbHotScopeStatus', fallback: '推文详情页' },
+];
 let _rateFilterScopes = { scopeHome: false, scopeList: false, scopeProfile: false, scopeStatus: false };
+let _rateFilterEnabled = false;
 let leaderboardTier = 'free';
 // Three signals feed into the leaderboard's current scope:
 //   1. _activeScope: pushed by rate-filter on each GraphQL response
@@ -1292,10 +1299,30 @@ function syncTabSelectedScope() {
 function currentLeaderboardScope() {
   return _tabSelectedScope || _activeScope || scopeFromPath();
 }
-function currentScopeEnabled() {
+function currentScopeSelected() {
   const scope = currentLeaderboardScope();
   if (!scope) return false;
   return !!_rateFilterScopes[SCOPE_KEY_FOR[scope]];
+}
+function currentScopeEnabled() {
+  return _rateFilterEnabled === true && currentScopeSelected();
+}
+function updateLeaderboardHotScopeControls() {
+  const grid = leaderboardSettingsEl?.querySelector?.('.xvm-lb-hot-scope-grid');
+  if (!grid) return;
+  const current = currentLeaderboardScope();
+  const isFree = (leaderboardTier || 'free') === 'free';
+  for (const item of LEADERBOARD_HOT_SCOPE_ITEMS) {
+    const label = grid.querySelector(`[data-hot-scope="${item.scope}"]`);
+    const input = label?.querySelector?.('input[type="checkbox"]');
+    const currentBadge = label?.querySelector?.('[data-role="scope-current"]');
+    if (!label || !input) continue;
+    const isCurrent = item.scope === current;
+    input.checked = _rateFilterScopes[item.key] === true;
+    input.disabled = isFree;
+    label.classList.toggle('xvm-lb-hot-scope-current', isCurrent);
+    if (currentBadge) currentBadge.hidden = !isCurrent;
+  }
 }
 function getLeaderboardHotToggle() {
   return leaderboardSettingsEl?.querySelector?.('.xvm-lb-hot') || leaderboardEl?.querySelector?.('.xvm-lb-hot');
@@ -1308,21 +1335,21 @@ function setLeaderboardHotSwitchState() {
   }
   const tier = leaderboardTier || hot.dataset.tier || 'free';
   const scope = currentLeaderboardScope();
-  const supportedHere = !!scope;
-  const on = tier !== 'free' && supportedHere && currentScopeEnabled();
+  const on = tier !== 'free' && _rateFilterEnabled === true;
   hot.dataset.tier = tier;
   hot.dataset.on = on ? '1' : '0';
   hot.dataset.scope = scope || '';
-  hot.setAttribute('aria-disabled', (tier === 'free' || !supportedHere) ? 'true' : 'false');
+  hot.setAttribute('aria-disabled', tier === 'free' ? 'true' : 'false');
   hot.title = tier === 'free'
     ? (i18n('contentLbHotProTitle') || '流速过滤是 Pro 功能')
-    : (supportedHere ? '' : '此页面暂未识别作用域');
+    : '';
   const cb = hot.querySelector('input[type="checkbox"]');
   if (cb) {
     if (cb.checked !== on) cb.checked = on;
-    cb.disabled = tier === 'free' || !supportedHere;
+    cb.disabled = tier === 'free';
   }
-  updateLeaderboardHotNotice(on);
+  updateLeaderboardHotNotice(currentScopeEnabled());
+  updateLeaderboardHotScopeControls();
 }
 
 function updateLeaderboardHotNotice(on = false) {
@@ -1393,6 +1420,7 @@ function installLeaderboardFilterStateSync() {
       const s = ev.data.settings;
       const wasSeen = _rateFilterSettingsSeen;
       const wasEnabled = currentScopeEnabled();
+      _rateFilterEnabled = s.enabled === true;
       _rateFilterScopes = {
         scopeHome: s.scopeHome === true,
         scopeList: s.scopeList === true,
@@ -1401,6 +1429,7 @@ function installLeaderboardFilterStateSync() {
       };
       _rateFilterSettingsSeen = true;
       setLeaderboardHotSwitchState();
+      updateLeaderboardHotScopeControls();
       if (wasSeen && !wasEnabled && currentScopeEnabled()) {
         showToast(i18nOr(
           'contentLbHotEnabledToast',
@@ -1471,25 +1500,60 @@ function onHotToggleClick(ev) {
   const hot = getLeaderboardHotToggle();
   if (!hot) return;
   const tier = leaderboardTier || hot.dataset.tier || 'free';
-  const scope = currentLeaderboardScope();
   if (tier === 'free') {
     ev.preventDefault();
     showLeaderboardUpgradeBubble();
     return;
   }
-  if (!scope) {
-    // No active scope yet (no GraphQL response observed AND URL doesn't
-    // map to any known scope). Toggling has nowhere to write to.
-    ev.preventDefault();
-    return;
+  const wasSeen = _rateFilterSettingsSeen;
+  const wasEnabled = currentScopeEnabled();
+  _rateFilterEnabled = ev.target.checked === true;
+  _rateFilterSettingsSeen = true;
+  setLeaderboardHotSwitchState();
+  if (wasSeen && !wasEnabled && currentScopeEnabled()) {
+    showToast(i18nOr(
+      'contentLbHotEnabledToast',
+      '仅看热帖已开启：未达到热帖标准的帖子会从页面移除并不显示。'
+    ), { type: 'success', position: 'top', duration: 3600 });
   }
-  const next = ev.target.checked;
+  if (leaderboardEnabled) setTimeout(renderLeaderboard, 80);
   // Storage round-trip via isolated.js → XVM_RATE_SETTINGS_UPDATE will sync
   // data-on back. We only emit; the round-trip is the source of truth.
   window.postMessage({
+    type: 'XVM_RATE_FILTER_SET_ENABLED',
+    enabled: _rateFilterEnabled,
+  }, '*');
+}
+
+function onHotScopeToggleChange(ev) {
+  const input = ev.target?.closest?.('.xvm-lb-hot-scope input[type="checkbox"]');
+  if (!input) return;
+  const scope = input.dataset.scope;
+  const key = SCOPE_KEY_FOR[scope];
+  if (!key) return;
+  const tier = leaderboardTier || 'free';
+  if (tier === 'free') {
+    input.checked = _rateFilterScopes[key] === true;
+    showLeaderboardUpgradeBubble();
+    return;
+  }
+  const wasSeen = _rateFilterSettingsSeen;
+  const wasEnabled = currentScopeEnabled();
+  _rateFilterScopes = { ..._rateFilterScopes, [key]: input.checked === true };
+  _rateFilterSettingsSeen = true;
+  setLeaderboardHotSwitchState();
+  updateLeaderboardHotScopeControls();
+  if (wasSeen && !wasEnabled && currentScopeEnabled()) {
+    showToast(i18nOr(
+      'contentLbHotEnabledToast',
+      '仅看热帖已开启：未达到热帖标准的帖子会从页面移除并不显示。'
+    ), { type: 'success', position: 'top', duration: 3600 });
+  }
+  if (leaderboardEnabled) setTimeout(renderLeaderboard, 80);
+  window.postMessage({
     type: 'XVM_RATE_FILTER_SET_SCOPE',
     scope,
-    enabled: next,
+    enabled: input.checked === true,
   }, '*');
 }
 
@@ -2094,6 +2158,10 @@ function ensureLeaderboardSettingsPanel() {
         </span>
       </label>
     </div>
+    <div class="xvm-lb-settings-section xvm-lb-hot-scopes-section">
+      <div class="xvm-lb-settings-section-title" data-role="hot-scope-title"></div>
+      <div class="xvm-lb-hot-scope-grid"></div>
+    </div>
     <label class="xvm-lb-settings-toggle">
       <span>
         <b data-role="edge-title"></b>
@@ -2116,6 +2184,7 @@ function ensureLeaderboardSettingsPanel() {
   const hot = leaderboardSettingsEl.querySelector('.xvm-lb-hot');
   hot?.addEventListener('click', onHotGateClick);
   hot?.querySelector('input')?.addEventListener('click', onHotToggleClick);
+  leaderboardSettingsEl.querySelector('.xvm-lb-hot-scope-grid')?.addEventListener('change', onHotScopeToggleChange);
   leaderboardSettingsEl.querySelector('.xvm-lb-settings-count')?.addEventListener('change', (e) => {
     const n = normalizeLeaderboardCountInput(e.target.value);
     e.target.value = String(n);
@@ -2156,6 +2225,8 @@ function updateLeaderboardSettingsPanel() {
   const countInput = leaderboardSettingsEl.querySelector('.xvm-lb-settings-count');
   const hotTitle = leaderboardSettingsEl.querySelector('[data-role="hot-title"]');
   const hotDesc = leaderboardSettingsEl.querySelector('[data-role="hot-desc"]');
+  const hotScopeTitle = leaderboardSettingsEl.querySelector('[data-role="hot-scope-title"]');
+  const hotScopeGrid = leaderboardSettingsEl.querySelector('.xvm-lb-hot-scope-grid');
   const edgeTitle = leaderboardSettingsEl.querySelector('[data-role="edge-title"]');
   const edgeDesc = leaderboardSettingsEl.querySelector('[data-role="edge-desc"]');
   const edgeInput = leaderboardSettingsEl.querySelector('.xvm-lb-settings-edge');
@@ -2167,6 +2238,16 @@ function updateLeaderboardSettingsPanel() {
   if (countInput && document.activeElement !== countInput) countInput.value = String(leaderboardCount);
   if (hotTitle) hotTitle.textContent = i18nOr('contentLbHotOnly', '仅看热帖');
   if (hotDesc) hotDesc.textContent = i18nOr('contentLbHotProSub', '隐藏低浏览量推文,保留真正在传播的内容');
+  if (hotScopeTitle) hotScopeTitle.textContent = i18nOr('contentLbHotScopeTitle', '生效范围');
+  if (hotScopeGrid) {
+    hotScopeGrid.innerHTML = LEADERBOARD_HOT_SCOPE_ITEMS.map((item) => `
+      <label class="xvm-lb-hot-scope" data-hot-scope="${lbEscapeHtml(item.scope)}">
+        <input type="checkbox" data-scope="${lbEscapeHtml(item.scope)}">
+        <span>${lbEscapeHtml(i18nOr(item.labelKey, item.fallback))}</span>
+        <em data-role="scope-current" hidden>${lbEscapeHtml(i18nOr('contentLbHotScopeCurrent', '当前'))}</em>
+      </label>
+    `).join('');
+  }
   if (edgeTitle) edgeTitle.textContent = i18nOr('featureLeaderboardEdgeHideTitle', '贴边隐藏');
   if (edgeDesc) edgeDesc.textContent = i18nOr('featureLeaderboardEdgeHideDesc', '拖到屏幕边缘后自动收起');
   if (edgeInput) edgeInput.checked = leaderboardEdgeHideEnabled !== false;

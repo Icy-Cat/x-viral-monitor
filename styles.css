@@ -1998,7 +1998,8 @@ img.xvm-liv-img {
   line-height: 1.45;
 }
 .xvm-lb-settings-toggle input,
-.xvm-lb-settings-col input {
+.xvm-lb-settings-col input,
+.xvm-lb-hot-scope input {
   accent-color: #bf5a2a;
 }
 .xvm-lb-settings-section {
@@ -2010,12 +2011,41 @@ img.xvm-liv-img {
   gap: 6px 10px;
   margin-top: 8px;
 }
+.xvm-lb-hot-scope-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 6px;
+  margin-top: 8px;
+}
 .xvm-lb-settings-col {
   justify-content: flex-start;
   font-size: 11.5px;
   color: #4e3c31;
   cursor: pointer;
   user-select: none;
+}
+.xvm-lb-hot-scope {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 7px;
+  font-size: 11.5px;
+  color: #4e3c31;
+  cursor: pointer;
+  user-select: none;
+}
+.xvm-lb-hot-scope em {
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.14);
+  color: #12823d;
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+  line-height: 1.4;
+}
+.xvm-lb-hot-scope input:disabled ~ span {
+  opacity: 0.62;
 }
 .xvm-lb-settings-col span {
   min-width: 0;
@@ -2060,8 +2090,16 @@ img.xvm-liv-img {
 .xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-settings-col {
   color: #cbd5e1;
 }
+.xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-hot-scope {
+  color: #cbd5e1;
+}
+.xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-hot-scope em {
+  background: rgba(34, 197, 94, 0.18);
+  color: #86efac;
+}
 .xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-settings-toggle input,
-.xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-settings-col input {
+.xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-settings-col input,
+.xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-hot-scope input {
   accent-color: #06b6d4;
 }
 .xvm-lb-settings-panel[data-theme="dark"] .xvm-lb-pro-badge {

@@ -13,12 +13,13 @@
   const STORAGE_KEY = 'xvm_rate_filter_v1';
 
   const DEFAULTS = {
+    enabled: false,
     shortRateThreshold: 1000,
     shortAbsoluteThreshold: 10000,
     longRateThreshold: 1000,
     longAbsoluteThreshold: 10000,
-    // No master enabled switch — each scope is independently opt-in. The
-    // leaderboard's hot toggle controls the *current page's* scope flag.
+    // The floating leaderboard owns the global enabled switch. Popup and
+    // floating settings can both edit these scope flags.
     scopeHome: false,
     scopeList: false,
     scopeProfile: false,
@@ -57,6 +58,7 @@
     // `enabled` toggle. If it was false AND the user never explicitly
     // opted into a scope after migration, fall back to all scopes off.
     const legacyDisabled = raw.enabled === false && !raw.__scopeMigratedV2;
+    if ('enabled' in raw) out.enabled = raw.enabled === true;
     for (const k of BOOL_KEYS) {
       if (legacyDisabled) { out[k] = false; continue; }
       if (k in raw) out[k] = raw[k] !== false;
@@ -164,8 +166,8 @@
     for (const k of BOOL_KEYS) section.querySelector('#rf-' + k).checked = !!settings[k];
     for (const k of NUM_KEYS)  section.querySelector('#rf-' + k).value   = settings[k];
   }
-  function readFrom(section) {
-    const out = {};
+  function readFrom(section, base = DEFAULTS) {
+    const out = { ...base, __scopeMigratedV2: true };
     for (const k of BOOL_KEYS) out[k] = section.querySelector('#rf-' + k).checked;
     for (const k of NUM_KEYS)  {
       const v = Number(section.querySelector('#rf-' + k).value);
@@ -186,8 +188,8 @@
     const section = buildSection();
     if (!section) return;
 
-    const stored = normalize(await storageGet(STORAGE_KEY, DEFAULTS));
-    applyTo(section, stored);
+    let currentSettings = normalize(await storageGet(STORAGE_KEY, DEFAULTS));
+    applyTo(section, currentSettings);
 
     const { tier } = await resolveTier();
     setLocked(section, tier === 'free');
@@ -198,7 +200,8 @@
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = setTimeout(async () => {
         saveTimer = null;
-        const payload = readFrom(section);
+        const payload = readFrom(section, currentSettings);
+        currentSettings = normalize(payload);
         await storageSet({ [STORAGE_KEY]: payload });
         const msg = section.querySelector('#rf-msg');
         msg.textContent = t('cfAutoSaved');
@@ -213,6 +216,7 @@
 
     section.querySelector('#rf-reset').addEventListener('click', async () => {
       applyTo(section, DEFAULTS);
+      currentSettings = { ...DEFAULTS };
       await storageSet({ [STORAGE_KEY]: DEFAULTS });
       const msg = section.querySelector('#rf-msg');
       msg.textContent = t('rfResetOk');
@@ -231,6 +235,7 @@
         }
         if (STORAGE_KEY in changes) {
           const next = normalize(changes[STORAGE_KEY].newValue);
+          currentSettings = next;
           applyTo(section, next);
         }
       });

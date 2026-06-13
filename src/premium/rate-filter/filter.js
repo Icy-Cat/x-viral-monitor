@@ -42,6 +42,7 @@
   // any GraphQL response that races our settings sync. Popup DEFAULTS
   // and these MUST stay in lock-step (covered by a contract test).
   let SETTINGS = {
+    enabled: false,
     shortRateThreshold: 1000,
     shortAbsoluteThreshold: 10000,
     longRateThreshold: 1000,
@@ -79,10 +80,12 @@
   }
 
   function anyScopeEnabled() {
-    return SETTINGS.scopeHome === true
+    return SETTINGS.enabled === true && (
+      SETTINGS.scopeHome === true
       || SETTINGS.scopeList === true
       || SETTINGS.scopeProfile === true
-      || SETTINGS.scopeStatus === true;
+      || SETTINGS.scopeStatus === true
+    );
   }
 
   // === State ===
@@ -135,6 +138,7 @@
   }
 
   function scopeEnabled(scope) {
+    if (SETTINGS.enabled !== true) return false;
     const key = SCOPE_SETTING_KEY[scope];
     return !key || SETTINGS[key] === true;
   }

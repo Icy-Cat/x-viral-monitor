@@ -198,18 +198,26 @@ const CONTENT_MESSAGE_KEYS = [
   'contentLbHotProSub',
   'contentLbHotEnabledToast',
   'contentLbHotActiveNotice',
+  'contentLbHotScopeTitle',
+  'contentLbHotScopeHome',
+  'contentLbHotScopeList',
+  'contentLbHotScopeProfile',
+  'contentLbHotScopeStatus',
+  'contentLbHotScopeCurrent',
   'contentLbHotDetails',
   'contentLbHotOpenSite',
   'contentUpdateTitle',
   'contentUpdateSubtitle',
-  'contentUpdateItemBookmarkFoldersTitle',
-  'contentUpdateItemBookmarkFoldersBody',
-  'contentUpdateItemBookmarkCountTitle',
-  'contentUpdateItemBookmarkCountBody',
-  'contentUpdateItemEnterReplyTitle',
-  'contentUpdateItemEnterReplyBody',
+  'contentUpdateItemAiProviderTitle',
+  'contentUpdateItemAiProviderBody',
+  'contentUpdateItemReplyToolsTitle',
+  'contentUpdateItemReplyToolsBody',
   'contentUpdateItemHotOnlyTitle',
   'contentUpdateItemHotOnlyBody',
+  'contentUpdateItemBookmarkToolsTitle',
+  'contentUpdateItemBookmarkToolsBody',
+  'contentUpdateItemFilterRulesTitle',
+  'contentUpdateItemFilterRulesBody',
   'contentUpdateDismiss',
   'contentBookmarkMenuInFolder',
   'contentBookmarkMenuNotInAny',
@@ -373,6 +381,13 @@ function safeChromeCall(fn) {
 
 safeChromeCall(() => {
   chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type === 'XVM_RELEASE_NOTES_SHOW_MANUAL') {
+      const version = typeof message.version === 'string' && message.version
+        ? message.version
+        : (chrome.runtime?.getManifest?.()?.version || '');
+      if (version) window.postMessage({ type: 'XVM_RELEASE_NOTES_SHOW', version }, '*');
+      return false;
+    }
     if (message?.type !== 'XVM_AI_GENERATE_PROGRESS') return false;
     window.postMessage({
       type: 'XVM_AI_GENERATE_PROGRESS',
@@ -456,9 +471,25 @@ window.addEventListener('message', (event) => {
     return;
   }
 
-  // Leaderboard hot toggle: enable / disable rate-filter for the current
-  // page's scope only. We merge into the existing blob so other scope
-  // flags and threshold values stay untouched.
+  // Leaderboard hot toggle: one global switch. Scope flags are configured
+  // separately in the floating settings panel and preserved here.
+  if (type === 'XVM_RATE_FILTER_SET_ENABLED'
+      && typeof event.data.enabled === 'boolean') {
+    safeChromeCall(() => {
+      const RF_KEY = 'xvm_rate_filter_v1';
+      chrome.storage.local.get({ [RF_KEY]: null }, (items) => {
+        const cur = items[RF_KEY] && typeof items[RF_KEY] === 'object' ? items[RF_KEY] : {};
+        const next = { ...cur, enabled: event.data.enabled, __scopeMigratedV2: true };
+        chrome.storage.local.set({ [RF_KEY]: next }, () => {
+          window.postMessage({ type: 'XVM_RATE_SETTINGS_UPDATE', settings: next }, '*');
+        });
+      });
+    });
+    return;
+  }
+
+  // Leaderboard hot scope settings. We merge into the existing blob so
+  // the global switch and threshold values stay untouched.
   if (type === 'XVM_RATE_FILTER_SET_SCOPE'
       && typeof event.data.enabled === 'boolean'
       && typeof event.data.scope === 'string') {
@@ -469,10 +500,10 @@ window.addEventListener('message', (event) => {
       const RF_KEY = 'xvm_rate_filter_v1';
       chrome.storage.local.get({ [RF_KEY]: null }, (items) => {
         const cur = items[RF_KEY] && typeof items[RF_KEY] === 'object' ? items[RF_KEY] : {};
-        // Drop legacy `enabled` field and mark migrated so old client
-        // copies don't fight the new model.
-        const { enabled: _legacy, ...rest } = cur;
-        chrome.storage.local.set({ [RF_KEY]: { ...rest, [key]: event.data.enabled, __scopeMigratedV2: true } });
+        const next = { ...cur, [key]: event.data.enabled, __scopeMigratedV2: true };
+        chrome.storage.local.set({ [RF_KEY]: next }, () => {
+          window.postMessage({ type: 'XVM_RATE_SETTINGS_UPDATE', settings: next }, '*');
+        });
       });
     });
     return;
@@ -484,7 +515,7 @@ window.addEventListener('message', (event) => {
       chrome.storage.local.get({ [RF_KEY]: null }, (items) => {
         const settings = items[RF_KEY] && typeof items[RF_KEY] === 'object'
           ? items[RF_KEY]
-          : { enabled: false };
+          : { enabled: false, scopeHome: false, scopeList: false, scopeProfile: false, scopeStatus: false };
         window.postMessage({ type: 'XVM_RATE_SETTINGS_UPDATE', settings }, '*');
       });
     });
