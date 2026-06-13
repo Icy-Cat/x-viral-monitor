@@ -484,6 +484,7 @@ describe('#123 XVM content filter v1', () => {
       '二手车行想做得稳，报价要清楚，过程要透明。 卫星1:（qqq-0001） 卫星2:（btc-demo） 卫星3:（demo888） （tg：demo_tg） 《（详细点🔗，其他也有做哦》',
       '家政保洁想做得稳，报价要清楚，过程要透明。 卫星1:（demo-a） 卫星2:（demo-b） （tg：demo_tg） 《（详细点🔗，其他也有做哦》',
       '健身私教基本功要打牢。 卫星1:（demo777） 卫星2:（demo28） 卫星3:（demo999） （tg：demo_tg） 《（详细点🔗，其他也有做哦》',
+      '不贪不惧，稳住节奏。 wx1:（demo-a） wx2:（demo-b） wx3:（demo-c） （tg：demo_tg） 《（详细点🔗，其他也有做哦》',
     ];
 
     for (const bio of bioPositives) {

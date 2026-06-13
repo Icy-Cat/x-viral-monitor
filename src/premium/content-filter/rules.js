@@ -14,13 +14,15 @@
       "hard-telegram-group-funnel",
       "adult-sex-service-high",
       "spam-gambling-high",
-      "spam-phishing-airdrop-high"
+      "spam-phishing-airdrop-high",
+      "spam-bio-wechat-telegram-funnel-high"
     ],
     "strict": [
       "hard-telegram-group-funnel",
       "adult-sex-service-high",
       "spam-gambling-high",
-      "spam-phishing-airdrop-high"
+      "spam-phishing-airdrop-high",
+      "spam-bio-wechat-telegram-funnel-high"
     ]
   },
   "rules": [
@@ -50,6 +52,13 @@
       "type": "regex",
       "field": "content",
       "value": "(空投|领取奖励|钱包授权|助记词|私钥|钓鱼链接|claim now)",
+      "severity": "high"
+    },
+    {
+      "id": "spam-bio-wechat-telegram-funnel-high",
+      "type": "regex",
+      "field": "bio",
+      "value": "((卫星|微信|wechat|vx|wx)[0-9一二三]?\\s*[:：].{0,80}){2,}(tg|telegram|电报)\\s*[:：].{0,80}(详细点|其他也有做)",
       "severity": "high"
     }
   ]

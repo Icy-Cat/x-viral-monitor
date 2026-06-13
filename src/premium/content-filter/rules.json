@@ -146,7 +146,7 @@
       "id": "spam-bio-wechat-telegram-funnel-high",
       "type": "regex",
       "field": "bio",
-      "value": "卫星[123]?\\s*[:：].{0,80}卫星[123]?\\s*[:：].{0,120}(tg|telegram|电报)\\s*[:：].{0,60}(详细点|其他也有做)",
+      "value": "((卫星|微信|wechat|vx|wx)[0-9一二三]?\\s*[:：].{0,80}){2,}(tg|telegram|电报)\\s*[:：].{0,80}(详细点|其他也有做)",
       "severity": "high"
     },
     {
