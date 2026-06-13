@@ -25,8 +25,8 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(/<body[^>]*data-theme="light"/.test(html)).toBe(true);
   });
 
-  it('declares 4 tab buttons (role=tab) with data-tab values', () => {
-    for (const name of ['pro', 'filter', 'leaderboard', 'about']) {
+  it('declares 5 tab buttons (role=tab) with data-tab values', () => {
+    for (const name of ['pro', 'filter', 'leaderboard', 'ai', 'about']) {
       expect(new RegExp(`<button[^>]*role="tab"[^>]*data-tab="${name}"`).test(html),
         `popup.html must contain <button role="tab" data-tab="${name}">`
       ).toBe(true);
@@ -40,8 +40,8 @@ describe('#45 popup tabs structure (mock A)', () => {
     ).toBe(true);
   });
 
-  it('declares 4 tab panels (data-tab-panel) matching the 4 tabs', () => {
-    for (const name of ['pro', 'filter', 'leaderboard', 'about']) {
+  it('declares 5 tab panels (data-tab-panel) matching the 5 tabs', () => {
+    for (const name of ['pro', 'filter', 'leaderboard', 'ai', 'about']) {
       expect(new RegExp(`data-tab-panel="${name}"`).test(html),
         `popup.html must contain a panel with data-tab-panel="${name}"`
       ).toBe(true);
@@ -79,15 +79,31 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(/id="lb-reset-pos"/.test(lb)).toBe(true);
   });
 
-  it('About tab hosts Other features + Grok prompt cards + theme toggle entry', () => {
+  it('About tab hosts Other features + theme toggle entry', () => {
     const about = html.match(/data-tab-panel="about"[\s\S]*?(?=<\/div>\s*<div id="xvm-toast")/)?.[0] || '';
     expect(/id="feat-copy-md"/.test(about)).toBe(true);
     expect(/id="feat-starchart"/.test(about)).toBe(true);
     expect(/id="feat-bookmark-folders"/.test(about)).toBe(true);
     expect(/id="feat-bookmark-count"/.test(about)).toBe(true);
-    expect(/id="grok-prompt"/.test(about)).toBe(true);
-    expect(/id="grok-article-prompt"/.test(about)).toBe(true);
+    expect(/id="grok-enter-reply"/.test(about)).toBe(true);
+    expect(/id="grok-prompt"/.test(about)).toBe(false);
+    expect(/id="grok-article-prompt"/.test(about)).toBe(false);
     expect(/id="theme-toggle-about"/.test(about)).toBe(true);
+  });
+
+  it('places Enter-to-reply under Other features, not inside the Grok template editor', () => {
+    const other = html.match(/<div class="panel-card">\s*<h3 data-i18n="advOtherFeaturesTitle"[\s\S]*?(?=<\/div>\s*<p class="footer-line">)/)?.[0] || '';
+    const ai = html.match(/data-tab-panel="ai"[\s\S]*?(?=<\/section>\s*<!-- ============ Tab: About)/)?.[0] || '';
+    expect(other).toContain('id="grok-enter-reply"');
+    expect(ai).not.toContain('id="grok-enter-reply"');
+  });
+
+  it('AI tab owns the current Grok reply template controls for future provider settings', () => {
+    const ai = html.match(/data-tab-panel="ai"[\s\S]*?(?=<\/section>\s*<!-- ============ Tab: About)/)?.[0] || '';
+    expect(/id="grok-template-select"/.test(ai)).toBe(true);
+    expect(/id="grok-prompt"/.test(ai)).toBe(true);
+    expect(/id="grok-article-template-select"/.test(ai)).toBe(true);
+    expect(/id="grok-article-prompt"/.test(ai)).toBe(true);
   });
 
   it('About footer links to the project and maintainer X profile', () => {
@@ -212,7 +228,7 @@ describe('#45 Filter sub-tabs (Short / Long)', () => {
 describe('#45 popup-dashboard.js tab router', () => {
   it('exposes setTab function + TABS whitelist', () => {
     expect(/function\s+setTab\s*\(/.test(dashJs)).toBe(true);
-    expect(/TABS\s*=\s*\[\s*['"]pro['"]\s*,\s*['"]filter['"]\s*,\s*['"]leaderboard['"]\s*,\s*['"]about['"]\s*\]/.test(dashJs)).toBe(true);
+    expect(/TABS\s*=\s*\[\s*['"]pro['"]\s*,\s*['"]filter['"]\s*,\s*['"]leaderboard['"]\s*,\s*['"]ai['"]\s*,\s*['"]about['"]\s*\]/.test(dashJs)).toBe(true);
   });
   it('wires aria-selected updates on tab click', () => {
     expect(/aria-selected/.test(dashJs)).toBe(true);
@@ -279,7 +295,7 @@ describe('#45 i18n keys (mock A + dual theme)', () => {
     const zh = JSON.parse(readFileSync(resolve(repo, '_locales/zh_CN/messages.json'), 'utf8'));
     const ja = JSON.parse(readFileSync(resolve(repo, '_locales/ja/messages.json'), 'utf8'));
     const required = [
-      'tabPro', 'tabFilter', 'tabLeaderboard', 'tabAbout',
+      'tabPro', 'tabFilter', 'tabLeaderboard', 'tabAi', 'tabAbout',
       'rfSubShort', 'rfSubLong',
       'comingListTitle',
       'chipTierFree', 'chipTierTrial', 'chipTierPro',

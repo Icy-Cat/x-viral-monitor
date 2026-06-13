@@ -1,7 +1,7 @@
 // === Tab router + toast + cross-script glue ===
 //
 // Tab layout (mock A, locked 2026-05-19 after 3rd UI pivot). Routes:
-//   <button role="tab" data-tab="pro|filter|leaderboard|about"> click
+//   <button role="tab" data-tab="pro|filter|leaderboard|ai|about"> click
 //     → body.dataset.tab = …
 //     → CSS [data-tab-panel="…"][data-active="1"] shows the panel
 //
@@ -14,7 +14,7 @@
 //     click handler (display only; M2 work item).
 
 (() => {
-  const TABS = ['pro', 'filter', 'leaderboard', 'about'];
+  const TABS = ['pro', 'filter', 'leaderboard', 'ai', 'about'];
   const ACTIVE_TAB_KEY = 'xvm_popup_active_tab';
 
   // Critical bug fix (Codex polish item 3): the previous t(key) signature

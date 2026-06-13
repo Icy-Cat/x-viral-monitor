@@ -480,6 +480,7 @@
   "tabPro":         { "message": "Pro" },
   "tabFilter":      { "message": "Filter" },
   "tabLeaderboard": { "message": "Leaderboard" },
+  "tabAi":          { "message": "AI replies" },
   "tabAbout":       { "message": "About" },
   "rfSubShort":     { "message": "Short tweet" },
   "rfSubLong":      { "message": "X Article (long)" },

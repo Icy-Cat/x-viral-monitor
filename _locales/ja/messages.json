@@ -478,6 +478,7 @@
   "tabPro":         { "message": "Pro" },
   "tabFilter":      { "message": "フィルター" },
   "tabLeaderboard": { "message": "ランキング" },
+  "tabAi":          { "message": "AI 返信" },
   "tabAbout":       { "message": "情報" },
   "rfSubShort":     { "message": "短い投稿" },
   "rfSubLong":      { "message": "長文 (X Article)" },

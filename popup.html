@@ -684,6 +684,7 @@
       <button type="button" class="tab-btn" role="tab" data-tab="pro"         aria-selected="false"><span data-i18n="tabPro">Pro</span></button>
       <button type="button" class="tab-btn" role="tab" data-tab="filter"      aria-selected="true"><span data-i18n="tabFilter">Filter</span></button>
       <button type="button" class="tab-btn" role="tab" data-tab="leaderboard" aria-selected="false"><span data-i18n="tabLeaderboard">Leaderboard</span></button>
+      <button type="button" class="tab-btn" role="tab" data-tab="ai"          aria-selected="false"><span data-i18n="tabAi">AI 评论</span></button>
       <button type="button" class="tab-btn" role="tab" data-tab="about"       aria-selected="false"><span data-i18n="tabAbout">About</span></button>
     </div>
 
@@ -783,36 +784,8 @@
       </div>
     </section>
 
-    <!-- ============ Tab: About ============ -->
-    <section role="tabpanel" id="tabpanel-about" data-tab-panel="about">
-
-      <div class="panel-card">
-        <h3 data-i18n="advAppearanceTitle">Appearance</h3>
-        <div class="rf-row">
-          <span data-i18n="themeLabel">Theme</span>
-          <button type="button" id="theme-toggle-about" class="adv-btn"></button>
-        </div>
-        <div class="rf-row">
-          <span data-i18n="languageLabel">Language</span>
-          <div class="xvm-select" data-select-name="language-select">
-            <input id="language-select" type="hidden" value="auto">
-            <button type="button" class="xvm-select-trigger" aria-haspopup="listbox" aria-expanded="false">
-              <span class="xvm-select-value">Auto</span>
-              <svg class="xvm-select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
-            </button>
-            <div class="xvm-select-menu" role="listbox"></div>
-          </div>
-          <div class="ft-desc" data-i18n="languageHint">Controls the popup, page overlays, and default Grok prompt language.</div>
-        </div>
-      </div>
-
-      <div class="panel-card">
-        <h3 data-i18n="advOtherFeaturesTitle">Other features</h3>
-        <div class="feature-row"><div class="ft-body"><label for="feat-copy-md"><div class="ft-title" data-i18n="featureCopyMdTitle">📋 Copy tweet as Markdown</div><div class="ft-desc" data-i18n="featureCopyMdDesc">Adds a "Copy as Markdown" entry at the bottom of X's native share menu.</div></label></div><label class="switch" for="feat-copy-md" aria-label="Copy tweet as Markdown"><input id="feat-copy-md" type="checkbox"><span class="slider"></span></label></div>
-        <div class="feature-row"><div class="ft-body"><label for="feat-starchart"><div class="ft-title" data-i18n="popupStarChartLabel">⭐ Thank-You Star Chart</div><div class="ft-desc" data-i18n="popupStarChartHint">Adds a star-chart option to the share menu of any tweet.</div></label></div><label class="switch" for="feat-starchart" aria-label="Thank-You Star Chart"><input id="feat-starchart" type="checkbox"><span class="slider"></span></label></div>
-        <div class="feature-row"><div class="ft-body"><label for="feat-bookmark-folders"><div class="ft-title" data-i18n="featureBookmarkFoldersTitle">🔖 Bookmark folder menu</div><div class="ft-desc" data-i18n="featureBookmarkFoldersDesc">Hover over a tweet bookmark button to pick a folder, see where it is saved, or create a folder. Requires X Premium.</div></label></div><label class="switch" for="feat-bookmark-folders" aria-label="Bookmark folder menu"><input id="feat-bookmark-folders" type="checkbox"><span class="slider"></span></label></div>
-        <div class="feature-row"><div class="ft-body"><label for="feat-bookmark-count"><div class="ft-title" data-i18n="featureBookmarkCountTitle">🔖 Show bookmark count</div><div class="ft-desc" data-i18n="featureBookmarkCountDesc">Display the bookmark count next to each tweet's bookmark button on the timeline.</div></label></div><label class="switch" for="feat-bookmark-count" aria-label="Show bookmark count"><input id="feat-bookmark-count" type="checkbox"><span class="slider"></span></label></div>
-      </div>
+    <!-- ============ Tab: AI ============ -->
+    <section role="tabpanel" id="tabpanel-ai" data-tab-panel="ai">
 
       <div class="panel-card grok-template">
         <h3 data-i18n="advGrokShortTitle">Grok reply — short tweet template</h3>
@@ -830,8 +803,6 @@
         <label class="field" for="grok-prompt"><span data-i18n="grokShortTemplateLabel">Tweet template (short posts, &lt;600 chars)</span><textarea id="grok-prompt" spellcheck="false"></textarea></label>
         <div class="ft-desc" data-i18n="popupGrokPromptHint">Use [推文内容] where the source tweet should be inserted.</div>
         <label class="inline-toggle" for="grok-temp-chat"><span data-i18n="popupGrokTempChatLabel">Use temporary chat (don't pollute Grok history)</span><span class="switch"><input id="grok-temp-chat" type="checkbox"><span class="slider"></span></span></label>
-        <label class="inline-toggle" for="grok-enter-reply"><span data-i18n="popupGrokEnterReplyLabel">Press Enter to reply</span><span class="switch"><input id="grok-enter-reply" type="checkbox"><span class="slider"></span></span></label>
-        <div class="ft-desc" data-i18n="popupGrokEnterReplyHint">When enabled, plain Enter sends the reply. Shift/Command/Ctrl/Alt+Enter keep their original behavior.</div>
         <div class="actions compact">
           <button type="button" id="grok-prompt-add" class="adv-btn" data-i18n="btnAdd">Add</button>
           <button type="button" id="grok-prompt-save" class="adv-btn" data-i18n="btnSave">Save</button>
@@ -861,6 +832,39 @@
           <button type="button" id="grok-article-prompt-delete" class="adv-btn" data-i18n="btnDelete">Delete</button>
           <button type="button" id="grok-article-prompt-reset" class="adv-btn" data-i18n="btnReset">Reset</button>
         </div>
+      </div>
+    </section>
+
+    <!-- ============ Tab: About ============ -->
+    <section role="tabpanel" id="tabpanel-about" data-tab-panel="about">
+
+      <div class="panel-card">
+        <h3 data-i18n="advAppearanceTitle">Appearance</h3>
+        <div class="rf-row">
+          <span data-i18n="themeLabel">Theme</span>
+          <button type="button" id="theme-toggle-about" class="adv-btn"></button>
+        </div>
+        <div class="rf-row">
+          <span data-i18n="languageLabel">Language</span>
+          <div class="xvm-select" data-select-name="language-select">
+            <input id="language-select" type="hidden" value="auto">
+            <button type="button" class="xvm-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+              <span class="xvm-select-value">Auto</span>
+              <svg class="xvm-select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="xvm-select-menu" role="listbox"></div>
+          </div>
+          <div class="ft-desc" data-i18n="languageHint">Controls the popup, page overlays, and default Grok prompt language.</div>
+        </div>
+      </div>
+
+      <div class="panel-card">
+        <h3 data-i18n="advOtherFeaturesTitle">Other features</h3>
+        <div class="feature-row"><div class="ft-body"><label for="feat-copy-md"><div class="ft-title" data-i18n="featureCopyMdTitle">📋 Copy tweet as Markdown</div><div class="ft-desc" data-i18n="featureCopyMdDesc">Adds a "Copy as Markdown" entry at the bottom of X's native share menu.</div></label></div><label class="switch" for="feat-copy-md" aria-label="Copy tweet as Markdown"><input id="feat-copy-md" type="checkbox"><span class="slider"></span></label></div>
+        <div class="feature-row"><div class="ft-body"><label for="feat-starchart"><div class="ft-title" data-i18n="popupStarChartLabel">⭐ Thank-You Star Chart</div><div class="ft-desc" data-i18n="popupStarChartHint">Adds a star-chart option to the share menu of any tweet.</div></label></div><label class="switch" for="feat-starchart" aria-label="Thank-You Star Chart"><input id="feat-starchart" type="checkbox"><span class="slider"></span></label></div>
+        <div class="feature-row"><div class="ft-body"><label for="feat-bookmark-folders"><div class="ft-title" data-i18n="featureBookmarkFoldersTitle">🔖 Bookmark folder menu</div><div class="ft-desc" data-i18n="featureBookmarkFoldersDesc">Hover over a tweet bookmark button to pick a folder, see where it is saved, or create a folder. Requires X Premium.</div></label></div><label class="switch" for="feat-bookmark-folders" aria-label="Bookmark folder menu"><input id="feat-bookmark-folders" type="checkbox"><span class="slider"></span></label></div>
+        <div class="feature-row"><div class="ft-body"><label for="feat-bookmark-count"><div class="ft-title" data-i18n="featureBookmarkCountTitle">🔖 Show bookmark count</div><div class="ft-desc" data-i18n="featureBookmarkCountDesc">Display the bookmark count next to each tweet's bookmark button on the timeline.</div></label></div><label class="switch" for="feat-bookmark-count" aria-label="Show bookmark count"><input id="feat-bookmark-count" type="checkbox"><span class="slider"></span></label></div>
+        <div class="feature-row"><div class="ft-body"><label for="grok-enter-reply"><div class="ft-title" data-i18n="popupGrokEnterReplyLabel">Press Enter to reply</div><div class="ft-desc" data-i18n="popupGrokEnterReplyHint">When enabled, plain Enter sends the reply. Shift/Command/Ctrl/Alt+Enter keep their original behavior.</div></label></div><label class="switch" for="grok-enter-reply" aria-label="Press Enter to reply"><input id="grok-enter-reply" type="checkbox"><span class="slider"></span></label></div>
       </div>
 
       <p class="footer-line">
