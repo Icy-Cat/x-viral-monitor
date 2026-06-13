@@ -465,6 +465,61 @@ describe('#69/#72 user self-test polish', () => {
     expect(dashJs).toMatch(/const\s+hashTab\s*=\s*readHashTab\(\)/);
     expect(dashJs).toMatch(/window\.addEventListener\(['"]hashchange['"]/);
   });
+
+  it('shows a green longer toast when enabling Hot only filtering', () => {
+    expect(contentJs).toMatch(/contentLbHotEnabledToast/);
+    expect(contentJs).toMatch(/showToast\([\s\S]*contentLbHotEnabledToast[\s\S]*type:\s*['"]success['"][\s\S]*duration:\s*3600/);
+    expect(contentJs).toMatch(/duration\s*=\s*1400/);
+  });
+
+  it('shows an in-panel Hot only active notice while the current scope is filtered', () => {
+    expect(contentJs).toContain('class="xvm-lb-hot-notice" hidden');
+    expect(contentJs).toMatch(/function\s+updateLeaderboardHotNotice\(on\s*=\s*false\)/);
+    expect(contentJs).toMatch(/contentLbHotActiveNotice/);
+    expect(contentJs).toMatch(/updateLeaderboardHotNotice\(on\)/);
+    expect(stylesCss).toContain('.xvm-lb-hot-notice');
+    expect(stylesCss).toContain('.xvm-lb.xvm-lb-edge-hidden .xvm-lb-hot-notice');
+  });
+});
+
+describe('update notice modal', () => {
+  it('stores the seen extension version and only asks content.js to show unseen release notes', () => {
+    expect(bridgeJs).toMatch(/RELEASE_NOTES_SEEN_KEY\s*=\s*['"]xvm_release_notes_seen_version['"]/);
+    expect(bridgeJs).toMatch(/chrome\.runtime\?\.\s*getManifest\?\.\(\)\?\.\s*version/);
+    expect(bridgeJs).toMatch(/XVM_RELEASE_NOTES_SHOW/);
+    expect(bridgeJs).toMatch(/XVM_RELEASE_NOTES_DISMISS/);
+    expect(bridgeJs).toMatch(/\[RELEASE_NOTES_SEEN_KEY\]:\s*event\.data\.version/);
+  });
+
+  it('renders a dismissible release notes dialog in the page', () => {
+    expect(contentJs).toMatch(/RELEASE_NOTE_ITEMS/);
+    expect(contentJs).toMatch(/function\s+showReleaseNotesModal\(version\)/);
+    expect(contentJs).toMatch(/className\s*=\s*['"]xvm-update-backdrop['"]/);
+    expect(contentJs).toMatch(/role['"],\s*['"]dialog/);
+    expect(contentJs).toMatch(/XVM_RELEASE_NOTES_DISMISS/);
+  });
+
+  it('explains where each release-note feature can be enabled or used', () => {
+    expect(contentJs).toContain('设置 → 其他功能 → 书签文件夹菜单');
+    expect(contentJs).toContain('设置 → 其他功能 → 显示书签数');
+    expect(contentJs).toContain('设置 → 其他功能 → 按 Enter 直接回复');
+    expect(contentJs).toContain('悬浮热度榜 → 设置 → 仅看热帖');
+  });
+
+  it('ships modal styles with clear backdrop, card, list, and primary button selectors', () => {
+    for (const cls of [
+      'xvm-update-backdrop',
+      'xvm-update-dialog',
+      'xvm-update-item',
+      'xvm-update-primary',
+    ]) {
+      expect(stylesCss).toContain(`.${cls}`);
+    }
+    expect(contentJs).toMatch(/backdrop\.setAttribute\(['"]data-theme['"],\s*_resolvedTheme\(_themePref\)\)/);
+    expect(stylesCss).toContain('.xvm-update-backdrop[data-theme="dark"] .xvm-update-dialog');
+    expect(stylesCss).not.toMatch(/html\[data-color-mode="dark"\]\s+\.xvm-update/);
+    expect(stylesCss).not.toMatch(/body\[data-theme="dark"\]\s+\.xvm-update/);
+  });
 });
 
 describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS ↔ _locales)', () => {

@@ -74,6 +74,14 @@ let copyAsMarkdownEnabled = true;
 let starChartEnabled = true;
 let showBookmarkCount = true;
 let leaderboardEdgeHideEnabled = true;
+let pendingReleaseNotesVersion = '';
+
+const RELEASE_NOTE_ITEMS = [
+  ['contentUpdateItemBookmarkFoldersTitle', 'contentUpdateItemBookmarkFoldersBody', '书签文件夹菜单', '在设置 → 其他功能 → 书签文件夹菜单开启。开启后，把鼠标移到推文书签按钮上，可以选择文件夹、查看保存位置，或新建文件夹。'],
+  ['contentUpdateItemBookmarkCountTitle', 'contentUpdateItemBookmarkCountBody', '显示书签数', '在设置 → 其他功能 → 显示书签数开启。开启后，时间线里的推文会直接显示书签数量，方便判断内容质量。'],
+  ['contentUpdateItemEnterReplyTitle', 'contentUpdateItemEnterReplyBody', 'Enter 直接回复', '在设置 → 其他功能 → 按 Enter 直接回复开启。开启后，回复框中按 Enter 就能发送回复，不必再按 Command + Enter。'],
+  ['contentUpdateItemHotOnlyTitle', 'contentUpdateItemHotOnlyBody', '仅看热帖提示更清晰', '在悬浮热度榜 → 设置 → 仅看热帖开启。开启后会隐藏未达到热帖标准的帖子，并用绿色提示明确告知。'],
+];
 
 function applyBadgeStyle() {
   document.documentElement.dataset.xvmBadgeStyle = badgeStyle;
@@ -81,6 +89,11 @@ function applyBadgeStyle() {
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  if (event.data?.type === 'XVM_RELEASE_NOTES_SHOW' && typeof event.data.version === 'string') {
+    pendingReleaseNotesVersion = event.data.version;
+    scheduleReleaseNotesModal();
+    return;
+  }
   if (event.data?.type !== 'XVM_SETTINGS_UPDATE') return;
 
   localizedStrings = event.data.messages || localizedStrings;
@@ -132,6 +145,8 @@ window.addEventListener('message', (event) => {
 
   copyAsMarkdownEnabled = event.data.featureCopyAsMarkdown !== false;
   starChartEnabled = event.data.featureStarChart !== false;
+  installLeaderboardThemeSync();
+  scheduleReleaseNotesModal();
 });
 
 window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
@@ -1108,19 +1123,26 @@ function ensureLeaderboard() {
 // `prefers-color-scheme`. Updates on storage change + OS color-scheme
 // change. data-theme on .xvm-lb drives the dark overrides in styles.css.
 function applyLeaderboardTheme(resolved) {
-  if (!leaderboardEl) return;
   const r = resolved || _resolvedTheme(_themePref);
-  leaderboardEl.setAttribute('data-theme', r);
+  if (leaderboardEl) leaderboardEl.setAttribute('data-theme', r);
   if (leaderboardSettingsEl) leaderboardSettingsEl.setAttribute('data-theme', r);
+  applyReleaseNotesTheme(r);
 }
 let _themePref = 'system';
+let _themeSyncInstalled = false;
 function _resolvedTheme(pref) {
   if (pref === 'light' || pref === 'dark') return pref;
   try {
     return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   } catch (_) { return 'light'; }
 }
+function applyReleaseNotesTheme(resolved) {
+  const r = resolved || _resolvedTheme(_themePref);
+  document.querySelectorAll('.xvm-update-backdrop').forEach((el) => el.setAttribute('data-theme', r));
+}
 function installLeaderboardThemeSync() {
+  if (_themeSyncInstalled) return;
+  _themeSyncInstalled = true;
   // Bootstrap: ask the page for the chrome.storage.sync.theme value via
   // the ISOLATED-world bridge.js. content.js is in MAIN world, so we
   // postMessage XVM_THEME_REQUEST and listen for XVM_THEME_UPDATE.
@@ -2873,6 +2895,99 @@ function showToast(msg, options = {}) {
   if (!sticky) {
     setTimeout(() => dismissToast(toast), duration);
   }
+}
+
+function scheduleReleaseNotesModal() {
+  if (!pendingReleaseNotesVersion) return;
+  const run = () => showReleaseNotesModal(pendingReleaseNotesVersion);
+  if (document.body) {
+    setTimeout(run, 300);
+  } else {
+    document.addEventListener('DOMContentLoaded', () => setTimeout(run, 300), { once: true });
+  }
+}
+
+function closeReleaseNotesModal(version) {
+  document.querySelector('.xvm-update-backdrop')?.remove();
+  if (version) {
+    window.postMessage({ type: 'XVM_RELEASE_NOTES_DISMISS', version }, '*');
+  }
+  if (pendingReleaseNotesVersion === version) pendingReleaseNotesVersion = '';
+}
+
+function showReleaseNotesModal(version) {
+  if (!version || !document.body) return;
+  if (document.querySelector('.xvm-update-backdrop')) return;
+
+  const backdrop = document.createElement('div');
+  backdrop.className = 'xvm-update-backdrop';
+  backdrop.setAttribute('data-theme', _resolvedTheme(_themePref));
+
+  const dialog = document.createElement('div');
+  dialog.className = 'xvm-update-dialog';
+  dialog.setAttribute('role', 'dialog');
+  dialog.setAttribute('aria-modal', 'true');
+  dialog.setAttribute('aria-labelledby', 'xvm-update-title');
+
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'xvm-update-close';
+  close.setAttribute('aria-label', 'Close');
+  close.textContent = '×';
+
+  const eyebrow = document.createElement('div');
+  eyebrow.className = 'xvm-update-eyebrow';
+  eyebrow.textContent = `v${version}`;
+
+  const title = document.createElement('h2');
+  title.id = 'xvm-update-title';
+  title.textContent = i18nOr('contentUpdateTitle', 'X Viral Monitor 已更新');
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'xvm-update-subtitle';
+  subtitle.textContent = i18nOr('contentUpdateSubtitle', '这次更新里有几个容易错过的小功能：');
+
+  const list = document.createElement('div');
+  list.className = 'xvm-update-list';
+  for (const [titleKey, bodyKey, fallbackTitle, fallbackBody] of RELEASE_NOTE_ITEMS) {
+    const item = document.createElement('section');
+    item.className = 'xvm-update-item';
+    const itemTitle = document.createElement('h3');
+    itemTitle.textContent = i18nOr(titleKey, fallbackTitle);
+    const body = document.createElement('p');
+    body.textContent = i18nOr(bodyKey, fallbackBody);
+    item.append(itemTitle, body);
+    list.appendChild(item);
+  }
+
+  const actions = document.createElement('div');
+  actions.className = 'xvm-update-actions';
+  const ok = document.createElement('button');
+  ok.type = 'button';
+  ok.className = 'xvm-update-primary';
+  ok.textContent = i18nOr('contentUpdateDismiss', '知道了');
+  actions.appendChild(ok);
+
+  let onKeyDown = null;
+  const dismiss = () => {
+    if (onKeyDown) document.removeEventListener('keydown', onKeyDown, true);
+    closeReleaseNotesModal(version);
+  };
+  close.addEventListener('click', dismiss);
+  ok.addEventListener('click', dismiss);
+  backdrop.addEventListener('click', (event) => {
+    if (event.target === backdrop) dismiss();
+  });
+  onKeyDown = (event) => {
+    if (event.key !== 'Escape') return;
+    dismiss();
+  };
+  document.addEventListener('keydown', onKeyDown, true);
+
+  dialog.append(close, eyebrow, title, subtitle, list, actions);
+  backdrop.appendChild(dialog);
+  document.body.appendChild(backdrop);
+  ok.focus({ preventScroll: true });
 }
 
 function showGrokErrorToast(_msg) {

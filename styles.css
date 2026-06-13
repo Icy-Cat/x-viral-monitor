@@ -85,6 +85,148 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
 }
 
+.xvm-update-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2147483645;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: rgba(15, 20, 25, 0.42);
+  backdrop-filter: blur(4px);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+.xvm-update-dialog {
+  position: relative;
+  width: min(420px, calc(100vw - 32px));
+  max-height: min(680px, calc(100vh - 48px));
+  overflow: auto;
+  padding: 20px;
+  border-radius: 14px;
+  border: 1px solid rgba(207, 217, 222, 0.7);
+  background: #fff;
+  color: #0f1419;
+  box-shadow: 0 24px 60px rgba(15, 20, 25, 0.28);
+}
+
+.xvm-update-close {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #536471;
+  font-size: 22px;
+  line-height: 28px;
+  cursor: pointer;
+}
+
+.xvm-update-close:hover { background: rgba(15, 20, 25, 0.08); }
+
+.xvm-update-eyebrow {
+  display: inline-flex;
+  margin-bottom: 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(0, 186, 124, 0.12);
+  color: #007a52;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.xvm-update-dialog h2 {
+  margin: 0;
+  padding-right: 24px;
+  font-size: 20px;
+  line-height: 1.25;
+  font-weight: 800;
+  letter-spacing: 0;
+}
+
+.xvm-update-subtitle {
+  margin: 8px 0 14px;
+  color: #536471;
+  font-size: 14px;
+  line-height: 1.45;
+}
+
+.xvm-update-list {
+  display: grid;
+  gap: 10px;
+}
+
+.xvm-update-item {
+  padding: 12px;
+  border: 1px solid #eff3f4;
+  border-radius: 10px;
+  background: #f7f9f9;
+}
+
+.xvm-update-item h3 {
+  margin: 0 0 4px;
+  font-size: 14px;
+  line-height: 1.35;
+  font-weight: 800;
+}
+
+.xvm-update-item p {
+  margin: 0;
+  color: #536471;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.xvm-update-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 16px;
+}
+
+.xvm-update-primary {
+  min-width: 92px;
+  border: 0;
+  border-radius: 999px;
+  padding: 9px 16px;
+  background: #0f1419;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.xvm-update-primary:hover { background: #272c30; }
+
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-dialog {
+  border-color: #2f3336;
+  background: #000;
+  color: #e7e9ea;
+}
+
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-close,
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-subtitle,
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-item p {
+  color: #71767b;
+}
+
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-close:hover {
+  background: rgba(239, 243, 244, 0.1);
+}
+
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-item {
+  border-color: #2f3336;
+  background: #080808;
+}
+
+.xvm-update-backdrop[data-theme="dark"] .xvm-update-primary {
+  background: #eff3f4;
+  color: #0f1419;
+}
+
 .xvm-lb {
   display: none;
   position: fixed;
