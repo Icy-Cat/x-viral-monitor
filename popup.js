@@ -174,9 +174,25 @@ const DEFAULT_FEATURES = {
   grokSelectedArticlePromptId: LOCALIZED_GROK_DEFAULTS.grokSelectedArticlePromptId,
   grokTemporaryChat: true,
   grokEnterToReply: false,
+  aiProvider: 'x-grok',
+  aiOpenAIPlatform: 'openai',
+  aiBaseUrl: 'https://api.openai.com/v1',
+  aiModel: 'gpt-4o-mini',
+  aiReplyCount: 10,
+  aiLanguage: 'auto',
   language: initialLanguagePref,
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
+const AI_PLATFORM_PRESETS = {
+  openai: { label: 'OpenAI', baseUrl: 'https://api.openai.com/v1', model: 'gpt-4o-mini' },
+  deepseek: { label: 'DeepSeek', baseUrl: 'https://api.deepseek.com', model: 'deepseek-chat' },
+  openrouter: { label: 'OpenRouter', baseUrl: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
+  kimi: { label: 'Kimi / Moonshot', baseUrl: 'https://api.moonshot.ai/v1', model: 'moonshot-v1-8k' },
+  qwen: { label: 'Qwen / DashScope', baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1', model: 'qwen-plus' },
+  siliconflow: { label: 'SiliconFlow', baseUrl: 'https://api.siliconflow.cn/v1', model: 'Pro/zai-org/GLM-4.7' },
+  lmstudio: { label: 'LM Studio', baseUrl: 'http://localhost:1234/v1', model: 'local-model', local: true },
+  ollamaOpenAI: { label: 'Ollama (OpenAI compatible)', baseUrl: 'http://localhost:11434/v1', model: 'llama3.1', local: true },
+};
 
 // Apply chrome.i18n translations to any element marked with data-i18n.
 // Falls back to the hardcoded English text in the HTML if a key is missing.
@@ -369,6 +385,19 @@ const grokPromptAddBtn = document.getElementById('grok-prompt-add');
 const grokPromptDeleteBtn = document.getElementById('grok-prompt-delete');
 const grokTempChatToggle = document.getElementById('grok-temp-chat');
 const grokEnterReplyToggle = document.getElementById('grok-enter-reply');
+const aiProviderSelect = document.getElementById('ai-provider');
+const aiProviderOptions = [...document.querySelectorAll('[data-ai-provider-option]')];
+const aiPlatformSelect = document.getElementById('ai-platform');
+const aiBaseUrlInput = document.getElementById('ai-base-url');
+const aiModelInput = document.getElementById('ai-model');
+const aiReplyCountInput = document.getElementById('ai-reply-count');
+const aiApiKeyInput = document.getElementById('ai-api-key');
+const aiGrokSummary = document.getElementById('ai-grok-summary');
+const aiConnectionGrid = document.getElementById('ai-connection-grid');
+const aiProviderHint = document.getElementById('ai-provider-hint');
+const aiProviderSaveBtn = document.getElementById('ai-provider-save');
+const aiTestConnectionBtn = document.getElementById('ai-test-connection');
+const aiTestStatus = document.getElementById('ai-test-status');
 // Parallel set for article-length sources.
 const grokArticleTemplateSelect = document.getElementById('grok-article-template-select');
 const grokArticleTemplateNameInput = document.getElementById('grok-article-template-name');
@@ -389,6 +418,11 @@ setCustomSelectOptions(languageSelect, [
   { value: 'en', label: tr('languageEn') || LANGUAGE_LABELS.en },
   { value: 'ja', label: tr('languageJa') || LANGUAGE_LABELS.ja },
 ], initialLanguagePref);
+
+setCustomSelectOptions(aiPlatformSelect, Object.entries(AI_PLATFORM_PRESETS).map(([value, preset]) => ({
+  value,
+  label: preset.label,
+})), DEFAULT_FEATURES.aiOpenAIPlatform);
 
 function getLanguageDisplayName(language) {
   const normalized = normalizeLanguage(language);
@@ -443,6 +477,105 @@ let grokSelectedTemplateId = DEFAULT_FEATURES.grokSelectedPromptId;
 let grokArticleTemplatesState = DEFAULT_FEATURES.grokArticlePromptTemplates.map((tpl) => ({ ...tpl }));
 let grokSelectedArticleTemplateId = DEFAULT_FEATURES.grokSelectedArticlePromptId;
 
+function normalizeAiProvider(raw) {
+  return ['x-grok', 'ollama', 'openai-compatible'].includes(raw) ? raw : DEFAULT_FEATURES.aiProvider;
+}
+
+function normalizeAiPlatform(raw) {
+  return AI_PLATFORM_PRESETS[raw] ? raw : DEFAULT_FEATURES.aiOpenAIPlatform;
+}
+
+function normalizeAiReplyCount(raw) {
+  const n = Number.parseInt(raw, 10);
+  if (!Number.isFinite(n)) return DEFAULT_FEATURES.aiReplyCount;
+  return Math.max(1, Math.min(20, n));
+}
+
+function setAiProviderValue(value, opts = {}) {
+  const next = normalizeAiProvider(value);
+  if (aiProviderSelect) aiProviderSelect.value = next;
+  aiProviderOptions.forEach((btn) => {
+    const selected = btn.dataset.aiProviderOption === next;
+    btn.setAttribute('aria-checked', selected ? 'true' : 'false');
+  });
+  if (opts.dispatch) aiProviderSelect?.dispatchEvent(new Event('change', { bubbles: true }));
+}
+
+function setFieldVisible(input, visible) {
+  const field = input?.closest?.('label.field');
+  if (field) field.hidden = !visible;
+}
+
+function setAiTestStatus(message = '', state = '') {
+  if (!aiTestStatus) return;
+  aiTestStatus.textContent = message;
+  aiTestStatus.dataset.state = state;
+}
+
+function applyAiPlatformPreset(platform, overwrite = true) {
+  const preset = AI_PLATFORM_PRESETS[normalizeAiPlatform(platform)];
+  if (!preset) return;
+  if (overwrite || !aiBaseUrlInput.value.trim()) aiBaseUrlInput.value = preset.baseUrl;
+  if (overwrite || !aiModelInput.value.trim()) aiModelInput.value = preset.model;
+}
+
+function updateAiProviderFields() {
+  const provider = normalizeAiProvider(aiProviderSelect?.value);
+  const isGrok = provider === 'x-grok';
+  const isOllama = provider === 'ollama';
+  const isOpenAI = provider === 'openai-compatible';
+  const platform = normalizeAiPlatform(aiPlatformSelect?.value);
+  const preset = AI_PLATFORM_PRESETS[platform];
+
+  setAiProviderValue(provider);
+  if (aiGrokSummary) aiGrokSummary.hidden = !isGrok;
+  if (aiConnectionGrid) aiConnectionGrid.hidden = isGrok;
+  setFieldVisible(aiPlatformSelect, isOpenAI);
+  setFieldVisible(aiBaseUrlInput, !isGrok);
+  setFieldVisible(aiModelInput, !isGrok);
+  setFieldVisible(aiApiKeyInput, isOpenAI && !preset?.local);
+  if (aiTestConnectionBtn) {
+    aiTestConnectionBtn.textContent = isGrok
+      ? (tr('aiCheckLoginStatus') || 'Check login status')
+      : (tr('aiTestConnection') || 'Test connection');
+  }
+  if (aiProviderHint) {
+    aiProviderHint.hidden = isGrok;
+    aiProviderHint.textContent = isGrok
+      ? (tr('aiProviderHintGrok') || 'X Grok uses your current X login state. No API key is needed.')
+      : isOllama
+        ? (tr('aiProviderHintOllama') || 'Ollama runs locally. Make sure Ollama is running and the model has been downloaded.')
+        : (tr('aiProviderHintCloud') || 'Cloud providers send tweet text and reply context to the selected AI service.');
+  }
+}
+
+function buildAiSyncPatch() {
+  const provider = normalizeAiProvider(aiProviderSelect?.value);
+  const platform = normalizeAiPlatform(aiPlatformSelect?.value);
+  const preset = AI_PLATFORM_PRESETS[platform];
+  const baseUrl = (aiBaseUrlInput?.value || '').trim()
+    || (provider === 'ollama' ? 'http://localhost:11434' : preset.baseUrl);
+  const model = (aiModelInput?.value || '').trim()
+    || (provider === 'ollama' ? 'llama3.1' : preset.model);
+  return {
+    aiProvider: provider,
+    aiOpenAIPlatform: platform,
+    aiBaseUrl: baseUrl,
+    aiModel: model,
+    aiReplyCount: normalizeAiReplyCount(aiReplyCountInput?.value),
+    aiLanguage: 'auto',
+  };
+}
+
+function saveAiProviderSettings(callback) {
+  const syncPatch = buildAiSyncPatch();
+  chrome.storage.sync.set(syncPatch, () => {
+    chrome.storage.local.set({ xvmAiApiKey: (aiApiKeyInput?.value || '').trim() }, () => {
+      if (typeof callback === 'function') callback();
+    });
+  });
+}
+
 function normalizeCount(v) {
   const n = parseInt(v, 10);
   if (!Number.isFinite(n)) return 10;
@@ -495,6 +628,24 @@ function flash(msg) {
   flash._t = setTimeout(() => { statusEl.textContent = ''; }, 2000);
 }
 
+const buttonRestoreTimers = new WeakMap();
+
+function showButtonSaved(button) {
+  if (!button) return;
+  const originalLabel = button.dataset.defaultLabel || button.textContent || tr('btnSave') || 'Save';
+  button.dataset.defaultLabel = originalLabel;
+  const existing = buttonRestoreTimers.get(button);
+  if (existing) clearTimeout(existing);
+  button.textContent = tr('btnSaved') || tr('flashSaved') || 'Saved';
+  button.disabled = true;
+  const timer = setTimeout(() => {
+    button.textContent = button.dataset.defaultLabel || tr('btnSave') || 'Save';
+    button.disabled = false;
+    buttonRestoreTimers.delete(button);
+  }, 1500);
+  buttonRestoreTimers.set(button, timer);
+}
+
 function fill(v) {
   trendingInput.value = v.trending;
   viralInput.value = v.viral;
@@ -534,6 +685,15 @@ chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
   }
   if (grokTempChatToggle) grokTempChatToggle.checked = items.grokTemporaryChat !== false;
   if (grokEnterReplyToggle) grokEnterReplyToggle.checked = items.grokEnterToReply === true;
+  setAiProviderValue(normalizeAiProvider(items.aiProvider));
+  setCustomSelectValue(aiPlatformSelect, normalizeAiPlatform(items.aiOpenAIPlatform));
+  if (aiBaseUrlInput) aiBaseUrlInput.value = items.aiBaseUrl || AI_PLATFORM_PRESETS[normalizeAiPlatform(items.aiOpenAIPlatform)].baseUrl;
+  if (aiModelInput) aiModelInput.value = items.aiModel || AI_PLATFORM_PRESETS[normalizeAiPlatform(items.aiOpenAIPlatform)].model;
+  if (aiReplyCountInput) aiReplyCountInput.value = normalizeAiReplyCount(items.aiReplyCount);
+  chrome.storage.local.get({ xvmAiApiKey: '' }, (localItems) => {
+    if (aiApiKeyInput) aiApiKeyInput.value = localItems.xvmAiApiKey || '';
+    updateAiProviderFields();
+  });
   renderGrokTemplateEditor();
   renderGrokArticleTemplateEditor();
   columnsState = normalizeColumns(items.leaderboardColumns);
@@ -705,6 +865,66 @@ grokTempChatToggle?.addEventListener('change', () => {
 grokEnterReplyToggle?.addEventListener('change', () => {
   chrome.storage.sync.set({ grokEnterToReply: grokEnterReplyToggle.checked }, () => {
     flash(tr(grokEnterReplyToggle.checked ? 'flashGrokEnterReplyOn' : 'flashGrokEnterReplyOff'));
+  });
+});
+
+aiProviderOptions.forEach((btn) => {
+  btn.addEventListener('click', () => {
+    setAiProviderValue(btn.dataset.aiProviderOption, { dispatch: true });
+  });
+  btn.addEventListener('keydown', (event) => {
+    if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
+    event.preventDefault();
+    const current = aiProviderOptions.indexOf(btn);
+    const step = ['ArrowRight', 'ArrowDown'].includes(event.key) ? 1 : -1;
+    const next = aiProviderOptions[(current + step + aiProviderOptions.length) % aiProviderOptions.length];
+    next?.focus();
+    next?.click();
+  });
+});
+
+aiProviderSelect?.addEventListener('change', () => {
+  if (aiProviderSelect.value === 'ollama') {
+    if (aiBaseUrlInput) aiBaseUrlInput.value = 'http://localhost:11434';
+    if (aiModelInput) aiModelInput.value = 'llama3.1';
+  } else if (aiProviderSelect.value === 'openai-compatible') {
+    applyAiPlatformPreset(aiPlatformSelect?.value, true);
+  }
+  updateAiProviderFields();
+  setAiTestStatus('');
+});
+
+aiPlatformSelect?.addEventListener('change', () => {
+  applyAiPlatformPreset(aiPlatformSelect.value, true);
+  updateAiProviderFields();
+  setAiTestStatus('');
+});
+
+aiProviderSaveBtn?.addEventListener('click', () => {
+  aiProviderSaveBtn.disabled = true;
+  saveAiProviderSettings(() => {
+    updateAiProviderFields();
+    flash(tr('flashAiProviderSaved') || 'AI provider settings saved');
+    showButtonSaved(aiProviderSaveBtn);
+  });
+});
+
+aiTestConnectionBtn?.addEventListener('click', () => {
+  setAiTestStatus(tr('aiTestRunning') || 'Testing connection...');
+  aiTestConnectionBtn.disabled = true;
+  saveAiProviderSettings(() => {
+    chrome.runtime.sendMessage({ type: 'XVM_AI_TEST_CONNECTION' }, (res) => {
+      aiTestConnectionBtn.disabled = false;
+      if (chrome.runtime.lastError) {
+        setAiTestStatus(chrome.runtime.lastError.message || 'Connection test failed', 'error');
+        return;
+      }
+      if (res?.ok) {
+        setAiTestStatus(res.message || (tr('aiTestOk') || 'Connection test passed'), 'ok');
+      } else {
+        setAiTestStatus(res?.error || (tr('aiTestFailed') || 'Connection test failed'), 'error');
+      }
+    });
   });
 });
 

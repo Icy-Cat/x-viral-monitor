@@ -31,6 +31,9 @@
   "btnSave": {
     "message": "Save"
   },
+  "btnSaved": {
+    "message": "Saved"
+  },
   "btnReset": {
     "message": "Reset"
   },
@@ -477,6 +480,30 @@
   "advOtherFeaturesTitle":   { "message": "Other features" },
   "advGrokShortTitle":       { "message": "Grok reply — short tweet template" },
   "advGrokArticleTitle":     { "message": "Grok reply — article template" },
+  "aiProviderTitle": { "message": "AI comment provider" },
+  "aiProviderLabel": { "message": "Provider" },
+  "aiPlatformLabel": { "message": "Platform" },
+  "aiBaseUrlLabel": { "message": "Base URL" },
+  "aiModelLabel": { "message": "Model" },
+  "aiReplyCountLabel": { "message": "Replies" },
+  "aiApiKeyLabel": { "message": "API Key" },
+  "aiProviderHint": { "message": "Cloud providers send tweet context to the selected AI service. Ollama runs on your local machine." },
+  "aiProviderHintGrok": { "message": "X Grok uses your current X login state. No API key is needed." },
+  "aiProviderHintOllama": { "message": "Ollama runs locally. Make sure Ollama is running and the model has been downloaded." },
+  "aiProviderHintCloud": { "message": "Cloud providers send tweet text and reply context to the selected AI service." },
+  "aiProviderXGrok": { "message": "X Grok" },
+  "aiProviderXGrokDesc": { "message": "Use the current X session" },
+  "aiProviderOllama": { "message": "Ollama" },
+  "aiProviderOllamaDesc": { "message": "Local model service" },
+  "aiProviderOpenAICompatible": { "message": "OpenAI compatible" },
+  "aiProviderOpenAICompatibleDesc": { "message": "OpenAI, DeepSeek, OpenRouter" },
+  "aiServiceConfigTitle": { "message": "Service configuration" },
+  "aiGenerationSettingsTitle": { "message": "Generation settings" },
+  "aiCheckLoginStatus": { "message": "Check login status" },
+  "aiTestConnection": { "message": "Test connection" },
+  "aiTestRunning": { "message": "Testing connection..." },
+  "aiTestOk": { "message": "Connection test passed" },
+  "aiTestFailed": { "message": "Connection test failed" },
   "tabPro":         { "message": "Pro" },
   "tabFilter":      { "message": "Filter" },
   "tabLeaderboard": { "message": "Leaderboard" },
@@ -507,6 +534,7 @@
   "popupGrokEnterReplyHint": { "message": "When enabled, plain Enter sends the reply. Shift/Command/Ctrl/Alt+Enter keep their original behavior." },
   "flashGrokEnterReplyOn": { "message": "Enter to reply enabled" },
   "flashGrokEnterReplyOff": { "message": "Enter to reply disabled" },
+  "flashAiProviderSaved": { "message": "AI provider settings saved" },
   "grokDefaultTemplateName": { "message": "Natural replies" },
   "grokCustomTemplateName": { "message": "Template $N$", "placeholders": { "N": { "content": "$1" } } },
   "grokArticleFallbackName": { "message": "Article template" },

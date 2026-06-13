@@ -17,6 +17,9 @@ const popupJs   = readFileSync(resolve(repo, 'popup.js'),           'utf8');
 const contentJs = readFileSync(resolve(repo, 'content.js'),         'utf8');
 const stylesCss = readFileSync(resolve(repo, 'styles.css'),         'utf8');
 const userScript = readFileSync(resolve(repo, 'userscript/x-viral-monitor.user.js'), 'utf8');
+const backgroundJs = readFileSync(resolve(repo, 'background.js'), 'utf8');
+const manifest = JSON.parse(readFileSync(resolve(repo, 'manifest.json'), 'utf8'));
+const buildDistJs = readFileSync(resolve(repo, 'scripts/build-dist.mjs'), 'utf8');
 
 describe('#45 popup tabs structure (mock A)', () => {
   it('body declares data-tab default "filter" + data-tier "free" + data-theme "light"', () => {
@@ -98,8 +101,97 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(ai).not.toContain('id="grok-enter-reply"');
   });
 
+  it('reuses the AI generate composer scope for Enter-to-reply', () => {
+    expect(/function\s+findReplyArticleForEnterShortcut/.test(contentJs)).toBe(true);
+    expect(/function\s+findReplyArticleForAiComposer/.test(contentJs)).toBe(true);
+    const helperStart = contentJs.indexOf('function findReplyArticleForEnterShortcut');
+    const helperEnd = contentJs.indexOf('const RECENT_REPLY_CONTEXT_TTL_MS', helperStart);
+    const helper = helperStart >= 0 && helperEnd > helperStart ? contentJs.slice(helperStart, helperEnd) : '';
+    expect(helper).toContain("composerRoot?.closest?.('[role=\"dialog\"]')");
+    expect(helper).toContain('return article || null');
+    expect(helper).toContain('getStatusIdFromLocation()');
+    expect(helper).toContain('findArticleForCurrentStatus()');
+    expect(helper).not.toContain('grokLastReplyArticle');
+    const shortcut = contentJs.match(/function\s+installEnterToReplyShortcut\(\)\s*\{[\s\S]*?\n\}/)?.[0] || '';
+    expect(shortcut).toContain('findReplyArticleForAiComposer(composerRoot)');
+    expect(shortcut).not.toContain('findReplyArticle(composerRoot)');
+    expect(shortcut).not.toContain('grokLastReplyArticle');
+  });
+
+  it('does not inject the AI generate button into normal new-post composers', () => {
+    expect(/function\s+findReplyArticleForAiComposer/.test(contentJs)).toBe(true);
+    expect(/RECENT_REPLY_CONTEXT_TTL_MS/.test(contentJs)).toBe(true);
+    const contextStart = contentJs.indexOf('function findReplyArticleForAiComposer');
+    const contextEnd = contentJs.indexOf('function findReplyEditable', contextStart);
+    const contextFn = contextStart >= 0 && contextEnd > contextStart ? contentJs.slice(contextStart, contextEnd) : '';
+    expect(contextFn).toContain("composerRoot?.closest?.('[role=\"dialog\"]')");
+    expect(contextFn).toContain('getStatusIdFromLocation()');
+    expect(contextFn).toContain('findArticleForCurrentStatus()');
+    const injectorStart = contentJs.indexOf('function injectGrokReplyButtons');
+    const injectorEnd = contentJs.indexOf('// Tracks the conversation', injectorStart);
+    const injector = injectorStart >= 0 && injectorEnd > injectorStart ? contentJs.slice(injectorStart, injectorEnd) : '';
+    expect(injector).toContain('findReplyArticleForAiComposer(composerRoot)');
+    expect(injector).not.toContain('findReplyArticle(composerRoot)');
+    expect(injector).toContain("querySelectorAll?.('.xvm-grok-generate-btn').forEach((btn) => btn.remove())");
+  });
+
+  it('places the AI generate button before the native reply submit button', () => {
+    const hostStart = contentJs.indexOf('function findGrokButtonHost');
+    const hostEnd = contentJs.indexOf('function findReplySubmitButton', hostStart);
+    const hostFn = hostStart >= 0 && hostEnd > hostStart ? contentJs.slice(hostStart, hostEnd) : '';
+    expect(hostFn).toContain('const submitHost = submitBtn.parentElement');
+    expect(hostFn).toContain('return { host: submitHost, submitBtn, insertBefore: submitBtn }');
+    expect(contentJs).toContain('function prepareGrokActionsHost');
+    expect(contentJs).toContain("host.style.setProperty('flex-direction', 'row', 'important')");
+    expect(contentJs).toContain("host.style.setProperty('align-items', 'center', 'important')");
+    expect(contentJs).toContain('prepareGrokActionsHost(host)');
+    expect(stylesCss).toContain('.xvm-grok-actions-host');
+    expect(stylesCss).toContain('flex-direction: row !important');
+    expect(stylesCss).toContain('align-items: center !important');
+    expect(stylesCss).toContain('height: 40px');
+    expect(stylesCss).toContain('border-radius: 9999px');
+  });
+
+  it('uses the legacy Grok candidate panel placement for AI comments', () => {
+    const panelStart = contentJs.indexOf('function showGrokOptions');
+    const panelEnd = contentJs.indexOf('function setGrokButtonLabel', panelStart);
+    const panelFn = panelStart >= 0 && panelEnd > panelStart ? contentJs.slice(panelStart, panelEnd) : '';
+    expect(panelFn).toContain('const panelHGuess = Math.max(panel.offsetHeight || 0, minH)');
+    expect(panelFn).toContain("placement = spaceRight >= spaceLeft && spaceRight >= minW + 12");
+    expect(panelFn).toContain('btnRect.top + btnRect.height / 2 - panelH / 2');
+    expect(panelFn).toContain('panel.classList.add(`xvm-grok-options--${placement}`)');
+    expect(panelFn).not.toContain('dockPanelToViewportBottom');
+    expect(panelFn).not.toContain('panel.style.maxHeight');
+    expect(panelFn).not.toContain('panel.style.height');
+    expect(stylesCss).toContain('.xvm-grok-options-list');
+    expect(stylesCss).toContain('overflow: auto');
+    expect(stylesCss).not.toContain('max-height: 220px');
+  });
+
+  it('uses the legacy Grok template menu placement', () => {
+    const menuStart = contentJs.indexOf('function showGrokTemplateMenu');
+    const menuEnd = contentJs.indexOf('// Renders or updates the candidate panel', menuStart);
+    const menuFn = menuStart >= 0 && menuEnd > menuStart ? contentJs.slice(menuStart, menuEnd) : '';
+    expect(menuFn).toContain('window.innerHeight - menu.offsetHeight - 12');
+    expect(menuFn).not.toContain('menu.style.height');
+    expect(menuFn).not.toContain('menu.style.maxHeight');
+    expect(stylesCss).toContain('.xvm-grok-template-menu-list');
+  });
+
   it('AI tab owns the current Grok reply template controls for future provider settings', () => {
     const ai = html.match(/data-tab-panel="ai"[\s\S]*?(?=<\/section>\s*<!-- ============ Tab: About)/)?.[0] || '';
+    expect(/id="ai-provider"/.test(ai)).toBe(true);
+    expect(/data-ai-provider-option="x-grok"/.test(ai)).toBe(true);
+    expect(/data-ai-provider-option="openai-compatible"/.test(ai)).toBe(true);
+    expect(/data-ai-provider-option="ollama"/.test(ai)).toBe(true);
+    expect(/role="radiogroup"/.test(ai)).toBe(true);
+    expect(/id="ai-platform"/.test(ai)).toBe(true);
+    expect(/id="ai-base-url"/.test(ai)).toBe(true);
+    expect(/id="ai-model"/.test(ai)).toBe(true);
+    expect(/id="ai-reply-count"/.test(ai)).toBe(true);
+    expect(/id="ai-api-key"/.test(ai)).toBe(true);
+    expect(/id="ai-test-connection"/.test(ai)).toBe(true);
+    expect(/id="ai-provider-save"/.test(ai)).toBe(true);
     expect(/id="grok-template-select"/.test(ai)).toBe(true);
     expect(/id="grok-prompt"/.test(ai)).toBe(true);
     expect(/id="grok-article-template-select"/.test(ai)).toBe(true);
@@ -129,7 +221,7 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(/<select\b|<option\b/.test(html)).toBe(false);
     expect(/document\.createElement\(\s*['"]option['"]\s*\)/.test(popupJs)).toBe(false);
     expect(/<select\b|<option\b/.test(userScript)).toBe(false);
-    expect((html.match(/class="xvm-select"/g) || []).length).toBe(4);
+    expect((html.match(/class="xvm-select"/g) || []).length).toBe(5);
   });
 
   it('loads scripts in order: build-channel → tier-logic → popup-pro → popup filters → popup.js → popup-dashboard', () => {
@@ -307,6 +399,14 @@ describe('#45 i18n keys (mock A + dual theme)', () => {
       'grokShortTemplateLabel', 'grokArticleTemplateLabel', 'grokArticleTemplateHint',
       'grokDefaultTemplateName', 'grokCustomTemplateName',
       'grokArticleFallbackName', 'grokArticleCustomTemplateName',
+      'aiProviderTitle', 'aiProviderLabel', 'aiPlatformLabel', 'aiBaseUrlLabel',
+      'aiModelLabel', 'aiReplyCountLabel', 'aiApiKeyLabel', 'aiProviderHint',
+      'aiProviderHintGrok', 'aiProviderHintOllama', 'aiProviderHintCloud',
+      'aiProviderXGrok', 'aiProviderOllama', 'aiProviderOpenAICompatible',
+      'aiProviderXGrokDesc', 'aiProviderOllamaDesc', 'aiProviderOpenAICompatibleDesc',
+      'aiServiceConfigTitle', 'aiGenerationSettingsTitle', 'aiCheckLoginStatus',
+      'aiTestConnection', 'aiTestRunning', 'aiTestOk', 'aiTestFailed',
+      'flashAiProviderSaved', 'btnSaved',
     ];
     for (const k of required) {
       expect(en[k]?.message, `en must declare ${k}`).toBeTruthy();
@@ -566,6 +666,90 @@ describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS 
     expect(missingEn, `popup.html references data-i18n keys missing from _locales/en: ${missingEn.join(', ')}`).toEqual([]);
     expect(missingZh, `popup.html references data-i18n keys missing from _locales/zh_CN: ${missingZh.join(', ')}`).toEqual([]);
     expect(missingJa, `popup.html references data-i18n keys missing from _locales/ja: ${missingJa.join(', ')}`).toEqual([]);
+  });
+});
+
+describe('#15 AI comment provider contract', () => {
+  it('ships a background service worker for provider calls without broad host permissions', () => {
+    expect(manifest.background?.service_worker).toBe('background.js');
+    expect(buildDistJs).toContain("'background.js'");
+    expect(manifest.host_permissions).not.toContain('<all_urls>');
+    for (const pattern of [
+      'http://localhost/*',
+      'http://127.0.0.1/*',
+      'https://api.openai.com/*',
+      'https://api.deepseek.com/*',
+      'https://openrouter.ai/*',
+      'https://api.moonshot.ai/*',
+      'https://dashscope.aliyuncs.com/*',
+      'https://api.siliconflow.cn/*',
+    ]) {
+      expect(manifest.host_permissions).toContain(pattern);
+    }
+  });
+
+  it('keeps AI API keys out of sync storage and the MAIN-world content script', () => {
+    expect(/chrome\.storage\.local\.set\(\s*\{\s*xvmAiApiKey/.test(popupJs)).toBe(true);
+    expect(/chrome\.storage\.sync\.set\(syncPatch/.test(popupJs)).toBe(true);
+    expect(contentJs).not.toContain('xvmAiApiKey');
+    expect(bridgeJs).not.toContain('xvmAiApiKey');
+  });
+
+  it('routes non-Grok AI generation through bridge → background with request IDs', () => {
+    expect(contentJs).toContain("type: 'XVM_AI_GENERATE'");
+    expect(contentJs).toContain('XVM_AI_GENERATE_RESULT');
+    expect(contentJs).toContain('XVM_AI_GENERATE_PROGRESS');
+    expect(contentJs).toContain("aiProvider === 'x-grok'");
+    expect(contentJs).toContain('requestExternalAiGeneration');
+    expect(contentJs).toContain('onProgress');
+    expect(bridgeJs).toContain('XVM_AI_GENERATE_PROGRESS');
+    expect(bridgeJs).toContain('XVM_AI_GENERATE_RESULT');
+    expect(bridgeJs).toContain('payload: event.data.payload || {}');
+    expect(backgroundJs).toContain('XVM_AI_GENERATE_PROGRESS');
+    expect(backgroundJs).toContain('generateWithOpenAICompatible(config, message.payload || {}, emitProgress)');
+    expect(bridgeJs).not.toContain('bridgeAiRequests');
+    expect(bridgeJs).not.toContain("请通过页面上的 AI 生成按钮发起请求");
+    expect(bridgeJs).not.toContain('bridgeGenerateExternalAi');
+    expect(bridgeJs).not.toContain('AI_GENERATE_ACTIVATION_TTL_MS');
+    expect(bridgeJs).not.toContain('consumeAiGenerateActivation');
+    expect(backgroundJs).toContain("message.type === 'XVM_AI_GENERATE'");
+  });
+
+  it('supports X Grok, Ollama, and OpenAI-compatible presets in popup and background', () => {
+    for (const value of ['x-grok', 'ollama', 'openai-compatible']) {
+      expect(popupJs).toContain(value);
+      expect(backgroundJs).toContain(value);
+    }
+    for (const platform of ['openai', 'deepseek', 'openrouter', 'kimi', 'qwen', 'siliconflow', 'lmstudio', 'ollamaOpenAI']) {
+      expect(popupJs).toContain(platform);
+      expect(backgroundJs).toContain(platform);
+    }
+    expect(backgroundJs).toContain('generateWithOllama');
+    expect(backgroundJs).toContain('generateWithOpenAICompatible');
+    expect(backgroundJs).toContain('assertAllowedOpenAIBaseUrl');
+    expect(backgroundJs).toContain('assertAllowedOllamaBaseUrl');
+  });
+
+  it('resets OpenAI-compatible fields when switching back from Ollama', () => {
+    expect(popupJs).toContain("if (aiProviderSelect.value === 'ollama')");
+    expect(popupJs).toContain("if (aiBaseUrlInput) aiBaseUrlInput.value = 'http://localhost:11434'");
+    expect(popupJs).toContain("if (aiModelInput) aiModelInput.value = 'llama3.1'");
+    expect(popupJs).toContain("} else if (aiProviderSelect.value === 'openai-compatible') {\n    applyAiPlatformPreset(aiPlatformSelect?.value, true);");
+  });
+
+  it('shows temporary success feedback on the AI provider save button', () => {
+    expect(popupJs).toContain('const buttonRestoreTimers = new WeakMap()');
+    expect(popupJs).toContain('function showButtonSaved(button)');
+    expect(popupJs).toContain("button.textContent = tr('btnSaved') || tr('flashSaved') || 'Saved'");
+    expect(popupJs).toContain('showButtonSaved(aiProviderSaveBtn)');
+  });
+
+  it('does not render a separate third-party AI candidate panel in bridge', () => {
+    expect(bridgeJs).not.toContain('function bridgeShowGrokOptions');
+    expect(bridgeJs).not.toContain('function bridgeInsertTextIntoReply');
+    expect(bridgeJs).not.toContain('xvm-grok-options-list');
+    expect(contentJs).toContain('function showGrokOptions');
+    expect(contentJs).toContain('showGrokOptions(running, editable, { streaming: true, anchor: btn })');
   });
 });
 

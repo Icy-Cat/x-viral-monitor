@@ -5,7 +5,25 @@
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "permissions": ["storage"],
-  "host_permissions": ["https://raw.githubusercontent.com/*"],
+  "host_permissions": [
+    "https://raw.githubusercontent.com/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "https://api.openai.com/*",
+    "https://api.deepseek.com/*",
+    "https://openrouter.ai/*",
+    "https://api.moonshot.ai/*",
+    "https://api.moonshot.cn/*",
+    "https://dashscope.aliyuncs.com/*",
+    "https://dashscope-intl.aliyuncs.com/*",
+    "https://dashscope-us.aliyuncs.com/*",
+    "https://cn-hongkong.dashscope.aliyuncs.com/*",
+    "https://api.siliconflow.cn/*",
+    "https://api.siliconflow.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
   "action": {
     "default_popup": "popup.html",
     "default_title": "__MSG_extName__",

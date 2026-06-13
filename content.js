@@ -177,6 +177,14 @@ let grokSelectedArticleTemplateId = 'article-default';
 let grokTemporaryChat = true;
 let grokEnterToReply = false;
 let grokLastReplyArticle = null;
+let aiProvider = 'x-grok';
+let aiOpenAIPlatform = 'openai';
+let aiBaseUrl = 'https://api.openai.com/v1';
+let aiModel = 'gpt-4o-mini';
+let aiReplyCount = 10;
+let aiLanguage = 'auto';
+let aiRequestSeq = 0;
+const aiPendingRequests = new Map();
 
 window.postMessage({ type: 'XVM_GROK_SETTINGS_REQUEST' }, '*');
 
@@ -208,6 +216,46 @@ window.addEventListener('message', (event) => {
   }
   if (typeof event.data.enterToReply === 'boolean') {
     grokEnterToReply = event.data.enterToReply;
+  }
+  if (['x-grok', 'ollama', 'openai-compatible'].includes(event.data.aiProvider)) {
+    aiProvider = event.data.aiProvider;
+  }
+  if (typeof event.data.aiOpenAIPlatform === 'string' && event.data.aiOpenAIPlatform) {
+    aiOpenAIPlatform = event.data.aiOpenAIPlatform;
+  }
+  if (typeof event.data.aiBaseUrl === 'string') {
+    aiBaseUrl = event.data.aiBaseUrl;
+  }
+  if (typeof event.data.aiModel === 'string') {
+    aiModel = event.data.aiModel;
+  }
+  const nextReplyCount = Number.parseInt(event.data.aiReplyCount, 10);
+  if (Number.isFinite(nextReplyCount)) {
+    aiReplyCount = Math.max(1, Math.min(20, nextReplyCount));
+  }
+  if (['auto', 'zh_CN', 'en', 'ja'].includes(event.data.aiLanguage)) {
+    aiLanguage = event.data.aiLanguage;
+  }
+});
+
+window.addEventListener('message', (event) => {
+  if (event.source !== window) return;
+  if (event.data?.type === 'XVM_AI_GENERATE_PROGRESS') {
+    const pending = aiPendingRequests.get(event.data.requestId);
+    if (!pending || !Array.isArray(event.data.comments)) return;
+    pending.onProgress?.(event.data.comments);
+    return;
+  }
+  if (event.data?.type !== 'XVM_AI_GENERATE_RESULT') return;
+  const requestId = event.data.requestId;
+  const pending = aiPendingRequests.get(requestId);
+  if (!pending) return;
+  clearTimeout(pending.timer);
+  aiPendingRequests.delete(requestId);
+  if (event.data.ok && Array.isArray(event.data.comments)) {
+    pending.resolve(event.data.comments);
+  } else {
+    pending.reject(new Error(event.data.error || 'AI 生成失败'));
   }
 });
 
@@ -3150,6 +3198,39 @@ function findReplyArticle(composerRoot) {
   return null;
 }
 
+function findReplyArticleForEnterShortcut(composerRoot) {
+  const dialog = composerRoot?.closest?.('[role="dialog"]');
+  if (dialog) {
+    const article = dialog.querySelector?.('article[data-testid="tweet"]');
+    return article || null;
+  }
+  const article = composerRoot?.querySelector?.('article[data-testid="tweet"]')
+    || composerRoot?.closest?.('article[data-testid="tweet"]');
+  if (article) return article;
+  if (getStatusIdFromLocation()) return findArticleForCurrentStatus();
+  return null;
+}
+
+const RECENT_REPLY_CONTEXT_TTL_MS = 30000;
+let grokLastReplyClickAt = 0;
+
+function hasRecentReplyClickContext() {
+  return !!(grokLastReplyArticle?.isConnected && Date.now() - grokLastReplyClickAt <= RECENT_REPLY_CONTEXT_TTL_MS);
+}
+
+function findReplyArticleForAiComposer(composerRoot) {
+  const visibleReplyArticle = findReplyArticleForEnterShortcut(composerRoot);
+  if (visibleReplyArticle) return visibleReplyArticle;
+  if (composerRoot?.closest?.('[role="dialog"]')) return null;
+  if (location.pathname === '/compose/post' && hasRecentReplyClickContext()) {
+    return grokLastReplyArticle;
+  }
+  if (getStatusIdFromLocation()) {
+    return findArticleForCurrentStatus();
+  }
+  return null;
+}
+
 function findReplyEditable(root = document) {
   return root.querySelector?.('[data-testid="tweetTextarea_0"][contenteditable="true"], div[role="textbox"][contenteditable="true"], textarea[placeholder], textarea[aria-label]');
 }
@@ -3188,6 +3269,10 @@ function findGrokButtonHost(editable, composerRoot) {
     }
   }
   if (submitBtn) {
+    const submitHost = submitBtn.parentElement;
+    if (!isInvalidGrokButtonHost(submitHost, editable)) {
+      return { host: submitHost, submitBtn, insertBefore: submitBtn };
+    }
     candidates.push(submitBtn.parentElement);
     let node = submitBtn.parentElement;
     for (let depth = 0; node && node !== scope && depth < 8; depth++, node = node.parentElement) {
@@ -3211,6 +3296,15 @@ function findGrokButtonHost(editable, composerRoot) {
   return null;
 }
 
+function prepareGrokActionsHost(host) {
+  if (!host) return;
+  host.classList.add('xvm-grok-actions-host');
+  host.style.setProperty('display', 'flex', 'important');
+  host.style.setProperty('flex-direction', 'row', 'important');
+  host.style.setProperty('align-items', 'center', 'important');
+  host.style.setProperty('gap', '8px', 'important');
+}
+
 function findReplySubmitButton(editable) {
   const root = findReplyComposerRoot(editable);
   const scope = root?.closest?.('[role="dialog"]') || root;
@@ -3230,7 +3324,7 @@ function installEnterToReplyShortcut() {
     if (!editable) return;
 
     const composerRoot = findReplyComposerRoot(editable);
-    if (!composerRoot || !findReplyArticle(composerRoot)) return;
+    if (!composerRoot || !findReplyArticleForAiComposer(composerRoot)) return;
 
     const submitBtn = findReplySubmitButton(editable);
     if (!submitBtn || submitBtn.disabled || submitBtn.getAttribute('aria-disabled') === 'true') return;
@@ -3311,6 +3405,8 @@ function showGrokTemplateMenu(anchor, editable, kind = 'tweet') {
     const item = document.createElement('button');
     item.type = 'button';
     item.className = 'xvm-grok-template-item';
+    item.dataset.kind = kind;
+    item.dataset.templateId = tpl.id;
     if (tpl.id === selectedId) item.classList.add('xvm-grok-template-item--selected');
     item.innerHTML = `<span>${tpl.name}</span><small>${tpl.prompt.replace(/\s+/g, ' ').slice(0, 72)}</small>`;
     item.addEventListener('click', () => {
@@ -3454,8 +3550,6 @@ function showGrokOptions(comments, editable, opts = {}) {
       panel.style.left = placement === 'right'
         ? `${refRect.right + margin}px`
         : `${Math.max(12, refRect.left - margin - width)}px`;
-      // Vertically: when anchored to a dialog, hug its top so the two surfaces
-      // align visually. Otherwise center near the button.
       const panelH = panel.offsetHeight || panelHGuess;
       const idealTop = dialog
         ? refRect.top
@@ -3526,6 +3620,30 @@ function setGrokButtonLabel(btn, label = 'AI 生成', loading = false) {
   btn.innerHTML = `<span class="xvm-grok-spark" aria-hidden="true">✦</span><span>${label}</span>`;
 }
 
+function requestExternalAiGeneration(payload, onProgress = null) {
+  return new Promise((resolve, reject) => {
+    const requestId = `ai-${Date.now()}-${++aiRequestSeq}`;
+    const timer = setTimeout(() => {
+      aiPendingRequests.delete(requestId);
+      reject(new Error('AI 生成超时，请检查服务连接'));
+    }, 65000);
+    aiPendingRequests.set(requestId, { resolve, reject, timer, onProgress });
+    window.postMessage({
+      type: 'XVM_AI_GENERATE',
+      requestId,
+      payload: {
+        ...payload,
+        provider: aiProvider,
+        platform: aiOpenAIPlatform,
+        baseUrl: aiBaseUrl,
+        model: aiModel,
+        replyCount: aiReplyCount,
+        language: aiLanguage,
+      },
+    }, '*');
+  });
+}
+
 async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   // Synchronous re-entry guard. `btn.disabled = true` later races with rapid
   // double-clicks; the dataset flag is set before any await so the second
@@ -3534,7 +3652,7 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   btn.dataset.xvmBusy = '1';
 
   const root = findReplyComposerRoot(editable);
-  const article = findReplyArticle(root);
+  const article = findReplyArticleForAiComposer(root);
   const replyText = getTweetTextFromArticle(article);
   if (!replyText) {
     showGrokErrorToast('未找到推文内容');
@@ -3562,24 +3680,34 @@ async function handleGrokGenerate(btn, editable, promptTemplate = null) {
   btn.disabled = true;
   setGrokButtonLabel(btn, '生成中', true);
   try {
-    if (!window.__xvmGrok) {
-      throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
-    }
     const tpl = promptTemplate || getSelectedGrokPromptTemplate(kind);
     showGrokOptions([], editable, { streaming: true, anchor: btn });
-    const comments = await window.__xvmGrok.generate({
-      tweetText,
-      promptTemplate: tpl?.prompt || tpl,
-      temporaryChat: grokTemporaryChat,
-      onProgress: (running) => {
+    const comments = aiProvider === 'x-grok'
+      ? await (async () => {
+        if (!window.__xvmGrok) {
+          throw new Error('插件未正确加载（lib/grok-reply.js 缺失），请重载扩展');
+        }
+        return window.__xvmGrok.generate({
+          tweetText,
+          promptTemplate: tpl?.prompt || tpl,
+          temporaryChat: grokTemporaryChat,
+          onProgress: (running) => {
+            showGrokOptions(running, editable, { streaming: true, anchor: btn });
+          },
+        });
+      })()
+      : await requestExternalAiGeneration({
+        tweetText,
+        promptTemplate: tpl?.prompt || tpl,
+        kind,
+      }, (running) => {
         showGrokOptions(running, editable, { streaming: true, anchor: btn });
-      },
-    });
+      });
     showGrokOptions(comments, editable, { streaming: false, anchor: btn });
   } catch (err) {
-    console.debug('[XVM-GROK] generation failed', err);
+    console.debug('[XVM-AI] generation failed', err);
     closeGrokOptions();
-    showGrokErrorToast(err?.message || 'Grok 生成失败');
+    showGrokErrorToast(err?.message || 'AI 生成失败');
   } finally {
     btn.disabled = false;
     setGrokButtonLabel(btn);
@@ -3596,15 +3724,15 @@ function injectGrokReplyButtons(root = document) {
   for (const editable of editors) {
     const composerRoot = findReplyComposerRoot(editable);
     cleanupMisplacedGrokButtons(editable, composerRoot);
-    if (!composerRoot || composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
-    // Single gate: there must be a source tweet to reference. findReplyArticle
-    // covers all the surfaces the user might be replying from — modal, inline,
-    // /compose/post fullpage, status page — by walking the dialog, the click-
-    // captured grokLastReplyArticle, and the current status id in turn. The
-    // earlier dialog/article/status URL pre-check was redundant and broken on
-    // /compose/post (X navigates there from timeline-reply clicks; URL has no
-    // status id and the textarea is in the primary column, not a dialog).
-    if (!findReplyArticle(composerRoot)) continue;
+    if (!composerRoot) continue;
+    // Single gate: there must be a source tweet tied to this composer. Do not
+    // fall back to the page's current/first tweet here, otherwise the normal
+    // "new post" composer gets a reply-only AI button.
+    if (!findReplyArticleForAiComposer(composerRoot)) {
+      composerRoot.querySelectorAll?.('.xvm-grok-generate-btn').forEach((btn) => btn.remove());
+      continue;
+    }
+    if (composerRoot.querySelector('.xvm-grok-generate-btn')) continue;
 
     const target = findGrokButtonHost(editable, composerRoot);
     if (!target) continue;
@@ -3624,7 +3752,7 @@ function injectGrokReplyButtons(root = document) {
       // Detect content kind at click-time (not inject-time) — the source tweet
       // text may load lazily, and the user might reuse the same composer for
       // different threads via SPA navigation.
-      const refArticle = findReplyArticle(findReplyComposerRoot(editable));
+      const refArticle = findReplyArticleForAiComposer(findReplyComposerRoot(editable));
       const refText = getTweetTextFromArticle(refArticle) || '';
       const kind = isArticleLengthText(refText, refArticle) ? 'article' : 'tweet';
       const list = getGrokTemplatesForKind(kind);
@@ -3635,13 +3763,13 @@ function injectGrokReplyButtons(root = document) {
       }
     });
     if (target.insertBefore?.parentElement === host) {
-      host.classList.add('xvm-grok-actions-host');
+      prepareGrokActionsHost(host);
       host.insertBefore(btn, target.insertBefore);
     } else if (submitBtn?.parentElement === host) {
-      host.classList.add('xvm-grok-actions-host');
+      prepareGrokActionsHost(host);
       host.insertBefore(btn, submitBtn);
     } else {
-      host.classList.add('xvm-grok-actions-host');
+      prepareGrokActionsHost(host);
       host.appendChild(btn);
     }
   }
@@ -3661,6 +3789,7 @@ document.addEventListener('click', (e) => {
   if (!replyBtn) return;
   const article = replyBtn.closest('article[data-testid="tweet"]');
   if (article) grokLastReplyArticle = article;
+  grokLastReplyClickAt = Date.now();
   // Find the conversation root at click-time. On a status page X renders the
   // OG tweet as the article matching the URL's status id; on the timeline
   // there is no page-wide root so OG defaults to the same article.

@@ -23,6 +23,7 @@ const ITEMS = [
   'icons',
   'lib',
   'src',
+  'background.js',
   'bridge.js',
   'bookmark-menu.js',
   'content.js',

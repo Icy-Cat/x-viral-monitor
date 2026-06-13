@@ -1392,15 +1392,17 @@ article[data-testid="tweet"].xvm-article-linked {
 .xvm-grok-generate-btn {
   display: inline-flex;
   flex: 0 0 auto;
+  align-self: center;
   align-items: center;
   justify-content: center;
   gap: 6px;
   min-width: 0;
-  height: 32px;
+  box-sizing: border-box;
+  height: 40px;
   margin: 0 8px 0 0;
-  padding: 0 10px;
+  padding: 0 16px;
   border: 1px solid rgba(207, 217, 222, 0.92);
-  border-radius: 8px;
+  border-radius: 9999px;
   background: rgb(255, 255, 255);
   color: rgb(15, 20, 25);
   font: inherit;
@@ -1435,13 +1437,16 @@ article[data-testid="tweet"].xvm-article-linked {
 }
 
 .xvm-grok-actions-host {
-  gap: 8px;
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  gap: 8px !important;
 }
 
 .xvm-grok-generate-btn--mobile-top {
-  height: 30px;
+  height: 36px;
   margin: 0 6px 0 0;
-  padding: 0 9px;
+  padding: 0 12px;
   border-color: rgba(29, 155, 240, 0.28);
   border-radius: 999px;
   color: rgb(15, 20, 25);

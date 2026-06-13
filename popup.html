@@ -508,7 +508,7 @@
     label.field { display: flex; flex-direction: column; gap: 4px; font-size: 11.5px; color: var(--text-2); margin: 6px 0; }
     .row { display: flex; gap: 8px; }
     .row > .field { flex: 1; }
-    input[type="number"], input[type="text"], textarea {
+    input[type="number"], input[type="text"], input[type="password"], textarea {
       padding: 6px 8px; border: 1.5px solid var(--border-hi); border-radius: var(--radius-xs);
       background: var(--bg); color: var(--text); font: inherit; font-size: 12px;
     }
@@ -623,6 +623,48 @@
     .ft-lb-reset-btn:hover { border-color: var(--accent); color: var(--accent); }
     .ft-lb-reset-msg { font-size: 11px; color: var(--ok); }
     .grok-template .grok-template-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-bottom: 6px; }
+    [hidden] { display: none !important; }
+    .ai-provider-choice { display: grid; grid-template-columns: 1fr; gap: 6px; margin: 8px 0 10px; }
+    .ai-provider-option {
+      min-height: 52px;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border-hi);
+      border-radius: var(--radius-sm);
+      background: var(--bg);
+      color: var(--text);
+      font: inherit;
+      text-align: left;
+      cursor: pointer;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ai-provider-option:hover { border-color: var(--accent); }
+    .ai-provider-option:focus-visible { outline: 2px solid var(--accent); outline-offset: -1px; }
+    .ai-provider-option[aria-checked="true"] {
+      border-color: var(--accent);
+      background: color-mix(in srgb, var(--accent) 12%, var(--surface));
+      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 45%, transparent);
+    }
+    .ai-provider-option-title { font-size: 12.5px; font-weight: 700; }
+    .ai-provider-option-desc { font-size: 10.5px; color: var(--muted); line-height: 1.35; }
+    .ai-provider-section { margin-top: 10px; }
+    .ai-provider-section-title { font-size: 11.5px; font-weight: 700; color: var(--text-2); margin-bottom: 6px; }
+    .ai-grok-summary {
+      padding: 9px 10px;
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      background: var(--surface-2);
+      color: var(--text-2);
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+    .ai-provider-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ai-provider-grid .field-wide { grid-column: 1 / -1; }
+    .ai-generation-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .ai-test-status { min-height: 16px; font-size: 11px; color: var(--muted); margin-top: 7px; line-height: 1.35; }
+    .ai-test-status[data-state="ok"] { color: var(--ok); }
+    .ai-test-status[data-state="error"] { color: var(--danger); }
     .inline-toggle { display: flex; align-items: center; justify-content: space-between; gap: 10px; font-size: 11px; margin: 6px 0; color: var(--text-2); }
     .feature-row > .switch, .inline-toggle > .switch { margin-top: 1px; }
     .divider { height: 1px; background: var(--border); margin: 10px 0; }
@@ -786,6 +828,59 @@
 
     <!-- ============ Tab: AI ============ -->
     <section role="tabpanel" id="tabpanel-ai" data-tab-panel="ai">
+
+      <div class="panel-card ai-provider-card">
+        <h3 data-i18n="aiProviderTitle">AI comment provider</h3>
+        <input id="ai-provider" type="hidden" value="x-grok">
+        <div class="ai-provider-section-title" data-i18n="aiProviderLabel">Provider</div>
+        <div class="ai-provider-choice" role="radiogroup" aria-label="AI comment provider">
+          <button type="button" class="ai-provider-option" role="radio" aria-checked="false" data-ai-provider-option="x-grok">
+            <span class="ai-provider-option-title" data-i18n="aiProviderXGrok">X Grok</span>
+            <span class="ai-provider-option-desc" data-i18n="aiProviderXGrokDesc">Use current X login</span>
+          </button>
+          <button type="button" class="ai-provider-option" role="radio" aria-checked="false" data-ai-provider-option="openai-compatible">
+            <span class="ai-provider-option-title" data-i18n="aiProviderOpenAICompatible">OpenAI compatible</span>
+            <span class="ai-provider-option-desc" data-i18n="aiProviderOpenAICompatibleDesc">OpenAI, DeepSeek, OpenRouter</span>
+          </button>
+          <button type="button" class="ai-provider-option" role="radio" aria-checked="false" data-ai-provider-option="ollama">
+            <span class="ai-provider-option-title" data-i18n="aiProviderOllama">Ollama</span>
+            <span class="ai-provider-option-desc" data-i18n="aiProviderOllamaDesc">Local model service</span>
+          </button>
+        </div>
+
+        <div class="ai-provider-section" id="ai-service-config">
+          <div class="ai-provider-section-title" data-i18n="aiServiceConfigTitle">Service configuration</div>
+          <div class="ai-grok-summary" id="ai-grok-summary" data-i18n="aiProviderHintGrok">X Grok uses your current X login state. No API key is needed.</div>
+          <div class="ai-provider-grid" id="ai-connection-grid">
+            <label class="field" for="ai-platform"><span data-i18n="aiPlatformLabel">Platform</span>
+            <div class="xvm-select" data-select-name="ai-platform">
+              <input id="ai-platform" type="hidden" value="openai">
+              <button type="button" class="xvm-select-trigger" aria-haspopup="listbox" aria-expanded="false">
+                <span class="xvm-select-value"></span>
+                <svg class="xvm-select-chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+              </button>
+              <div class="xvm-select-menu" role="listbox"></div>
+            </div>
+            </label>
+            <label class="field field-wide" for="ai-base-url"><span data-i18n="aiBaseUrlLabel">Base URL</span><input id="ai-base-url" type="text" spellcheck="false"></label>
+            <label class="field" for="ai-model"><span data-i18n="aiModelLabel">Model</span><input id="ai-model" type="text" spellcheck="false"></label>
+            <label class="field field-wide" for="ai-api-key"><span data-i18n="aiApiKeyLabel">API Key</span><input id="ai-api-key" type="password" spellcheck="false" autocomplete="off"></label>
+          </div>
+        </div>
+
+        <div class="ai-provider-section">
+          <div class="ai-provider-section-title" data-i18n="aiGenerationSettingsTitle">Generation settings</div>
+          <div class="ai-generation-grid">
+            <label class="field" for="ai-reply-count"><span data-i18n="aiReplyCountLabel">Reply count</span><input id="ai-reply-count" type="number" min="1" max="20" step="1"></label>
+          </div>
+        </div>
+        <div class="ft-desc" id="ai-provider-hint" data-i18n="aiProviderHint">Cloud providers send tweet context to the selected AI service. Ollama runs on your local machine.</div>
+        <div class="actions compact">
+          <button type="button" id="ai-test-connection" class="adv-btn" data-i18n="aiTestConnection">Test connection</button>
+          <button type="button" id="ai-provider-save" class="adv-btn primary" data-i18n="btnSave">Save</button>
+        </div>
+        <div id="ai-test-status" class="ai-test-status" aria-live="polite"></div>
+      </div>
 
       <div class="panel-card grok-template">
         <h3 data-i18n="advGrokShortTitle">Grok reply — short tweet template</h3>

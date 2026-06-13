@@ -29,6 +29,9 @@
   "btnSave": {
     "message": "保存"
   },
+  "btnSaved": {
+    "message": "保存しました"
+  },
   "btnReset": {
     "message": "リセット"
   },
@@ -475,6 +478,30 @@
   "advOtherFeaturesTitle":   { "message": "その他の機能" },
   "advGrokShortTitle":       { "message": "Grok — 短い投稿テンプレート" },
   "advGrokArticleTitle":     { "message": "Grok — 記事テンプレート" },
+  "aiProviderTitle": { "message": "AI コメントプロバイダー" },
+  "aiProviderLabel": { "message": "プロバイダー" },
+  "aiPlatformLabel": { "message": "プラットフォーム" },
+  "aiBaseUrlLabel": { "message": "Base URL" },
+  "aiModelLabel": { "message": "モデル" },
+  "aiReplyCountLabel": { "message": "返信数" },
+  "aiApiKeyLabel": { "message": "API Key" },
+  "aiProviderHint": { "message": "クラウドプロバイダーには投稿の文脈が送信されます。Ollama はローカルで動作します。" },
+  "aiProviderHintGrok": { "message": "X Grok は現在の X ログイン状態を使います。API Key は不要です。" },
+  "aiProviderHintOllama": { "message": "Ollama はローカルで動作します。Ollama が起動済みで、モデルがダウンロード済みであることを確認してください。" },
+  "aiProviderHintCloud": { "message": "クラウドプロバイダーには投稿本文と返信の文脈が送信されます。" },
+  "aiProviderXGrok": { "message": "X Grok" },
+  "aiProviderXGrokDesc": { "message": "現在の X ログイン状態を使用" },
+  "aiProviderOllama": { "message": "Ollama" },
+  "aiProviderOllamaDesc": { "message": "ローカルモデルサービス" },
+  "aiProviderOpenAICompatible": { "message": "OpenAI 互換" },
+  "aiProviderOpenAICompatibleDesc": { "message": "OpenAI、DeepSeek、OpenRouter など" },
+  "aiServiceConfigTitle": { "message": "サービス設定" },
+  "aiGenerationSettingsTitle": { "message": "生成設定" },
+  "aiCheckLoginStatus": { "message": "ログイン状態を確認" },
+  "aiTestConnection": { "message": "接続をテスト" },
+  "aiTestRunning": { "message": "接続をテスト中..." },
+  "aiTestOk": { "message": "接続テストに成功しました" },
+  "aiTestFailed": { "message": "接続テストに失敗しました" },
   "tabPro":         { "message": "Pro" },
   "tabFilter":      { "message": "フィルター" },
   "tabLeaderboard": { "message": "ランキング" },
@@ -505,6 +532,7 @@
   "popupGrokEnterReplyHint": { "message": "有効にすると、Enter だけで返信を送信します。Shift/Command/Ctrl/Alt+Enter は従来どおり動作します。" },
   "flashGrokEnterReplyOn": { "message": "Enter 送信を有効にしました" },
   "flashGrokEnterReplyOff": { "message": "Enter 送信を無効にしました" },
+  "flashAiProviderSaved": { "message": "AI プロバイダー設定を保存しました" },
   "grokDefaultTemplateName": { "message": "自然な返信" },
   "grokCustomTemplateName": { "message": "テンプレート $N$", "placeholders": { "N": { "content": "$1" } } },
   "grokArticleFallbackName": { "message": "記事テンプレート" },

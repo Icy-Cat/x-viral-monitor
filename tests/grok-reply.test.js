@@ -70,6 +70,22 @@ describe('extractComments', () => {
     expect(api.extractComments(stream)).toEqual(['first', 'second']);
   });
 
+  it('splits a single code block that contains multiple line-based candidates', () => {
+    const stream = ndjsonOf('```\n这个兔子看着就很好聊\n她是不是也愣了一下\n你俩座位连一起，缘分啊\n兔子是她的吉祥物吗\n一会儿问问是不是自己缝的\n这兔子表情有点嚣张\n感觉她也是个有趣的人\n起飞前先酝酿一下话题\n兔子耳朵这么长，能聊很久\n说不定她会主动跟你讲兔子的故事\n```');
+    expect(api.extractComments(stream)).toEqual([
+      '这个兔子看着就很好聊',
+      '她是不是也愣了一下',
+      '你俩座位连一起，缘分啊',
+      '兔子是她的吉祥物吗',
+      '一会儿问问是不是自己缝的',
+      '这兔子表情有点嚣张',
+      '感觉她也是个有趣的人',
+      '起飞前先酝酿一下话题',
+      '兔子耳朵这么长，能聊很久',
+      '说不定她会主动跟你讲兔子的故事',
+    ]);
+  });
+
   it('joins multiple final messages before splitting blocks', () => {
     const stream = [
       ndjsonOf('```\none'),  // streaming chunk 1

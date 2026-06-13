@@ -29,6 +29,9 @@
   "btnSave": {
     "message": "保存"
   },
+  "btnSaved": {
+    "message": "保存成功"
+  },
   "btnReset": {
     "message": "重置"
   },
@@ -475,6 +478,30 @@
   "advOtherFeaturesTitle":   { "message": "其它功能" },
   "advGrokShortTitle":       { "message": "Grok 回复 — 短推模板" },
   "advGrokArticleTitle":     { "message": "Grok 回复 — 长文模板" },
+  "aiProviderTitle": { "message": "AI 评论服务" },
+  "aiProviderLabel": { "message": "服务来源" },
+  "aiPlatformLabel": { "message": "平台" },
+  "aiBaseUrlLabel": { "message": "Base URL" },
+  "aiModelLabel": { "message": "模型" },
+  "aiReplyCountLabel": { "message": "评论数量" },
+  "aiApiKeyLabel": { "message": "API Key" },
+  "aiProviderHint": { "message": "云端服务会把推文上下文发送到所选 AI 服务；Ollama 在本机运行。" },
+  "aiProviderHintGrok": { "message": "X Grok 使用当前 X 登录态，不需要 API Key。" },
+  "aiProviderHintOllama": { "message": "Ollama 在本机运行，请确认 Ollama 已启动且模型已下载。" },
+  "aiProviderHintCloud": { "message": "云端服务会把推文文本和回复上下文发送到所选 AI 服务。" },
+  "aiProviderXGrok": { "message": "X Grok" },
+  "aiProviderXGrokDesc": { "message": "使用当前 X 登录态" },
+  "aiProviderOllama": { "message": "Ollama" },
+  "aiProviderOllamaDesc": { "message": "本机模型服务" },
+  "aiProviderOpenAICompatible": { "message": "OpenAI 兼容接口" },
+  "aiProviderOpenAICompatibleDesc": { "message": "OpenAI、DeepSeek、OpenRouter 等" },
+  "aiServiceConfigTitle": { "message": "服务配置" },
+  "aiGenerationSettingsTitle": { "message": "生成设置" },
+  "aiCheckLoginStatus": { "message": "检测登录状态" },
+  "aiTestConnection": { "message": "测试连接" },
+  "aiTestRunning": { "message": "正在测试连接..." },
+  "aiTestOk": { "message": "连接测试通过" },
+  "aiTestFailed": { "message": "连接测试失败" },
   "tabPro":         { "message": "Pro" },
   "tabFilter":      { "message": "过滤" },
   "tabLeaderboard": { "message": "流速榜" },
@@ -505,6 +532,7 @@
   "popupGrokEnterReplyHint": { "message": "开启后，单独按 Enter 会发送回复；Shift/Command/Ctrl/Alt+Enter 保持原有行为。" },
   "flashGrokEnterReplyOn": { "message": "已开启 Enter 直接回复" },
   "flashGrokEnterReplyOff": { "message": "已关闭 Enter 直接回复" },
+  "flashAiProviderSaved": { "message": "AI 评论服务设置已保存" },
   "grokDefaultTemplateName": { "message": "自然中文评论" },
   "grokCustomTemplateName": { "message": "模板 $N$", "placeholders": { "N": { "content": "$1" } } },
   "grokArticleFallbackName": { "message": "文章模板" },

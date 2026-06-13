@@ -238,6 +238,12 @@ const DEFAULT_FEATURES = {
   grokSelectedArticlePromptId: LOCALIZED_GROK_DEFAULTS.grokSelectedArticlePromptId,
   grokTemporaryChat: true,
   grokEnterToReply: false,
+  aiProvider: 'x-grok',
+  aiOpenAIPlatform: 'openai',
+  aiBaseUrl: 'https://api.openai.com/v1',
+  aiModel: 'gpt-4o-mini',
+  aiReplyCount: 10,
+  aiLanguage: 'auto',
   language: 'auto',
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
@@ -364,6 +370,18 @@ function safeChromeCall(fn) {
     if (chrome?.runtime?.id) fn();
   } catch (e) {}
 }
+
+safeChromeCall(() => {
+  chrome.runtime.onMessage.addListener((message) => {
+    if (message?.type !== 'XVM_AI_GENERATE_PROGRESS') return false;
+    window.postMessage({
+      type: 'XVM_AI_GENERATE_PROGRESS',
+      requestId: message.requestId,
+      comments: Array.isArray(message.comments) ? message.comments : [],
+    }, '*');
+    return false;
+  });
+});
 
 safeChromeCall(() => {
   chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
@@ -604,6 +622,12 @@ window.addEventListener('message', (event) => {
         grokSelectedArticlePromptId: DEFAULT_FEATURES.grokSelectedArticlePromptId,
         grokTemporaryChat: DEFAULT_FEATURES.grokTemporaryChat,
         grokEnterToReply: DEFAULT_FEATURES.grokEnterToReply,
+        aiProvider: DEFAULT_FEATURES.aiProvider,
+        aiOpenAIPlatform: DEFAULT_FEATURES.aiOpenAIPlatform,
+        aiBaseUrl: DEFAULT_FEATURES.aiBaseUrl,
+        aiModel: DEFAULT_FEATURES.aiModel,
+        aiReplyCount: DEFAULT_FEATURES.aiReplyCount,
+        aiLanguage: DEFAULT_FEATURES.aiLanguage,
       }, (syncItems) => {
         chrome.storage.local.get({ xvmGrokCapturedTxId: null }, (localItems) => {
           const promptTemplates = normalizeGrokPromptTemplates(syncItems.grokPromptTemplates, syncItems.grokCommentPrompt);
@@ -617,6 +641,12 @@ window.addEventListener('message', (event) => {
             selectedArticlePromptId: syncItems.grokSelectedArticlePromptId || (articlePromptTemplates[0]?.id) || DEFAULT_FEATURES.grokSelectedArticlePromptId,
             temporaryChat: syncItems.grokTemporaryChat !== false,
             enterToReply: syncItems.grokEnterToReply === true,
+            aiProvider: syncItems.aiProvider || DEFAULT_FEATURES.aiProvider,
+            aiOpenAIPlatform: syncItems.aiOpenAIPlatform || DEFAULT_FEATURES.aiOpenAIPlatform,
+            aiBaseUrl: syncItems.aiBaseUrl || DEFAULT_FEATURES.aiBaseUrl,
+            aiModel: syncItems.aiModel || DEFAULT_FEATURES.aiModel,
+            aiReplyCount: syncItems.aiReplyCount || DEFAULT_FEATURES.aiReplyCount,
+            aiLanguage: syncItems.aiLanguage || DEFAULT_FEATURES.aiLanguage,
             capturedTxId: localItems.xvmGrokCapturedTxId,
           }, '*');
         });
@@ -640,6 +670,27 @@ window.addEventListener('message', (event) => {
 
   if (type === 'XVM_GROK_CAPTURE_CLEAR') {
     safeChromeCall(() => chrome.storage.local.remove('xvmGrokCapturedTxId'));
+    return;
+  }
+
+  if (type === 'XVM_AI_GENERATE' && typeof event.data.requestId === 'string') {
+    const requestId = event.data.requestId;
+    safeChromeCall(() => {
+      chrome.runtime.sendMessage({
+        type: 'XVM_AI_GENERATE',
+        requestId,
+        payload: event.data.payload || {},
+      }, (res) => {
+        const lastError = chrome.runtime.lastError;
+        window.postMessage({
+          type: 'XVM_AI_GENERATE_RESULT',
+          requestId,
+          ok: !lastError && !!res?.ok,
+          comments: Array.isArray(res?.comments) ? res.comments : [],
+          error: lastError?.message || res?.error || '',
+        }, '*');
+      });
+    });
     return;
   }
 });
@@ -681,7 +732,8 @@ safeChromeCall(() => {
       const pref = changes.theme.newValue || 'system';
       window.postMessage({ type: 'XVM_THEME_UPDATE', pref }, '*');
     }
-    const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat || changes.grokEnterToReply || changes.language;
+    const aiTouched = changes.aiProvider || changes.aiOpenAIPlatform || changes.aiBaseUrl || changes.aiModel || changes.aiReplyCount || changes.aiLanguage;
+    const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat || changes.grokEnterToReply || changes.language || aiTouched;
     if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.featureBookmarkFolders && !changes.showBookmarkCount && !changes.leaderboardEdgeHideEnabled && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.language && !grokTouched) return;
 
     safeChromeCall(() => {
@@ -700,7 +752,13 @@ safeChromeCall(() => {
           grokSelectedArticlePromptId: DEFAULT_FEATURES.grokSelectedArticlePromptId,
           grokTemporaryChat: DEFAULT_FEATURES.grokTemporaryChat,
           grokEnterToReply: DEFAULT_FEATURES.grokEnterToReply,
-        }, (items) => {
+          aiProvider: DEFAULT_FEATURES.aiProvider,
+          aiOpenAIPlatform: DEFAULT_FEATURES.aiOpenAIPlatform,
+          aiBaseUrl: DEFAULT_FEATURES.aiBaseUrl,
+          aiModel: DEFAULT_FEATURES.aiModel,
+        aiReplyCount: DEFAULT_FEATURES.aiReplyCount,
+        aiLanguage: DEFAULT_FEATURES.aiLanguage,
+      }, (items) => {
           const promptTemplates = normalizeGrokPromptTemplates(items.grokPromptTemplates, items.grokCommentPrompt);
           const articlePromptTemplates = normalizeGrokPromptTemplates(items.grokArticlePromptTemplates);
           window.postMessage({
@@ -712,6 +770,12 @@ safeChromeCall(() => {
             selectedArticlePromptId: items.grokSelectedArticlePromptId || articlePromptTemplates[0]?.id || DEFAULT_FEATURES.grokSelectedArticlePromptId,
             temporaryChat: items.grokTemporaryChat !== false,
             enterToReply: items.grokEnterToReply === true,
+            aiProvider: items.aiProvider || DEFAULT_FEATURES.aiProvider,
+            aiOpenAIPlatform: items.aiOpenAIPlatform || DEFAULT_FEATURES.aiOpenAIPlatform,
+            aiBaseUrl: items.aiBaseUrl || DEFAULT_FEATURES.aiBaseUrl,
+            aiModel: items.aiModel || DEFAULT_FEATURES.aiModel,
+            aiReplyCount: items.aiReplyCount || DEFAULT_FEATURES.aiReplyCount,
+            aiLanguage: items.aiLanguage || DEFAULT_FEATURES.aiLanguage,
           }, '*');
         });
       }
