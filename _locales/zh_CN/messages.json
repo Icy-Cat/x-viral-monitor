@@ -514,6 +514,7 @@
   "contentLbHotProSub":    { "message": "隐藏低浏览量推文,保留真正在传播的内容" },
   "contentLbHotEnabledToast": { "message": "仅看热帖已开启：未达到热帖标准的帖子会从页面移除并不显示。" },
   "contentLbHotDetails":   { "message": "查看 Pro 范围" },
+  "contentLbHotActiveNotice": { "message": "仅看热帖已开启，低于标准的帖子已隐藏" },
   "contentLbHotOpenSite":  { "message": "去官网开通" },
   "cfTitle":        { "message": "内容屏蔽" },
   "cfLockedHint":   { "message": "内容屏蔽是免费功能，可直接开启。" },

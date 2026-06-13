@@ -157,6 +157,20 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
 }
 .xvm-lb-back[hidden] { display: none; }
 
+.xvm-lb-hot-notice {
+  margin: 8px 10px 0;
+  padding: 7px 9px;
+  border: 1px solid rgba(0, 186, 124, 0.28);
+  border-radius: 8px;
+  background: rgba(0, 186, 124, 0.12);
+  color: #007a52;
+  font-size: 11.5px;
+  line-height: 1.35;
+  font-weight: 700;
+}
+
+.xvm-lb-hot-notice[hidden] { display: none !important; }
+
 .xvm-lb-edge-toggle {
   display: inline-flex;
   flex-shrink: 0;
@@ -257,6 +271,7 @@ html[data-xvm-badge-style="inline-classic"] .xvm-badge--red { color: #f44336; ba
 .xvm-lb.xvm-lb-edge-hidden .xvm-lb-title,
 .xvm-lb.xvm-lb-edge-hidden .xvm-lb-back,
 .xvm-lb.xvm-lb-edge-hidden .xvm-lb-controls,
+.xvm-lb.xvm-lb-edge-hidden .xvm-lb-hot-notice,
 .xvm-lb.xvm-lb-edge-hidden .xvm-lb-list,
 .xvm-lb.xvm-lb-edge-hidden .xvm-lb-resize,
 .xvm-lb.xvm-lb-edge-hidden .xvm-lb-resize-v {
@@ -1591,6 +1606,11 @@ img.xvm-liv-img {
 .xvm-lb[data-theme="dark"] .xvm-lb-edge-toggle {
   background: rgba(6, 182, 212, 0.16);
   color: #67e8f9;
+}
+.xvm-lb[data-theme="dark"] .xvm-lb-hot-notice {
+  border-color: rgba(74, 222, 128, 0.28);
+  background: rgba(34, 197, 94, 0.12);
+  color: #86efac;
 }
 .xvm-lb[data-theme="dark"] .xvm-lb-resize,
 .xvm-lb[data-theme="dark"] .xvm-lb-resize-v { background: rgba(148, 163, 184, 0.12); }

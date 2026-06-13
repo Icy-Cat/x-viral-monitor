@@ -514,6 +514,7 @@
   "contentLbHotProSub":    { "message": "低表示数の投稿を非表示にし、実際に拡散している投稿だけ残す" },
   "contentLbHotEnabledToast": { "message": "ホットのみが有効です。基準に満たない投稿はこのページから非表示になります。" },
   "contentLbHotDetails":   { "message": "Pro の対象範囲を見る" },
+  "contentLbHotActiveNotice": { "message": "ホットのみが有効です。基準未満の投稿は非表示です。" },
   "contentLbHotOpenSite":  { "message": "公式サイトを開く" },
   "cfTitle":        { "message": "コンテンツフィルター" },
   "cfLockedHint":   { "message": "コンテンツフィルターは無料で使えます。ここで有効化できます。" },

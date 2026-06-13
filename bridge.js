@@ -197,6 +197,7 @@ const CONTENT_MESSAGE_KEYS = [
   'contentLbHotProTitle',
   'contentLbHotProSub',
   'contentLbHotEnabledToast',
+  'contentLbHotActiveNotice',
   'contentLbHotDetails',
   'contentLbHotOpenSite',
   'contentBookmarkMenuInFolder',

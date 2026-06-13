@@ -1061,6 +1061,7 @@ function ensureLeaderboard() {
         </svg>
       </button>
     </div>
+    <div class="xvm-lb-hot-notice" hidden></div>
     <ul class="xvm-lb-list"></ul>
     <div class="xvm-lb-resize" aria-hidden="true"></div>
     <div class="xvm-lb-resize-v" aria-hidden="true"></div>
@@ -1231,7 +1232,10 @@ function getLeaderboardHotToggle() {
 }
 function setLeaderboardHotSwitchState() {
   const hot = getLeaderboardHotToggle();
-  if (!hot) return;
+  if (!hot) {
+    updateLeaderboardHotNotice(false);
+    return;
+  }
   const tier = leaderboardTier || hot.dataset.tier || 'free';
   const scope = currentLeaderboardScope();
   const supportedHere = !!scope;
@@ -1247,6 +1251,19 @@ function setLeaderboardHotSwitchState() {
   if (cb) {
     if (cb.checked !== on) cb.checked = on;
     cb.disabled = tier === 'free' || !supportedHere;
+  }
+  updateLeaderboardHotNotice(on);
+}
+
+function updateLeaderboardHotNotice(on = false) {
+  const notice = leaderboardEl?.querySelector?.('.xvm-lb-hot-notice');
+  if (!notice) return;
+  notice.hidden = !on;
+  if (on) {
+    notice.textContent = i18nOr(
+      'contentLbHotActiveNotice',
+      '仅看热帖已开启，低于标准的帖子已隐藏'
+    );
   }
 }
 // Track X's tablist aria-selected so the leaderboard hot toggle reflects
@@ -1318,7 +1335,7 @@ function installLeaderboardFilterStateSync() {
         showToast(i18nOr(
           'contentLbHotEnabledToast',
           '仅看热帖已开启：未达到热帖标准的帖子会从页面移除并不显示。'
-        ), { position: 'top' });
+        ), { type: 'success', position: 'top', duration: 3600 });
       }
       if (leaderboardEnabled) setTimeout(renderLeaderboard, 80);
     }
@@ -2837,6 +2854,7 @@ function showToast(msg, options = {}) {
     type = 'default',
     sticky = false,
     position = 'bottom',
+    duration = 1400,
   } = options;
   const toast = document.createElement('div');
   toast.className = [
@@ -2853,7 +2871,7 @@ function showToast(msg, options = {}) {
   document.body.appendChild(toast);
   requestAnimationFrame(() => toast.classList.add('xvm-toast--show'));
   if (!sticky) {
-    setTimeout(() => dismissToast(toast), 1400);
+    setTimeout(() => dismissToast(toast), duration);
   }
 }
 
