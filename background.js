@@ -201,11 +201,14 @@ async function readErrorText(res) {
 }
 
 function mapHttpError(status, providerLabel, detail = '') {
+  // Log details internally for diagnostic purposes.
+  console.error(`[XVM][Error] ${providerLabel} status: ${status}, detail: ${detail.slice(0, 300)}`);
+
   if (status === 401 || status === 403) return `${providerLabel} API Key 无效或没有权限`;
   if (status === 404) return `${providerLabel} 模型或接口不存在，请检查 Base URL 和 Model`;
   if (status === 429) return `${providerLabel} 触发限流，请稍后再试`;
-  if (status >= 500) return `${providerLabel} 服务端错误：${status}`;
-  return `${providerLabel} 请求失败：${status}${detail ? ` ${detail}` : ''}`;
+  if (status >= 500) return `${providerLabel} 服务端错误`;
+  return `${providerLabel} 请求失败`;
 }
 
 async function fetchJson(url, options, providerLabel) {
