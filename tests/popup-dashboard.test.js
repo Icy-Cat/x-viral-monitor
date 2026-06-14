@@ -616,6 +616,8 @@ describe('#69/#72 user self-test polish', () => {
 describe('update notice modal', () => {
   it('stores the seen extension version and only asks content.js to show unseen release notes', () => {
     expect(bridgeJs).toMatch(/RELEASE_NOTES_SEEN_KEY\s*=\s*['"]xvm_release_notes_seen_version['"]/);
+    expect(bridgeJs).toMatch(/RELEASE_NOTES_AUTO_VERSIONS\s*=\s*new Set\(\[['"]1\.18\.0['"]\]\)/);
+    expect(bridgeJs).toMatch(/RELEASE_NOTES_AUTO_VERSIONS\.has\(version\)/);
     expect(bridgeJs).toMatch(/chrome\.runtime\?\.\s*getManifest\?\.\(\)\?\.\s*version/);
     expect(bridgeJs).toMatch(/XVM_RELEASE_NOTES_SHOW/);
     expect(bridgeJs).toMatch(/XVM_RELEASE_NOTES_DISMISS/);
@@ -700,11 +702,19 @@ describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS 
     expect(missingJa, `popup.html references data-i18n keys missing from _locales/ja: ${missingJa.join(', ')}`).toEqual([]);
   });
 
-  it('keeps package and extension versions in sync for v1.18.0', () => {
-    expect(manifest.version).toBe('1.18.0');
-    expect(pkg.version).toBe('1.18.0');
-    expect(packageLock.version).toBe('1.18.0');
-    expect(packageLock.packages?.['']?.version).toBe('1.18.0');
+  it('keeps package and extension versions in sync for v1.18.1', () => {
+    expect(manifest.version).toBe('1.18.1');
+    expect(pkg.version).toBe('1.18.1');
+    expect(packageLock.version).toBe('1.18.1');
+    expect(packageLock.packages?.['']?.version).toBe('1.18.1');
+  });
+
+  it('renders the popup footer version from the extension manifest', () => {
+    expect(html).toMatch(/id="popup-version"><\/span>/);
+    expect(dashJs).toMatch(/function\s+currentExtensionVersion\(\)/);
+    expect(dashJs).toMatch(/chrome\.runtime\.getManifest\(\)\.version/);
+    expect(dashJs).toMatch(/function\s+renderPopupVersion\(\)/);
+    expect(dashJs).toMatch(/getElementById\(['"]popup-version['"]\)/);
   });
 });
 

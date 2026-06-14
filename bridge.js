@@ -256,6 +256,7 @@ const DEFAULT_FEATURES = {
 };
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 const RELEASE_NOTES_SEEN_KEY = 'xvm_release_notes_seen_version';
+const RELEASE_NOTES_AUTO_VERSIONS = new Set(['1.18.0']);
 const X_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 const OP_LIST = { name: 'BookmarkFoldersSlice', qid: 'i78YDd0Tza-dV4SYs58kRg' };
 
@@ -364,6 +365,7 @@ function pushReleaseNotesIfNeeded() {
   safeChromeCall(() => {
     const version = chrome.runtime?.getManifest?.()?.version || '';
     if (!version) return;
+    if (!RELEASE_NOTES_AUTO_VERSIONS.has(version)) return;
     chrome.storage.local.get({ [RELEASE_NOTES_SEEN_KEY]: null }, (items) => {
       if (items?.[RELEASE_NOTES_SEEN_KEY] === version) return;
       window.postMessage({ type: 'XVM_RELEASE_NOTES_SHOW', version }, '*');

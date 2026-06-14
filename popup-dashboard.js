@@ -250,10 +250,17 @@
     loadTheme();
   }
 
+  function currentExtensionVersion() {
+    try { return chrome.runtime.getManifest().version || ''; } catch (_) { return ''; }
+  }
+
+  function renderPopupVersion() {
+    const el = document.getElementById('popup-version');
+    if (el) el.textContent = currentExtensionVersion();
+  }
+
   function showReleaseNotesOnCurrentTab() {
-    const version = (() => {
-      try { return chrome.runtime.getManifest().version || ''; } catch (_) { return ''; }
-    })();
+    const version = currentExtensionVersion();
     try {
       chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         const tabId = tabs?.[0]?.id;
@@ -280,6 +287,7 @@
 
   document.addEventListener('DOMContentLoaded', () => {
     loadInitialTab(); // default — Filter is the primary Pro feature surface
+    renderPopupVersion();
     wireTabButtons();
     wireProNav();
     wireActivateCancel();
