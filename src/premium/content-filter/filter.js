@@ -329,7 +329,7 @@
   // Keep this stricter than "Telegram URL exists"; otherwise legitimate
   // creators who mirror posts to Telegram get hidden as url:block.
   function telegramFunnel(raw) {
-    const text = `${raw.content || ''} ${raw.author?.bio || ''} ${raw.urls.join(' ')}`.toLowerCase();
+    const text = `${raw.content || ''} ${raw.author?.bio || ''}`.toLowerCase();
     const hasTelegram = /(t\.me|telegram|电报|飞机)/i.test(text);
     const hasFunnel = /(福利(资源|视频|社群|社区|导航|群|频道)|成人(资源|视频)|成人视频|私信(加入|加群|进群|领取|获取)|加(群|频道)|进群|群里.{0,8}(福利|资源|视频|约|广告)|频道.{0,8}(福利|资源|视频|广告)|同城.{0,8}(线下|上门|可约)|线下.{0,8}(约|上门|见面)|上门|约p|约炮|曰泡|宝宝.{0,6}(点这里|主页|私信))/i.test(text);
     return hasTelegram && hasFunnel;
@@ -493,8 +493,11 @@
     const style = document.createElement('style');
     style.id = 'xvm-content-filter-style';
     style.textContent = `
-      .xvm-cf-summary{margin:8px 0;padding:9px 12px;border:1px solid rgba(251,146,60,.35);border-radius:10px;background:rgba(251,146,60,.10);color:inherit;font:13px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+      .xvm-cf-summary{margin:8px 0;padding:9px 12px;border:1px solid rgba(251,146,60,.35);border-radius:10px;background:rgba(251,146,60,.10);color:inherit;font:13px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;-webkit-user-select:none;user-select:none}
+      .xvm-cf-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
       .xvm-cf-summary strong{font-weight:700}
+      .xvm-cf-copy{display:none;flex:0 0 auto;border:1px solid rgba(251,146,60,.42);border-radius:999px;background:rgba(255,255,255,.65);color:inherit;padding:3px 9px;font:12px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer}
+      .xvm-cf-summary[data-open="1"] .xvm-cf-copy{display:inline-flex}
       .xvm-cf-list{display:none;margin-top:8px;max-height:240px;overflow:auto}
       .xvm-cf-summary[data-open="1"] .xvm-cf-list{display:block}
       .xvm-cf-item{display:grid;grid-template-columns:28px 1fr;gap:8px;padding:7px 0;border-top:1px solid rgba(148,163,184,.25)}
@@ -518,11 +521,19 @@
       bar = document.createElement('div');
       bar.id = 'xvm-content-filter-summary';
       bar.className = 'xvm-cf-summary';
-      bar.addEventListener('click', () => {
+      bar.addEventListener('click', (event) => {
+        const copyBtn = event?.target?.closest?.('.xvm-cf-copy');
+        if (copyBtn) {
+          event.preventDefault?.();
+          event.stopPropagation?.();
+          copyHiddenRecords(copyBtn);
+          return;
+        }
         summaryOpen = !summaryOpen;
         bar.dataset.open = summaryOpen ? '1' : '0';
         summarySignature = '';
         updateSummary();
+        clearTextSelection();
       });
       // New element has no innerHTML yet — force updateSummary to rebuild it.
       summarySignature = '';
@@ -607,7 +618,74 @@
         .join(' / ');
       return `<div class="xvm-cf-item">${r.avatar ? `<img src="${escapeAttr(r.avatar)}" alt="">` : '<span></span>'}<div><b>${escapeHtml(r.name)} ${r.handle ? `@${escapeHtml(r.handle)}` : ''}</b><p>${escapeHtml((r.content || '').slice(0, 120))}</p><span class="xvm-cf-tags">${tags}</span></div></div>`;
     }).join('');
-    bar.innerHTML = `<strong>已过滤 ${hiddenRecords.size} 条回复 - XVM</strong><div class="xvm-cf-list">${items}</div>`;
+    bar.innerHTML = `<div class="xvm-cf-head"><strong>已过滤 ${hiddenRecords.size} 条回复 - XVM</strong><button type="button" class="xvm-cf-copy" title="复制命中的推文和规则">复制</button></div><div class="xvm-cf-list">${items}</div>`;
+  }
+
+  function copyHiddenRecords(button) {
+    const text = formatHiddenRecordsForCopy(Array.from(hiddenRecords.values()).reverse());
+    writeClipboard(text).then((ok) => {
+      if (!button) return;
+      const prev = button.textContent || '复制';
+      button.textContent = ok ? '已复制' : '复制失败';
+      setTimeout(() => { button.textContent = prev; }, 1200);
+    });
+  }
+
+  function formatHiddenRecordsForCopy(records) {
+    const rows = Array.isArray(records) ? records : [];
+    const lines = [
+      `XVM 已过滤回复诊断`,
+      `规则源: ${rulesSourceLabel}`,
+      `数量: ${rows.length}`,
+      `时间: ${new Date().toISOString()}`,
+    ];
+    rows.forEach((r, idx) => {
+      lines.push('');
+      lines.push(`#${idx + 1}`);
+      lines.push(`tweet_id: ${r.id || ''}`);
+      lines.push(`author: ${r.name || ''}${r.handle ? ` @${r.handle}` : ''}`);
+      lines.push(`content: ${String(r.content || '').replace(/\s+/g, ' ').trim()}`);
+      lines.push('matches:');
+      const matches = Array.isArray(r.matches) ? r.matches : [];
+      if (!matches.length) {
+        lines.push(`- none`);
+        return;
+      }
+      matches.forEach((m) => {
+        lines.push(`- id=${m.id || ''}; field=${m.field || ''}; severity=${m.severity || ''}; value=${m.label || ''}`);
+      });
+    });
+    return lines.join('\n');
+  }
+
+  async function writeClipboard(text) {
+    try {
+      if (window.navigator?.clipboard?.writeText) {
+        await window.navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch (_) {}
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.setAttribute('readonly', '');
+      ta.style.position = 'fixed';
+      ta.style.top = '-9999px';
+      document.body?.appendChild?.(ta);
+      ta.select?.();
+      const ok = document.execCommand?.('copy') === true;
+      ta.remove?.();
+      return ok;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function clearTextSelection() {
+    try {
+      const selection = window.getSelection?.();
+      if (selection && !selection.isCollapsed) selection.removeAllRanges();
+    } catch (_) {}
   }
 
   function summaryRecordSignature(r) {
@@ -689,6 +767,8 @@
       scanForTweets,
       applyHidesNow,
       updateSummary,
+      formatHiddenRecordsForCopy,
+      clearTextSelection,
       isTweetDetailPage,
       replyArticles,
       findReplyAnchor,

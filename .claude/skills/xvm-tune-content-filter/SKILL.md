@@ -124,7 +124,7 @@ Spam accounts misspell intentionally to dodge naive filters. Use `[反返]差` (
 Severity choice:
 - `block` — promoted ads, hard-blacklist handles, telegram-funnel hard heuristic. **Bypasses dom-fallback gate**, so reserved for ground-truth signals.
 - `high` — adult-funnel templates, sao/涩 phrases, profile-pitch bios. The workhorse severity for new additions.
-- `medium` — borderline marketing, generic 加群/合作微信, telegram-domain alone. Only fires at `strict` level.
+- `medium` — borderline marketing, generic 加群/合作微信. Only fires at `strict` level.
 - `low` — soft signals like 黑丝/写真. Only at `strict`.
 
 Field choice:
@@ -138,7 +138,7 @@ Field choice:
 Type choice:
 - `regex` — 95% of the time
 - `keyword` — case-insensitive substring; use only when you really mean a literal
-- `domain` — for blocked link targets (e.g., `t.me` in strict)
+- `domain` — for blocked link targets. Do not use URL-only `t.me` as a rule; Telegram links are too common for normal creators.
 - `short-symbol` — the builtin emoji-grid heuristic (`isShortSymbolSpam`); don't try to redefine this via user-config
 
 ## Redaction rules

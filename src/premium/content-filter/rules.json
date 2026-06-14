@@ -199,13 +199,6 @@
       "severity": "high"
     },
     {
-      "id": "spam-telegram-domain-medium",
-      "type": "domain",
-      "field": "url",
-      "value": "t.me",
-      "severity": "low"
-    },
-    {
       "id": "spam-private-chat-medium",
       "type": "regex",
       "field": "content",

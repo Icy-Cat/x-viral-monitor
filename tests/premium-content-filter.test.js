@@ -240,6 +240,10 @@ describe('#123 XVM content filter v1', () => {
       expect(['high', 'block']).toContain(rule.severity);
       expect(rule.type === 'domain' && rule.value === 't.me').toBe(false);
     }
+    for (const rule of rulesJson.rules) {
+      expect(rule.id).not.toBe('spam-telegram-domain-medium');
+      expect(rule.type === 'domain' && rule.value === 't.me').toBe(false);
+    }
     expect(bootstrapRulesJson.rules.some((rule) => rule.id === 'hard-telegram-group-funnel')).toBe(true);
   });
 
@@ -358,6 +362,27 @@ describe('#123 XVM content filter v1', () => {
     expect(api._debug.classify(telegramFunnel).hide).toBe(true);
     expect(api._debug.classify(marketingOnly).hide).toBe(true);
     expect(api._debug.classify(lowOnly).hide).toBe(false);
+  });
+
+  it('does not treat a profile t.me URL as the telegram-funnel trigger by itself', () => {
+    const api = loadDebug();
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+
+    const normalReplyWithTelegramProfileUrl = {
+      id: 'profile-url-tme-ok',
+      content: '@sample_user 我就在用这个，我觉得界面很好看',
+      urls: ['https://t.me/sample'],
+      author: {
+        handle: 'sample_source',
+        name: 'Sample Source',
+        bio: '记录上门维修和界面设计，不做链接引导',
+        location: '',
+      },
+    };
+
+    const result = api._debug.classify(normalReplyWithTelegramProfileUrl);
+    expect(result.hide).toBe(false);
+    expect(result.matches.some((m) => m.id === 'hard-telegram-group-funnel')).toBe(false);
   });
 
   it('covers sample follow-up false negatives without broad resource false positives', () => {
@@ -1162,5 +1187,44 @@ describe('#123 XVM content filter v1', () => {
     expect(html).toContain('已过滤 1 条回复 - XVM');
     api._debug.applyHidesNow();
     expect(writes).toBe(1);
+  });
+
+  it('formats filtered reply diagnostics with tweet content and matched rule ids for copy', () => {
+    const api = loadDebug();
+    const text = api._debug.formatHiddenRecordsForCopy([
+      {
+        id: '10001',
+        name: 'Sample User',
+        handle: 'sample_user',
+        content: '我就在用这个，我觉得界面很好看',
+        matches: [
+          { id: 'custom-ui-block', field: 'content', severity: 'block', label: '界面' },
+          { id: 'spam-name-funnel-high', field: 'name', severity: 'high', label: '主页' },
+        ],
+      },
+    ]);
+
+    expect(text).toContain('XVM 已过滤回复诊断');
+    expect(text).toContain('tweet_id: 10001');
+    expect(text).toContain('author: Sample User @sample_user');
+    expect(text).toContain('content: 我就在用这个，我觉得界面很好看');
+    expect(text).toContain('id=custom-ui-block; field=content; severity=block; value=界面');
+    expect(text).toContain('id=spam-name-funnel-high; field=name; severity=high; value=主页');
+  });
+
+  it('prevents the filtered summary from leaving accidental selected text behind', () => {
+    let cleared = 0;
+    const api = loadDebug({
+      window: {
+        getSelection: () => ({
+          isCollapsed: false,
+          removeAllRanges: () => { cleared += 1; },
+        }),
+      },
+    });
+
+    expect(filter).toContain('user-select:none');
+    api._debug.clearTextSelection();
+    expect(cleared).toBe(1);
   });
 });
