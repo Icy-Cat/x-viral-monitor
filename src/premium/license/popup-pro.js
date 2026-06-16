@@ -130,7 +130,7 @@
 
   function shouldRevalidate(info, stored) {
     if (!stored?.key || !stored?.instanceId) return false;
-    if (!['offline-grace', 'invalid_entitlement', 'missing_product'].includes(info?.source)) return false;
+    if (!['offline-grace', 'stale', 'invalid_entitlement', 'missing_product'].includes(info?.source)) return false;
     return Date.now() - (stored.lastTriedAt || 0) > REVALIDATE_RETRY_MS;
   }
 
@@ -162,7 +162,7 @@
             },
           });
         }
-        if (built.error === 'wrong_product' || built.error === 'bad_entitlement_signature' || built.error === 'wrong_license_key') {
+        if (built.error === 'wrong_product') {
           await storageRemove(STORAGE_KEY);
           return built;
         }

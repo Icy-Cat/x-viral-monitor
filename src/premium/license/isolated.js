@@ -114,6 +114,14 @@
     if (LICENSE_PROXY_URL === '__XVM_LICENSE_WORKER__') {
       throw new Error('worker_url_unset');
     }
+    try {
+      if (chrome?.runtime?.sendMessage) {
+        const proxied = await new Promise((resolve) => {
+          chrome.runtime.sendMessage({ type: 'XVM_LICENSE_PROXY', action, body }, resolve);
+        });
+        if (proxied?.ok) return proxied.payload;
+      }
+    } catch (_) {}
     const res = await fetch(`${LICENSE_PROXY_URL}/${action}`, {
       method: 'POST',
       headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
@@ -226,7 +234,7 @@
         key: stored.key,
       }, isXvmProduct);
       if (!entitlement.ok) {
-        await safeStorageRemove(STORAGE_KEY);
+        await safeStorageSet({ [STORAGE_KEY]: { ...stored, lastTriedAt: Date.now() } });
         pushTier();
         return;
       }
@@ -252,7 +260,7 @@
 
   function shouldRevalidate(info, stored) {
     if (!stored?.key || !stored?.instanceId) return false;
-    if (!['offline-grace', 'invalid_entitlement', 'missing_product'].includes(info?.source)) return false;
+    if (!['offline-grace', 'stale', 'invalid_entitlement', 'missing_product'].includes(info?.source)) return false;
     return Date.now() - (stored.lastTriedAt || 0) > REVALIDATE_RETRY_MS;
   }
 

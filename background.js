@@ -2,6 +2,8 @@ const PLACEHOLDER = '[推文内容]';
 const DEFAULT_PROVIDER = 'x-grok';
 const DEFAULT_PLATFORM = 'openai';
 const DEFAULT_REPLY_COUNT = 10;
+const LICENSE_PROXY_URL = 'https://xvm-license.lengkuxiaomao.workers.dev';
+const LICENSE_PROXY_ACTIONS = new Set(['activate', 'validate', 'deactivate']);
 
 const OPENAI_COMPAT_PLATFORMS = {
   openai: {
@@ -399,8 +401,26 @@ async function testOpenAICompatible(config) {
   return { ok: true, message: '连接测试通过' };
 }
 
+async function callLicenseProxy(action, body) {
+  if (!LICENSE_PROXY_ACTIONS.has(action)) throw new Error('unknown_license_action');
+  const res = await fetch(`${LICENSE_PROXY_URL}/${action}`, {
+    method: 'POST',
+    headers: { 'Accept': 'application/json', 'Content-Type': 'application/json' },
+    body: JSON.stringify(body || {}),
+  });
+  return res.json();
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (!message || typeof message.type !== 'string') return false;
+
+  if (message.type === 'XVM_LICENSE_PROXY') {
+    (async () => {
+      const payload = await callLicenseProxy(message.action, message.body);
+      sendResponse({ ok: true, payload });
+    })().catch((err) => sendResponse({ ok: false, error: err?.message || 'license_proxy_failed' }));
+    return true;
+  }
 
   if (message.type === 'XVM_AI_GET_PRESETS') {
     sendResponse({ ok: true, presets: OPENAI_COMPAT_PLATFORMS, defaults: SYNC_DEFAULTS });

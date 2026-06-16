@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extName__",
-  "version": "1.18.1",
+  "version": "1.18.2",
   "description": "__MSG_extDescription__",
   "default_locale": "en",
   "permissions": ["storage"],
@@ -19,7 +19,8 @@
     "https://dashscope-us.aliyuncs.com/*",
     "https://cn-hongkong.dashscope.aliyuncs.com/*",
     "https://api.siliconflow.cn/*",
-    "https://api.siliconflow.com/*"
+    "https://api.siliconflow.com/*",
+    "https://xvm-license.lengkuxiaomao.workers.dev/*"
   ],
   "background": {
     "service_worker": "background.js"

@@ -25,7 +25,7 @@ No personal data, browsing history, or tweet content is stored. Only user settin
 ### 需请求主机权限的理由 (justification for host access)
 
 ```
-The extension declares content scripts on https://x.com/* and https://pro.x.com/* (no other host_permissions). It needs to run on those pages to:
+The extension declares content scripts on https://x.com/* and https://pro.x.com/*. It needs to run on those pages to:
 
 (1) Hook the page's existing fetch/XHR calls so it can read tweet metrics (views, likes, retweets) from X's GraphQL responses already arriving for the timeline.
 
@@ -33,7 +33,7 @@ The extension declares content scripts on https://x.com/* and https://pro.x.com/
 
 (3) Call X's same-origin endpoints (e.g., grok.x.com for the Grok reply feature, X GraphQL for the Star Chart) — same endpoints the X web app itself uses, called from the same origin with the user's existing session.
 
-The extension does NOT contact any third-party server, analytics service, or telemetry endpoint. All network traffic is between the user's browser and X.
+The extension also requests host permissions for user-configured AI providers, GitHub-hosted filter rule updates, and the XVM license Worker used to activate and validate Pro subscriptions. It does not send analytics or telemetry.
 ```
 
 ## 远程代码

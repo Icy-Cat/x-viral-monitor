@@ -15,6 +15,7 @@ const isolated = readFileSync(resolve(repo, 'src/premium/license/isolated.js'), 
 const gate     = readFileSync(resolve(repo, 'src/premium/license/gate.js'), 'utf8');
 const filter   = readFileSync(resolve(repo, 'src/premium/rate-filter/filter.js'), 'utf8');
 const worker   = readFileSync(resolve(repo, 'worker/license-proxy.js'), 'utf8');
+const background = readFileSync(resolve(repo, 'background.js'), 'utf8');
 const manifest = JSON.parse(readFileSync(resolve(repo, 'manifest.json'), 'utf8'));
 
 describe('#45 step 2 — ADR-0004 storage / secret / productId checklist', () => {
@@ -53,6 +54,22 @@ describe('#45 step 2 — ADR-0004 storage / secret / productId checklist', () =>
     expect(isPlaceholder || isWorkerUrl,
       `LICENSE_PROXY_URL must be either the placeholder or a https://*.workers.dev URL — got ${url}`
     ).toBe(true);
+  });
+
+  it('manifest grants host permission for the license Worker', () => {
+    const url = isolated.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/)?.[1];
+    if (url === '__XVM_LICENSE_WORKER__') return;
+    const origin = new URL(url).origin;
+    expect(manifest.host_permissions).toContain(`${origin}/*`);
+  });
+
+  it('isolated content script routes license network calls through background', () => {
+    const isolatedUrl = isolated.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/)?.[1];
+    const backgroundUrl = background.match(/LICENSE_PROXY_URL\s*=\s*['"]([^'"]+)['"]/)?.[1];
+    expect(backgroundUrl).toBe(isolatedUrl);
+    expect(isolated).toMatch(/chrome\.runtime\.sendMessage\s*\(\s*\{\s*type:\s*['"]XVM_LICENSE_PROXY['"]/);
+    expect(background).toMatch(/message\.type\s*===\s*['"]XVM_LICENSE_PROXY['"]/);
+    expect(background).toMatch(/LICENSE_PROXY_ACTIONS\s*=\s*new Set\(\s*\[\s*['"]activate['"],\s*['"]validate['"],\s*['"]deactivate['"]\s*\]\s*\)/);
   });
 
   it('tier-logic.js implements 24h cache + 7-day offline grace per ADR-0004', () => {
@@ -110,12 +127,31 @@ describe('#45 step 2 — ADR-0004 storage / secret / productId checklist', () =>
     expect(/stored\.lastTriedAt/.test(isolated),
       'isolated.js must honor lastTriedAt after network failures'
     ).toBe(true);
+    expect(/offline-grace['"],\s*['"]stale/.test(isolated),
+      'isolated.js must revalidate records after the 7-day offline grace expires instead of forcing repeat activation'
+    ).toBe(true);
     expect(/if\s*\(shouldRevalidate\(status,\s*stored\)\)/.test(isolated),
       'getLicenseStatus() must not revalidate on every status read'
     ).toBe(true);
     expect(/if\s*\(shouldRevalidate\(r,\s*stored\)\)/.test(isolated),
       'resolveTier() must not revalidate on every tier request'
     ).toBe(true);
+  });
+
+  it('background revalidation keeps the stored activation on entitlement verification failures', () => {
+    expect(/if\s*\(!entitlement\.ok\)\s*\{\s*await\s+safeStorageSet\s*\(\s*\{\s*\[STORAGE_KEY\]\s*:\s*\{\s*\.\.\.stored,\s*lastTriedAt:\s*Date\.now\(\)\s*\}\s*\}\s*\)/.test(isolated),
+      'isolated.js must preserve xvm_license_v1 when a revalidate response cannot be trusted; deleting it forces repeat activation'
+    ).toBe(true);
+    expect(/if\s*\(!entitlement\.ok\)\s*\{\s*await\s+safeStorageRemove\s*\(\s*STORAGE_KEY\s*\)/.test(isolated),
+      'isolated.js must not remove the stored activation just because Worker entitlement verification failed'
+    ).toBe(false);
+    const popup = readFileSync(resolve(repo, 'src/premium/license/popup-pro.js'), 'utf8');
+    expect(/built\.error\s*===\s*['"]wrong_product['"]\s*\)/.test(popup),
+      'popup-pro.js may discard only definitively wrong-product records during revalidate'
+    ).toBe(true);
+    expect(/bad_entitlement_signature|wrong_license_key/.test(
+      popup.match(/if\s*\(!built\.ok\)\s*\{[\s\S]*?return built;\s*\}/)?.[0] || ''
+    )).toBe(false);
   });
 
   it('isolated.js exposes the documented message contract', () => {

@@ -45,7 +45,7 @@
   // Compute license-side status from a stored license record.
   // Returns { tier, record, source } where:
   //   tier   = 'pro' | 'free'
-  //   source = 'none' | 'cached' | 'offline-grace' | 'expired' | 'wrong_product'
+  //   source = 'none' | 'cached' | 'offline-grace' | 'stale' | 'expired' | 'wrong_product'
   //
   // Does NOT trigger I/O. The caller (isolated.js) decides if a stale
   // record warrants a background revalidate; we just report the verdict.
@@ -61,7 +61,16 @@
     if (!isXvmProduct(stored.productId)) {
       return { tier: 'free', record: stored, source: stored.productId ? 'wrong_product' : 'missing_product' };
     }
-    if (!Number.isFinite(stored.entitlementExpiresAt) || stored.entitlementExpiresAt <= t) {
+    // A signed entitlement proves the Worker response that created this
+    // local record. Its short TTL should not become the user's Pro duration:
+    // normal freshness is still governed by the 24h cache + 7d offline grace
+    // below. Missing entitlement data fails closed; expired entitlement data
+    // is refreshed when the license cache becomes stale.
+    if (
+      typeof stored.entitlementPayload !== 'string' || !stored.entitlementPayload ||
+      typeof stored.entitlementSig !== 'string' || !stored.entitlementSig ||
+      !Number.isFinite(stored.entitlementExpiresAt)
+    ) {
       return { tier: 'free', record: stored, source: 'invalid_entitlement' };
     }
     if (stored.status && stored.status !== 'active') {
@@ -72,10 +81,10 @@
       return { tier: 'pro', record: stored, source: 'cached' };
     }
     // Stale cache — within the 7-day offline grace window we still serve
-    // pro; past it we drop to free even with a "good" record (forces a
-    // re-check before paywalled features unlock again).
+    // pro; past it we drop to free but keep a distinct source so callers can
+    // re-check before asking the user to activate again.
     if (sinceCheck > OFFLINE_GRACE_MS) {
-      return { tier: 'free', record: stored, source: 'expired' };
+      return { tier: 'free', record: stored, source: 'stale' };
     }
     return { tier: 'pro', record: stored, source: 'offline-grace' };
   }

@@ -1619,6 +1619,60 @@ let leaderboardExpandedPos = null;
 let leaderboardTempExpandedEdge = null;
 let suppressLeaderboardEdgeExpandClick = false;
 
+function isLeaderboardEdge(value) {
+  return ['left', 'right', 'top', 'bottom'].includes(value);
+}
+
+function savedLeaderboardPosition() {
+  const expanded = leaderboardExpandedPos || leaderboardPos;
+  return {
+    ...(expanded || {}),
+    hiddenEdge: leaderboardHiddenEdge || null,
+    expandedPos: expanded || null,
+  };
+}
+
+function saveLeaderboardPosition() {
+  const pos = savedLeaderboardPosition();
+  if (Number.isFinite(pos.left) && Number.isFinite(pos.top)) {
+    window.postMessage({ type: 'XVM_LB_POS_SAVE', pos }, '*');
+  }
+}
+
+function syncLeaderboardHiddenDom() {
+  if (!leaderboardEl) return;
+  if (leaderboardHiddenEdge) {
+    leaderboardEl.classList.add('xvm-lb-edge-hidden');
+    leaderboardEl.dataset.edge = leaderboardHiddenEdge;
+  } else {
+    leaderboardEl.classList.remove('xvm-lb-edge-hidden');
+    delete leaderboardEl.dataset.edge;
+  }
+  setLeaderboardEdgeToggleState();
+}
+
+function restoreLeaderboardPosition(pos) {
+  if (!pos || typeof pos !== 'object') return;
+  const expanded = pos.expandedPos && typeof pos.expandedPos === 'object'
+    ? pos.expandedPos
+    : pos;
+  if (Number.isFinite(expanded.left) && Number.isFinite(expanded.top)) {
+    leaderboardPos = { left: expanded.left, top: expanded.top };
+    leaderboardExpandedPos = { ...leaderboardPos };
+  }
+  if (leaderboardEdgeHideEnabled && isLeaderboardEdge(pos.hiddenEdge)) {
+    leaderboardHiddenEdge = pos.hiddenEdge;
+    if (leaderboardEl) {
+      syncLeaderboardHiddenDom();
+      positionHiddenLeaderboard(leaderboardHiddenEdge);
+    }
+  } else {
+    leaderboardHiddenEdge = null;
+    syncLeaderboardHiddenDom();
+    applyLeaderboardPosition();
+  }
+}
+
 function setLeaderboardEdgeToggleState() {
   const btn = leaderboardEl?.querySelector?.('.xvm-lb-edge-toggle');
   if (!btn) return;
@@ -1703,18 +1757,18 @@ function setLeaderboardEdgeHidden(hidden, edge = 'right') {
       top: clampToViewport(rect.top, 'y'),
     };
     leaderboardHiddenEdge = nextEdge;
-    leaderboardEl.classList.add('xvm-lb-edge-hidden');
-    leaderboardEl.dataset.edge = nextEdge;
+    syncLeaderboardHiddenDom();
     positionHiddenLeaderboard(nextEdge);
+    saveLeaderboardPosition();
   } else {
     clearLeaderboardTempExpand();
     leaderboardHiddenEdge = null;
-    leaderboardEl.classList.remove('xvm-lb-edge-hidden');
-    delete leaderboardEl.dataset.edge;
+    syncLeaderboardHiddenDom();
     if (leaderboardExpandedPos) {
       leaderboardPos = { ...leaderboardExpandedPos };
     }
     applyLeaderboardPosition();
+    saveLeaderboardPosition();
   }
   setLeaderboardEdgeToggleState();
   if (linkState) updateLinkGeometry();
@@ -1805,6 +1859,7 @@ function applyLeaderboardHeight() {
 function applyLeaderboardPosition() {
   if (!leaderboardEl) return;
   if (leaderboardHiddenEdge) {
+    syncLeaderboardHiddenDom();
     positionHiddenLeaderboard();
     return;
   }
@@ -1828,8 +1883,7 @@ function clampToViewport(v, axis) {
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   if (event.data?.type === 'XVM_LB_POS_LOAD' && event.data.pos) {
-    leaderboardPos = event.data.pos;
-    applyLeaderboardPosition();
+    restoreLeaderboardPosition(event.data.pos);
     return;
   }
   if (event.data?.type === 'XVM_LB_SIZE_LOAD' && Number.isFinite(event.data.width)) {
@@ -1950,9 +2004,7 @@ function installLeaderboardDrag() {
       setLeaderboardEdgeHidden(true, edge);
       return;
     }
-    if (leaderboardPos) {
-      window.postMessage({ type: 'XVM_LB_POS_SAVE', pos: leaderboardPos }, '*');
-    }
+    saveLeaderboardPosition();
   };
   document.addEventListener('pointerup', stopDrag, true);
   document.addEventListener('pointercancel', stopDrag, true);

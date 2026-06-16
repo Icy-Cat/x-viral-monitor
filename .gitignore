@@ -8,6 +8,9 @@ secrets/*
 !secrets/README.md
 *.png.bak
 
+# macOS Finder metadata
+.DS_Store
+
 # bb-browser / playwright-mcp scratch artifacts that pile up at repo root
 /.snap.json
 /.tmp_snapshot.json

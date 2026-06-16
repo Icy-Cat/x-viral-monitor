@@ -43,4 +43,19 @@ describe('leaderboard edge-hide release behavior', () => {
     expect(installer).toContain('const hiddenEdge = leaderboardHiddenEdge');
     expect(installer).toContain('armLeaderboardTempExpand(hiddenEdge)');
   });
+
+  it('persists and restores the hidden edge across page refreshes', () => {
+    expect(contentJs).toContain('function savedLeaderboardPosition()');
+    expect(contentJs).toContain('hiddenEdge: leaderboardHiddenEdge || null');
+    expect(contentJs).toContain('expandedPos: expanded || null');
+    expect(contentJs).toContain('function syncLeaderboardHiddenDom()');
+    expect(contentJs).toContain('function restoreLeaderboardPosition(pos)');
+    expect(contentJs).toContain('isLeaderboardEdge(pos.hiddenEdge)');
+    expect(contentJs).toContain("leaderboardEl.classList.add('xvm-lb-edge-hidden')");
+    expect(contentJs).toContain('leaderboardEl.dataset.edge = leaderboardHiddenEdge');
+    expect(contentJs).toContain('syncLeaderboardHiddenDom();');
+    expect(contentJs).toContain('restoreLeaderboardPosition(event.data.pos)');
+    expect(contentJs).toContain('setLeaderboardEdgeHidden(true, edge)');
+    expect(contentJs).toContain('saveLeaderboardPosition();');
+  });
 });

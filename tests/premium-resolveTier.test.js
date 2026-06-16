@@ -43,6 +43,8 @@ function freshLicense(overrides = {}) {
     productId: XVM_PROD,
     status: 'active',
     lastChecked: NOW, // fresh by default
+    entitlementPayload: 'signed-payload',
+    entitlementSig: 'signed-sig',
     entitlementExpiresAt: NOW + 10 * 60 * 1000,
     activatedAt: NOW - 86400000,
     ...overrides,
@@ -127,11 +129,11 @@ describe('#45 ADR-0004 scenario 5 — stale cache, within 7-day offline grace', 
 });
 
 describe('#45 ADR-0004 scenario 6 — offline grace expired (> 7 days)', () => {
-  it('returns free (expired)', () => {
+  it('returns free (stale, revalidation required)', () => {
     const lic = freshLicense({ lastChecked: NOW - 8 * 86400000 });
     const r = resolveTierFrom(lic, null, NOW);
     expect(r.tier).toBe('free');
-    expect(r.source).toBe('expired');
+    expect(r.source).toBe('stale');
   });
 
   it('exactly at OFFLINE_GRACE boundary — still grace', () => {
@@ -174,9 +176,20 @@ describe('#45 ADR-0004 scenario 7 — wrong product (shared-Worker spillover)', 
 });
 
 describe('#114 signed entitlement cache guard', () => {
-  it('missing or expired entitlement downgrades even for matching product', () => {
+  it('missing entitlement downgrades even for matching product', () => {
+    expect(resolveTierFrom(freshLicense({ entitlementPayload: '', entitlementExpiresAt: NOW + 1000 }), null, NOW).source).toBe('invalid_entitlement');
+    expect(resolveTierFrom(freshLicense({ entitlementSig: '', entitlementExpiresAt: NOW + 1000 }), null, NOW).source).toBe('invalid_entitlement');
     expect(resolveTierFrom(freshLicense({ entitlementExpiresAt: null }), null, NOW).tier).toBe('free');
-    expect(resolveTierFrom(freshLicense({ entitlementExpiresAt: NOW - 1 }), null, NOW).source).toBe('invalid_entitlement');
+  });
+
+  it('expired short-lived entitlement does not override the 24h license cache', () => {
+    const lic = freshLicense({
+      lastChecked: NOW - 11 * 60 * 1000,
+      entitlementExpiresAt: NOW - 60 * 1000,
+    });
+    const r = resolveTierFrom(lic, null, NOW);
+    expect(r.tier).toBe('pro');
+    expect(r.source).toBe('cached');
   });
 });
 
