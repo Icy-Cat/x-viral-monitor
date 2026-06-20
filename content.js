@@ -1617,6 +1617,7 @@ let leaderboardPos = null; // {left, top} in px from top-left of viewport
 let leaderboardHiddenEdge = null;
 let leaderboardExpandedPos = null;
 let leaderboardTempExpandedEdge = null;
+let leaderboardTempExpandedByHover = false;
 let suppressLeaderboardEdgeExpandClick = false;
 
 function isLeaderboardEdge(value) {
@@ -1716,14 +1717,38 @@ function positionHiddenLeaderboard(edge = leaderboardHiddenEdge || 'right') {
   leaderboardEl.style.right = 'auto';
 }
 
+function getLeaderboardExpandedPositionForEdge(edge = 'right') {
+  if (!leaderboardEl) return null;
+  const rect = leaderboardEl.getBoundingClientRect();
+  const currentLeft = Number.isFinite(rect.left) ? rect.left : (leaderboardExpandedPos?.left ?? window.innerWidth - rect.width - 8);
+  const currentTop = Number.isFinite(rect.top) ? rect.top : (leaderboardExpandedPos?.top ?? 72);
+  let left = currentLeft;
+  let top = currentTop;
+  if (edge === 'left') {
+    left = 8;
+  } else if (edge === 'right') {
+    left = window.innerWidth - rect.width - 8;
+  } else if (edge === 'top') {
+    top = 8;
+  } else if (edge === 'bottom') {
+    top = window.innerHeight - rect.height - 8;
+  }
+  return {
+    left: clampToViewport(left, 'x'),
+    top: clampToViewport(top, 'y'),
+  };
+}
+
 function clearLeaderboardTempExpand() {
   leaderboardTempExpandedEdge = null;
+  leaderboardTempExpandedByHover = false;
   document.removeEventListener('pointerdown', onLeaderboardTempExpandOutsidePointerDown, true);
 }
 
-function armLeaderboardTempExpand(edge) {
+function armLeaderboardTempExpand(edge, byHover = false) {
   if (!edge || !leaderboardEdgeHideEnabled) return;
   leaderboardTempExpandedEdge = edge;
+  leaderboardTempExpandedByHover = byHover === true;
   document.addEventListener('pointerdown', onLeaderboardTempExpandOutsidePointerDown, true);
 }
 
@@ -1739,7 +1764,14 @@ function onLeaderboardTempExpandOutsidePointerDown(e) {
   setLeaderboardEdgeHidden(true, edge);
 }
 
-function setLeaderboardEdgeHidden(hidden, edge = 'right') {
+function rehideHoverExpandedLeaderboard() {
+  if (!leaderboardTempExpandedByHover || !leaderboardTempExpandedEdge || leaderboardHiddenEdge || !leaderboardEdgeHideEnabled) return;
+  const edge = leaderboardTempExpandedEdge;
+  clearLeaderboardTempExpand();
+  setLeaderboardEdgeHidden(true, edge);
+}
+
+function setLeaderboardEdgeHidden(hidden, edge = 'right', options = {}) {
   if (!leaderboardEl) return;
   if (hidden && !leaderboardEdgeHideEnabled) return;
   const nextEdge = hidden ? (edge || 'right') : null;
@@ -1752,7 +1784,9 @@ function setLeaderboardEdgeHidden(hidden, edge = 'right') {
     clearLeaderboardTempExpand();
     hideLeaderboardSettingsPanel();
     const rect = leaderboardEl.getBoundingClientRect();
-    leaderboardExpandedPos = {
+    leaderboardExpandedPos = options.snapExpandedToEdge
+      ? getLeaderboardExpandedPositionForEdge(nextEdge)
+      : {
       left: clampToViewport(rect.left, 'x'),
       top: clampToViewport(rect.top, 'y'),
     };
@@ -1772,6 +1806,15 @@ function setLeaderboardEdgeHidden(hidden, edge = 'right') {
   }
   setLeaderboardEdgeToggleState();
   if (linkState) updateLinkGeometry();
+}
+
+function expandLeaderboardFromHiddenEdge(byHover = false) {
+  if (!leaderboardHiddenEdge || !leaderboardEdgeHideEnabled) return false;
+  if (suppressLeaderboardEdgeExpandClick) return false;
+  const hiddenEdge = leaderboardHiddenEdge;
+  setLeaderboardEdgeHidden(false);
+  armLeaderboardTempExpand(hiddenEdge, byHover);
+  return true;
 }
 
 function getLeaderboardSnapEdge(rect) {
@@ -1943,6 +1986,7 @@ function installLeaderboardDrag() {
       setLeaderboardEdgeHidden(false);
       return;
     }
+    clearLeaderboardTempExpand();
     const rect = leaderboardEl.getBoundingClientRect();
     dragState = {
       pointerId: e.pointerId,
@@ -2004,6 +2048,7 @@ function installLeaderboardDrag() {
       setLeaderboardEdgeHidden(true, edge);
       return;
     }
+    clearLeaderboardTempExpand();
     saveLeaderboardPosition();
   };
   document.addEventListener('pointerup', stopDrag, true);
@@ -2133,20 +2178,22 @@ function installLeaderboardEdgeToggle() {
     e.stopPropagation();
     if (!leaderboardEdgeHideEnabled) return;
     const hiddenEdge = leaderboardHiddenEdge;
-    setLeaderboardEdgeHidden(!hiddenEdge, 'right');
+    setLeaderboardEdgeHidden(!hiddenEdge, 'right', { snapExpandedToEdge: !hiddenEdge });
     if (hiddenEdge) armLeaderboardTempExpand(hiddenEdge);
   });
   leaderboardEl.addEventListener('click', (e) => {
     if (!leaderboardHiddenEdge) return;
     e.stopPropagation();
     e.preventDefault();
-    if (suppressLeaderboardEdgeExpandClick) {
-      return;
-    }
-    const hiddenEdge = leaderboardHiddenEdge;
-    setLeaderboardEdgeHidden(false);
-    armLeaderboardTempExpand(hiddenEdge);
+    expandLeaderboardFromHiddenEdge();
   }, true);
+  leaderboardEl.addEventListener('pointerenter', () => {
+    expandLeaderboardFromHiddenEdge(true);
+  });
+  leaderboardEl.addEventListener('pointerleave', (e) => {
+    if (leaderboardSettingsEl?.contains?.(e.relatedTarget)) return;
+    rehideHoverExpandedLeaderboard();
+  });
 }
 
 function installLeaderboardPanelActions() {
