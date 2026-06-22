@@ -1092,6 +1092,57 @@ describe('#123 XVM content filter v1', () => {
     expect(detail.mainCell.lastElementChild?.id).toBe('xvm-content-filter-summary');
   });
 
+  it('ignores reply composer dialog cells when filtering the background detail page', () => {
+    const h = contentFilterDomHarness();
+    const dialog = attrNode('dialog');
+    const modalCell = attrNode('cell');
+    const modalArticle = attrNode('article');
+    const modalLink = { getAttribute: () => '/example_main/status/100001' };
+    modalCell.closest = (selector) => (selector === '[role="dialog"]' ? dialog : null);
+    modalCell.querySelector = (selector) => (selector === 'article[data-testid="tweet"]' ? modalArticle : null);
+    modalArticle.closest = (selector) => {
+      if (selector === '[role="dialog"]') return dialog;
+      if (selector === '[data-testid="cellInnerDiv"]') return modalCell;
+      return null;
+    };
+    modalArticle.querySelector = (selector) => (selector.includes('/status/') ? modalLink : null);
+    h.document.querySelectorAll = (selector) => {
+      if (selector === 'article[data-testid="tweet"]') return [modalArticle, h.mainArticle, h.article];
+      if (selector === '[data-testid="cellInnerDiv"]') return [modalCell, h.mainCell, h.cell];
+      return [];
+    };
+
+    const api = loadDebug({ document: h.document, window: { location: { pathname: '/example_main/status/100001' } } });
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+    api._debug.scanForTweets({ tweet_results: { result: h.tweet } });
+    api._debug.applyHidesNow();
+
+    expect(api._debug.replyArticles()).toEqual([h.article]);
+    expect(api._debug.findReplyAnchor().host).toBe(h.mainCell);
+    expect(h.mainArticle.hasAttribute('data-xvm-content-filter-hidden')).toBe(false);
+    expect(h.article.hasAttribute('data-xvm-content-filter-hidden')).toBe(true);
+    expect(h.cell.style.display).toBe('none');
+  });
+
+  it('keeps filtering the background detail page while the reply composer owns the URL', () => {
+    const h = contentFilterDomHarness();
+    const dialog = attrNode('dialog');
+    const window = { location: { pathname: '/example_main/status/100001' } };
+    h.document.querySelector = (selector) => (selector === '[role="dialog"]' ? dialog : null);
+    const api = loadDebug({ document: h.document, window });
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+    api._debug.scanForTweets({ tweet_results: { result: h.tweet } });
+    api._debug.applyHidesNow();
+    expect(h.cell.style.display).toBe('none');
+
+    h.cell.style.display = '';
+    window.location.pathname = '/compose/post';
+    api._debug.applyHidesNow();
+
+    expect(h.article.hasAttribute('data-xvm-content-filter-hidden')).toBe(true);
+    expect(h.cell.style.display).toBe('none');
+  });
+
   it('hosts the summary inside the main tweet cell so it shares the virtualized slot', () => {
     const detail = contentFilterDomHarness();
     const separator = attrNode('separator');

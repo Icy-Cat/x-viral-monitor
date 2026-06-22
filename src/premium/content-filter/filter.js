@@ -43,6 +43,7 @@
   let summaryOpen = false;
   let summarySignature = '';
   let applyScheduled = false;
+  let lastDetailStatusId = '';
   const decisions = new Map();
   const hiddenRecords = new Map();
   let source = createLocalRuleSource(window.__xvmContentFilterBuiltinRules);
@@ -400,9 +401,25 @@
     return m?.[1] || null;
   }
 
-  function currentStatusId() {
+  function pathStatusId() {
     const m = (window.location?.pathname || '').match(/\/status\/(\d+)/);
     return m?.[1] || null;
+  }
+
+  function hasBackgroundStatusArticle(id) {
+    if (!id || !document.querySelector?.('[role="dialog"]')) return false;
+    return Array.from(document.querySelectorAll('[data-testid="cellInnerDiv"]'))
+      .filter((cell) => !cell.closest?.('[role="dialog"]'))
+      .some((cell) => getTweetIdFromArticle(cell.querySelector?.('article[data-testid="tweet"]')) === id);
+  }
+
+  function currentStatusId() {
+    const id = pathStatusId();
+    if (id) {
+      lastDetailStatusId = id;
+      return id;
+    }
+    return hasBackgroundStatusArticle(lastDetailStatusId) ? lastDetailStatusId : null;
   }
 
   function applyHidesNow() {
@@ -549,15 +566,16 @@
   }
 
   function isTweetDetailPage() {
-    return /\/status\/\d+/.test(window.location?.pathname || '');
+    return Boolean(currentStatusId());
   }
 
   function articleCells() {
     if (!isTweetDetailPage()) return [];
     const cells = Array.from(document.querySelectorAll('[data-testid="cellInnerDiv"]'));
     return cells
+      .filter((cell) => !cell.closest?.('[role="dialog"]'))
       .map((cell) => ({ cell, art: cell.querySelector?.('article[data-testid="tweet"]') }))
-      .filter((item) => item.art);
+      .filter((item) => item.art && !item.art.closest?.('[role="dialog"]'));
   }
 
   function mainArticleIndex(items = articleCells()) {
