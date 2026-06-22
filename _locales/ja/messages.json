@@ -167,6 +167,15 @@
   "contentCopyMdCopyFailed": {
     "message": "コピーに失敗しました"
   },
+  "contentCopyTweetCommentsLabel": {
+    "message": "投稿とコメントをコピー"
+  },
+  "contentCopyTweetCommentsDone": {
+    "message": "投稿とコメントをコピーしました！"
+  },
+  "contentCopyTweetCommentsHeading": {
+    "message": "コメント"
+  },
   "contentFallbackTweetLabel": {
     "message": "投稿"
   },

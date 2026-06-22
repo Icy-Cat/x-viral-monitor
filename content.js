@@ -443,6 +443,9 @@ function extractTweetData(result) {
 
   return {
     id: legacy.id_str,
+    screenName,
+    inReplyToStatusId: legacy.in_reply_to_status_id_str || '',
+    inReplyToScreenName: legacy.in_reply_to_screen_name || '',
     views: viewCount,
     likes: legacy.favorite_count || 0,
     retweets: legacy.retweet_count || 0,
@@ -2507,6 +2510,10 @@ function isLeaderboardArticleHidden(article) {
   return false;
 }
 
+function isArticleHiddenByXvmFilters(article) {
+  return isLeaderboardArticleHidden(article);
+}
+
 function rememberLeaderboardItem(entry) {
   if (!entry?.id) return;
   const prev = leaderboardItemMeta.get(entry.id) || {};
@@ -2965,21 +2972,19 @@ new MutationObserver(() => {
 // Remember the tweet the user was interacting with when opening a menu.
 let lastShareContext = null; // { article, tweetId, permalink }
 
+function createShareContextFromArticle(article) {
+  if (!article) return null;
+  const tweetId = getTweetIdFromArticle(article);
+  const permalink = getTweetPermalinkFromArticle(article, tweetId);
+  return { article, tweetId, permalink };
+}
+
 document.addEventListener('click', (e) => {
   const btn = e.target.closest?.('button[aria-haspopup="menu"], button[aria-expanded]');
   if (!btn) return;
   const article = btn.closest('article[data-testid="tweet"]');
   if (!article) return;
-
-  const tweetId = getTweetIdFromArticle(article);
-  let permalink = '';
-  const links = article.querySelectorAll('a[href*="/status/"]');
-  for (const link of links) {
-    const href = link.getAttribute('href') || '';
-    const m = href.match(/^\/([^/]+)\/status\/(\d+)/);
-    if (m) { permalink = `https://x.com/${m[1]}/status/${m[2]}`; break; }
-  }
-  lastShareContext = { article, tweetId, permalink };
+  lastShareContext = createShareContextFromArticle(article);
 }, true);
 
 function getAuthorInfo(article) {
@@ -3059,6 +3064,52 @@ function buildTweetMarkdown(ctx) {
   if (dateStr) metaParts.push(dateStr);
 
   return `${text.trim()}\n\n— ${metaParts.join(' · ')}\n`;
+}
+
+function findVisibleCommentArticles(ctx) {
+  if (!ctx?.article) return [];
+  const articles = Array.from(document.querySelectorAll('article[data-testid="tweet"]'));
+  const start = articles.indexOf(ctx.article);
+  if (start < 0) return [];
+  const seen = new Set([ctx.tweetId].filter(Boolean));
+  const comments = [];
+  for (const article of articles.slice(start + 1)) {
+    if (isArticleHiddenByXvmFilters(article)) continue;
+    const tweetId = getTweetIdFromArticle(article);
+    if (!tweetId || seen.has(tweetId)) continue;
+    if (!isVisibleCommentArticleForContext(ctx, article, tweetId)) continue;
+    seen.add(tweetId);
+    comments.push(article);
+  }
+  return comments;
+}
+
+function isVisibleCommentArticleForContext(ctx, article, tweetId = '') {
+  const rootTweetId = ctx?.tweetId || '';
+  const data = tweetId ? tweetDataStore.get(tweetId) : null;
+  if (data?.inReplyToStatusId) {
+    return !!(rootTweetId && data.inReplyToStatusId === rootTweetId);
+  }
+
+  const rootHandle = getAuthorInfo(ctx.article).handle.replace(/^@/, '');
+  if (!rootHandle) return false;
+  const textEl = article.querySelector('[data-testid="tweetText"]');
+  const text = (textEl?.textContent || '').trim();
+  return new RegExp(`^@${rootHandle}\\b`, 'i').test(text);
+}
+
+function buildTweetWithVisibleCommentsMarkdown(ctx) {
+  const tweetMd = buildTweetMarkdown(ctx).trim();
+  const comments = findVisibleCommentArticles(ctx)
+    .map((article) => createShareContextFromArticle(article))
+    .filter((commentCtx) => commentCtx?.article)
+    .map((commentCtx, idx) => `### ${idx + 1}\n\n${buildTweetMarkdown(commentCtx).trim()}`);
+  if (!comments.length) return `${tweetMd}\n`;
+  return [
+    tweetMd,
+    `## ${i18nOr('contentCopyTweetCommentsHeading', 'Comments')}`,
+    comments.join('\n\n'),
+  ].join('\n\n') + '\n';
 }
 
 async function copyTextToClipboard(text) {
@@ -4015,6 +4066,31 @@ function isShareMenu(menuEl) {
   return false;
 }
 
+function replaceClonedMenuItemText(clone, titleText, attributionText) {
+  const textSpans = clone.querySelectorAll('span');
+  let labelSpan = clone.querySelector('.xvm-copy-md-source')?.parentElement || null;
+  for (const s of textSpans) {
+    if (labelSpan) break;
+    if (s.children.length === 0 && (s.textContent || '').trim()) {
+      labelSpan = s;
+      break;
+    }
+  }
+  if (labelSpan) {
+    labelSpan.textContent = '';
+    const title = document.createElement('span');
+    title.textContent = titleText;
+    const attribution = document.createElement('span');
+    attribution.className = 'xvm-copy-md-source';
+    attribution.textContent = attributionText;
+    labelSpan.appendChild(title);
+    labelSpan.appendChild(document.createElement('br'));
+    labelSpan.appendChild(attribution);
+  } else {
+    clone.textContent = titleText;
+  }
+}
+
 function injectCopyMarkdownItem(menuEl) {
   if (!copyAsMarkdownEnabled) return;
   if (menuEl.querySelector('.xvm-copy-md-item')) return;
@@ -4028,30 +4104,7 @@ function injectCopyMarkdownItem(menuEl) {
   clone.removeAttribute('data-testid');
   clone.querySelectorAll('[data-testid]').forEach((el) => el.removeAttribute('data-testid'));
 
-  // Replace only the first text-bearing leaf span; append a small
-  // attribution line under it so users know this entry comes from the
-  // extension, not X itself.
-  const textSpans = clone.querySelectorAll('span');
-  let labelSpan = null;
-  for (const s of textSpans) {
-    if (s.children.length === 0 && (s.textContent || '').trim()) {
-      labelSpan = s;
-      break;
-    }
-  }
-  if (labelSpan) {
-    labelSpan.textContent = '';
-    const title = document.createElement('span');
-    title.textContent = i18n('contentCopyMdLabel');
-    const attribution = document.createElement('span');
-    attribution.className = 'xvm-copy-md-source';
-    attribution.textContent = i18n('contentCopyMdAttribution');
-    labelSpan.appendChild(title);
-    labelSpan.appendChild(document.createElement('br'));
-    labelSpan.appendChild(attribution);
-  } else {
-    clone.textContent = i18n('contentCopyMdLabel');
-  }
+  replaceClonedMenuItemText(clone, i18n('contentCopyMdLabel'), i18n('contentCopyMdAttribution'));
 
   // Swap the icon with a Markdown glyph
   const svg = clone.querySelector('svg');
@@ -4087,6 +4140,50 @@ function injectCopyMarkdownItem(menuEl) {
   lastItem.parentNode.appendChild(clone);
 }
 
+function injectCopyTweetCommentsItem(menuEl) {
+  if (!copyAsMarkdownEnabled) return;
+  if (menuEl.querySelector('.xvm-copy-comments-item')) return;
+  const copyItem = menuEl.querySelector('.xvm-copy-md-item');
+  if (!copyItem?.parentNode) return;
+
+  const clone = copyItem.cloneNode(true);
+  clone.classList.remove('xvm-copy-md-item');
+  clone.classList.add('xvm-copy-comments-item');
+  replaceClonedMenuItemText(
+    clone,
+    i18n('contentCopyTweetCommentsLabel'),
+    i18n('contentCopyMdAttribution')
+  );
+
+  const svg = clone.querySelector('svg');
+  if (svg) {
+    const commentsIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    commentsIcon.setAttribute('viewBox', '0 0 24 24');
+    commentsIcon.setAttribute('width', svg.getAttribute('width') || '18');
+    commentsIcon.setAttribute('height', svg.getAttribute('height') || '18');
+    commentsIcon.setAttribute('aria-hidden', 'true');
+    commentsIcon.style.fill = 'currentColor';
+    commentsIcon.innerHTML = '<path d="M4 5.5A3.5 3.5 0 0 1 7.5 2h9A3.5 3.5 0 0 1 20 5.5v6A3.5 3.5 0 0 1 16.5 15H11l-4.4 4.1c-.7.6-1.6.1-1.6-.8v-3.6A3.5 3.5 0 0 1 4 12.5v-7Zm3.5-1.3A1.3 1.3 0 0 0 6.2 5.5v7c0 .7.6 1.3 1.3 1.3h.7v2.2l2.3-2.2h6A1.3 1.3 0 0 0 17.8 12.5v-7a1.3 1.3 0 0 0-1.3-1.3h-9Z"/>';
+    svg.replaceWith(commentsIcon);
+  }
+
+  clone.addEventListener('click', async (ev) => {
+    ev.preventDefault();
+    const ctx = lastShareContext;
+    if (!ctx || !ctx.article || !ctx.article.isConnected) {
+      showToast(i18n('contentCopyMdNoTweetFound'));
+      closeOpenMenus();
+      return;
+    }
+    const md = buildTweetWithVisibleCommentsMarkdown(ctx);
+    const ok = await copyTextToClipboard(md);
+    showToast(ok ? i18n('contentCopyTweetCommentsDone') : i18n('contentCopyMdCopyFailed'));
+    closeOpenMenus();
+  });
+
+  copyItem.parentNode.insertBefore(clone, copyItem.nextSibling);
+}
+
 function injectStarChartItem(menuEl) {
   if (!starChartEnabled) return;
   if (menuEl.querySelector('.xvm-starchart-item')) return;
@@ -4096,7 +4193,9 @@ function injectStarChartItem(menuEl) {
   // otherwise we inherit its title+br+attribution children and end up with
   // duplicate text rows.
   const nativeItems = Array.from(allItems).filter(
-    (el) => !el.classList.contains('xvm-copy-md-item') && !el.classList.contains('xvm-starchart-item'),
+    (el) => !el.classList.contains('xvm-copy-md-item')
+      && !el.classList.contains('xvm-copy-comments-item')
+      && !el.classList.contains('xvm-starchart-item'),
   );
   if (!nativeItems.length) return;
   const items = allItems;
@@ -4182,6 +4281,7 @@ const menuObserver = new MutationObserver((mutations) => {
       for (const menu of menus) {
         if (!isShareMenu(menu)) continue;
         injectCopyMarkdownItem(menu);
+        injectCopyTweetCommentsItem(menu);
         injectStarChartItem(menu);
       }
     }

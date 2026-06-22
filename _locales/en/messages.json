@@ -169,6 +169,15 @@
   "contentCopyMdCopyFailed": {
     "message": "Copy failed"
   },
+  "contentCopyTweetCommentsLabel": {
+    "message": "Copy tweet and comments"
+  },
+  "contentCopyTweetCommentsDone": {
+    "message": "Tweet and comments copied!"
+  },
+  "contentCopyTweetCommentsHeading": {
+    "message": "Comments"
+  },
   "contentFallbackTweetLabel": {
     "message": "tweet"
   },

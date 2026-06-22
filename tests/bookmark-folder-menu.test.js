@@ -84,6 +84,21 @@ describe('bookmark folder menu integration', () => {
     expect(styles).toContain('.xvm-bk-chevron');
   });
 
+  it('floats the bookmark folder menu upward using measured height near the viewport bottom', () => {
+    expect(bookmarkMenu).toContain('const MENU_MARGIN = 8');
+    expect(bookmarkMenu).toContain('const menuHeight = m.offsetHeight || 320');
+    expect(bookmarkMenu).toContain('window.innerHeight - menuHeight - MENU_MARGIN');
+    expect(bookmarkMenu).not.toContain('window.innerHeight - 320');
+    expect(bookmarkMenu).not.toContain('m.style.maxHeight');
+  });
+
+  it('dismisses the bookmark folder menu on outside pointerdown for mobile taps', () => {
+    expect(bookmarkMenu).toContain("document.addEventListener('pointerdown'");
+    expect(bookmarkMenu).toContain('hideMenuNow()');
+    expect(bookmarkMenu).toContain('menuEl.contains(target) || findBookmarkBtn(target)');
+    expect(bookmarkMenu).toContain('}, true);');
+  });
+
   it('uses the canonical X operation name when removing a tweet from a bookmark folder', () => {
     expect(bookmarkMenu).toContain("removeTweetFromBookmarkFolder: { queryId: '2Qbj9XZvtUvyJB4gFwWfaA', operationName: 'RemoveTweetFromBookmarkFolder' }");
     expect(bookmarkMenu).toContain('operation?.operationName || op');

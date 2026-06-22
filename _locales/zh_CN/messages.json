@@ -167,6 +167,15 @@
   "contentCopyMdCopyFailed": {
     "message": "复制失败"
   },
+  "contentCopyTweetCommentsLabel": {
+    "message": "复制推文与评论"
+  },
+  "contentCopyTweetCommentsDone": {
+    "message": "已复制推文与评论！"
+  },
+  "contentCopyTweetCommentsHeading": {
+    "message": "评论"
+  },
   "contentFallbackTweetLabel": {
     "message": "推文"
   },

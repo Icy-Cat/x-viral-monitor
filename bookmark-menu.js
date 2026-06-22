@@ -20,6 +20,7 @@
     contentBookmarkMenuNewFolderPlaceholder: '+ New folder (Enter)',
   };
   const MENU_WIDTH = 292;
+  const MENU_MARGIN = 8;
   const FOLDER_COLORS = [
     '#1dc7a8',
     '#ffd400',
@@ -369,12 +370,16 @@
     applyMenuTheme(detectPageTheme());
     m.style.display = 'block';
     const menuWidth = MENU_WIDTH;
-    let left = rect.right + 8;
-    if (left + menuWidth > window.innerWidth - 8) {
-      left = rect.left - menuWidth - 8;
+    let left = rect.right + MENU_MARGIN;
+    if (left + menuWidth > window.innerWidth - MENU_MARGIN) {
+      left = rect.left - menuWidth - MENU_MARGIN;
     }
+    left = Math.max(MENU_MARGIN, Math.min(left, window.innerWidth - menuWidth - MENU_MARGIN));
+    const menuHeight = m.offsetHeight || 320;
+    const maxTop = Math.max(MENU_MARGIN, window.innerHeight - menuHeight - MENU_MARGIN);
+    const top = Math.max(MENU_MARGIN, Math.min(rect.top, maxTop));
     m.style.left = left + 'px';
-    m.style.top = Math.max(8, Math.min(rect.top, window.innerHeight - 320)) + 'px';
+    m.style.top = top + 'px';
   }
 
   function escapeHtml(s) {
@@ -453,6 +458,13 @@
     }, 300);
   }
 
+  function hideMenuNow() {
+    clearTimeout(hoverTimer);
+    clearTimeout(hideTimer);
+    if (menuEl) menuEl.style.display = 'none';
+    currentTweetId = null;
+  }
+
   async function openForButton(btn) {
     const tweetId = getTweetIdFromButton(btn);
     if (!tweetId) return;
@@ -514,6 +526,13 @@
     clearTimeout(hoverTimer);
     scheduleHide();
   });
+
+  document.addEventListener('pointerdown', (ev) => {
+    if (!enabled || !menuEl || menuEl.style.display === 'none') return;
+    const target = ev.target;
+    if (target instanceof Element && (menuEl.contains(target) || findBookmarkBtn(target))) return;
+    hideMenuNow();
+  }, true);
 
   document.addEventListener('click', (ev) => {
     const link = ev.target instanceof Element

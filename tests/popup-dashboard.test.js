@@ -654,6 +654,28 @@ describe('update notice modal', () => {
     expect(stylesCss).not.toMatch(/html\[data-color-mode="dark"\]\s+\.xvm-update/);
     expect(stylesCss).not.toMatch(/body\[data-theme="dark"\]\s+\.xvm-update/);
   });
+
+  it('adds a share-menu action to copy a tweet with currently visible comments', () => {
+    expect(contentJs).toContain('function buildTweetWithVisibleCommentsMarkdown(ctx)');
+    expect(contentJs).toContain('function findVisibleCommentArticles(ctx)');
+    expect(contentJs).toContain('function isVisibleCommentArticleForContext(ctx, article, tweetId =');
+    expect(contentJs).toContain('inReplyToStatusId: legacy.in_reply_to_status_id_str');
+    expect(contentJs).toContain('inReplyToScreenName: legacy.in_reply_to_screen_name');
+    expect(contentJs).toContain('return !!(rootTweetId && data.inReplyToStatusId === rootTweetId)');
+    expect(contentJs).not.toContain('data.inReplyToScreenName ||');
+    expect(contentJs).toContain('function isArticleHiddenByXvmFilters(article)');
+    expect(contentJs).toContain('if (isArticleHiddenByXvmFilters(article)) continue;');
+    expect(contentJs).toContain('if (!isVisibleCommentArticleForContext(ctx, article, tweetId)) continue;');
+    expect(contentJs).toContain('function injectCopyTweetCommentsItem(menuEl)');
+    expect(contentJs).toContain("clone.querySelector('.xvm-copy-md-source')?.parentElement");
+    expect(contentJs).toContain('xvm-copy-comments-item');
+    expect(contentJs).toContain('buildTweetWithVisibleCommentsMarkdown(ctx)');
+    const observerBlock = contentJs.match(/if \(!isShareMenu\(menu\)\) continue;[\s\S]*?injectStarChartItem\(menu\);/)?.[0] || '';
+    expect(observerBlock).toContain('injectCopyMarkdownItem(menu);');
+    expect(observerBlock).toContain('injectCopyTweetCommentsItem(menu);');
+    expect(observerBlock.indexOf('injectCopyMarkdownItem(menu);')).toBeLessThan(observerBlock.indexOf('injectCopyTweetCommentsItem(menu);'));
+    expect(observerBlock.indexOf('injectCopyTweetCommentsItem(menu);')).toBeLessThan(observerBlock.indexOf('injectStarChartItem(menu);'));
+  });
 });
 
 describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS ↔ _locales)', () => {
