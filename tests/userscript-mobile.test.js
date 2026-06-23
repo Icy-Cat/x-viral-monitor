@@ -16,7 +16,7 @@ describe('iOS mobile userscript build', () => {
     expect(mobileScript).toContain('@version      0.1.15');
     expect(mobileScript).toContain('@match        https://mobile.x.com/*');
     expect(desktopScript).toContain('@name         X Viral Monitor Minimal Badge');
-    expect(desktopScript).toContain('@version      0.1.14');
+    expect(desktopScript).toContain('@version      0.1.15');
     expect(desktopScript).not.toContain('@name         X Viral Monitor Mobile Badge');
   });
 
