@@ -1127,8 +1127,15 @@ describe('#123 XVM content filter v1', () => {
   it('keeps filtering the background detail page while the reply composer owns the URL', () => {
     const h = contentFilterDomHarness();
     const dialog = attrNode('dialog');
+    const modalArticle = attrNode('article');
+    const modalLink = { getAttribute: () => '/example_main/status/100001' };
     const window = { location: { pathname: '/example_main/status/100001' } };
     h.document.querySelector = (selector) => (selector === '[role="dialog"]' ? dialog : null);
+    const baseQuerySelectorAll = h.document.querySelectorAll;
+    modalArticle.querySelector = (selector) => (selector.includes('/status/') ? modalLink : null);
+    h.document.querySelectorAll = (selector) => (
+      selector === '[role="dialog"] article[data-testid="tweet"]' ? [modalArticle] : baseQuerySelectorAll(selector)
+    );
     const api = loadDebug({ document: h.document, window });
     api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
     api._debug.scanForTweets({ tweet_results: { result: h.tweet } });
@@ -1141,6 +1148,25 @@ describe('#123 XVM content filter v1', () => {
 
     expect(h.article.hasAttribute('data-xvm-content-filter-hidden')).toBe(true);
     expect(h.cell.style.display).toBe('none');
+  });
+
+  it('does not reuse the last detail status for a normal compose dialog', () => {
+    const h = contentFilterDomHarness();
+    const dialog = attrNode('dialog');
+    const window = { location: { pathname: '/example_main/status/100001' } };
+    h.document.querySelector = (selector) => (selector === '[role="dialog"]' ? dialog : null);
+    const baseQuerySelectorAll = h.document.querySelectorAll;
+    h.document.querySelectorAll = (selector) => (
+      selector === '[role="dialog"] article[data-testid="tweet"]' ? [] : baseQuerySelectorAll(selector)
+    );
+    const api = loadDebug({ document: h.document, window });
+    api.updateSettings({ enabled: true, level: 'standard', whitelistFollowing: false });
+    api._debug.scanForTweets({ tweet_results: { result: h.tweet } });
+    api._debug.applyHidesNow();
+
+    window.location.pathname = '/compose/post';
+
+    expect(api._debug.isTweetDetailPage()).toBe(false);
   });
 
   it('hosts the summary inside the main tweet cell so it shares the virtualized slot', () => {

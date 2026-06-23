@@ -406,8 +406,13 @@
     return m?.[1] || null;
   }
 
+  function hasDialogStatusArticle(id) {
+    return !!id && Array.from(document.querySelectorAll('[role="dialog"] article[data-testid="tweet"]'))
+      .some((art) => getTweetIdFromArticle(art) === id);
+  }
+
   function hasBackgroundStatusArticle(id) {
-    if (!id || !document.querySelector?.('[role="dialog"]')) return false;
+    if (!hasDialogStatusArticle(id)) return false;
     return Array.from(document.querySelectorAll('[data-testid="cellInnerDiv"]'))
       .filter((cell) => !cell.closest?.('[role="dialog"]'))
       .some((cell) => getTweetIdFromArticle(cell.querySelector?.('article[data-testid="tweet"]')) === id);
