@@ -74,7 +74,39 @@ let copyAsMarkdownEnabled = true;
 let starChartEnabled = true;
 let showBookmarkCount = true;
 let leaderboardEdgeHideEnabled = true;
+let bookmarkTimelineInjectEnabled = false;
+let bookmarkTimelineInjectFolderIds = [];
+let bookmarkTimelineInjectEvery = 20;
+const bookmarkTimelineEntryCache = new Map();
+const bookmarkTimelineInsertedTweetIds = new Set();
+let bookmarkTimelineFolders = [];
+let bookmarkTimelineDialog = null;
 let pendingReleaseNotesVersion = '';
+
+function bookmarkTimelineDebugEnabled() {
+  try { return localStorage.getItem('xvmBtiDebug') === '1'; } catch (_) { return false; }
+}
+
+function debugBookmarkTimeline(...args) {
+  if (!bookmarkTimelineDebugEnabled()) return;
+  console.debug('[XVM-BTI]', ...args);
+}
+
+window.__xvmBtiState = () => {
+  const cog = document.querySelector('.xvm-bti-cog');
+  return {
+    enabled: bookmarkTimelineInjectEnabled,
+    folderIds: [...bookmarkTimelineInjectFolderIds],
+    every: bookmarkTimelineInjectEvery,
+    folders: bookmarkTimelineFolders.map((f) => ({ id: String(f.id || ''), name: String(f.name || '') })),
+    cache: Array.from(bookmarkTimelineEntryCache.entries()).map(([folderId, entries]) => ({ folderId, count: entries.length })),
+    cog: cog ? {
+      parentRole: cog.parentElement?.getAttribute?.('role') || '',
+      previousText: (cog.previousElementSibling?.textContent || '').trim().slice(0, 80),
+      nextText: (cog.nextElementSibling?.textContent || '').trim().slice(0, 80),
+    } : null,
+  };
+};
 
 const RELEASE_NOTE_ITEMS = [
   ['contentUpdateItemAiProviderTitle', 'contentUpdateItemAiProviderBody', 'AI 评论服务', '在设置 → AI 生成评论里选择服务来源：可以继续使用 X Grok，也可以接入 OpenAI 兼容接口、DeepSeek、OpenRouter 或本机 Ollama。'],
@@ -90,9 +122,50 @@ function applyBadgeStyle() {
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  if (event.data?.type === 'XVM_BOOKMARK_TIMELINE_TXID_REQUEST') {
+    const requestId = String(event.data.requestId || '');
+    const method = String(event.data.method || 'GET');
+    const path = String(event.data.path || '');
+    Promise.resolve(window.__xvmXct?.generateTxId?.(method, path))
+      .then((txId) => {
+        window.postMessage({
+          type: 'XVM_BOOKMARK_TIMELINE_TXID_RESPONSE',
+          requestId,
+          ok: !!txId,
+          txId: txId || '',
+        }, '*');
+      })
+      .catch((err) => {
+        window.postMessage({
+          type: 'XVM_BOOKMARK_TIMELINE_TXID_RESPONSE',
+          requestId,
+          ok: false,
+          txId: '',
+          error: err?.message || String(err),
+        }, '*');
+      });
+    return;
+  }
   if (event.data?.type === 'XVM_RELEASE_NOTES_SHOW' && typeof event.data.version === 'string') {
     pendingReleaseNotesVersion = event.data.version;
     scheduleReleaseNotesModal();
+    return;
+  }
+  if (event.data?.type === 'XVM_FOLDERS_UPDATE') {
+    bookmarkTimelineFolders = Array.isArray(event.data.folders) ? event.data.folders : [];
+    renderBookmarkTimelineSettings();
+    return;
+  }
+  if (event.data?.type === 'XVM_BOOKMARK_TIMELINE_CACHE_UPDATE') {
+    const folderId = String(event.data.folderId || '');
+    const count = window.__xvmBookmarkTimelineInject?.cacheBookmarkTimelineEntries(bookmarkTimelineEntryCache, folderId, event.data.json) || 0;
+    debugBookmarkTimeline('direct refresh cache update', { folderId, count });
+    renderBookmarkTimelineSettings();
+    return;
+  }
+  if (event.data?.type === 'XVM_BOOKMARK_TIMELINE_CACHE_ERROR') {
+    debugBookmarkTimeline('direct refresh cache error', { folderId: event.data.folderId, error: event.data.error });
+    showToast(`书签内容刷新失败：${event.data.error || '未知错误'}`);
     return;
   }
   if (event.data?.type !== 'XVM_SETTINGS_UPDATE') return;
@@ -146,6 +219,12 @@ window.addEventListener('message', (event) => {
 
   copyAsMarkdownEnabled = event.data.featureCopyAsMarkdown !== false;
   starChartEnabled = event.data.featureStarChart !== false;
+  bookmarkTimelineInjectEnabled = event.data.featureBookmarkTimelineInject === true;
+  bookmarkTimelineInjectFolderIds = Array.isArray(event.data.bookmarkTimelineInjectFolderIds)
+    ? event.data.bookmarkTimelineInjectFolderIds.map(String).filter(Boolean)
+    : [];
+  bookmarkTimelineInjectEvery = Math.max(1, Math.min(100, Number.parseInt(event.data.bookmarkTimelineInjectEvery, 10) || 20));
+  renderBookmarkTimelineSettings();
   installLeaderboardThemeSync();
   scheduleReleaseNotesModal();
 });
@@ -337,6 +416,7 @@ function reportRateLimit(remaining, reset) {
 // Subscribe to GraphQL traffic for star-chart template capture + tweet scanning.
 window.__xvmNet?.onRequest(GRAPHQL_RE, ({ url, headers }) => {
   recordStarChartTemplate(url, headers);
+  captureBookmarkTimelineQueryId(url);
 });
 window.__xvmNet?.onResponse(GRAPHQL_RE, async ({ url, response, source }) => {
   if (source === 'fetch') {
@@ -347,6 +427,85 @@ window.__xvmNet?.onResponse(GRAPHQL_RE, async ({ url, response, source }) => {
     try { scanForTweets(response.json()); } catch (_) {}
   }
 });
+window.__xvmNet?.onResponsePatch(GRAPHQL_RE, ({ url, json }) => {
+  return maybeInjectBookmarkTimeline(url, json);
+});
+
+function captureBookmarkTimelineQueryId(url) {
+  const qid = String(url || '').match(/\/i\/api\/graphql\/([^/]+)\/BookmarkFolderTimeline(?:\?|$)/)?.[1];
+  if (!qid) return;
+  window.postMessage({ type: 'XVM_BOOKMARK_TIMELINE_QID_CAPTURED', qid, capturedAt: Date.now() }, '*');
+  debugBookmarkTimeline('captured BookmarkFolderTimeline queryId', { qid });
+}
+
+function currentBookmarkFolderId() {
+  const m = location.pathname.match(/^\/i\/bookmarks\/([^/?#]+)/);
+  return m ? decodeURIComponent(m[1]) : null;
+}
+
+function rememberBookmarkTimelineEntries(json) {
+  const folderId = currentBookmarkFolderId();
+  if (!folderId) return;
+  if (!bookmarkTimelineInjectEnabled) {
+    debugBookmarkTimeline('cache skipped: disabled', { folderId });
+    return;
+  }
+  if (bookmarkTimelineInjectFolderIds.length && !bookmarkTimelineInjectFolderIds.includes(folderId)) {
+    debugBookmarkTimeline('cache skipped: folder not selected', { folderId, selected: bookmarkTimelineInjectFolderIds });
+    return;
+  }
+  const count = window.__xvmBookmarkTimelineInject?.cacheBookmarkTimelineEntries(bookmarkTimelineEntryCache, folderId, json) || 0;
+  debugBookmarkTimeline('cache bookmark folder response', { folderId, count, cachedFolders: Array.from(bookmarkTimelineEntryCache.keys()) });
+}
+
+function maybeInjectBookmarkTimeline(url, json) {
+  rememberBookmarkTimelineEntries(json);
+  if (!/\/i\/api\/graphql\/.*HomeTimeline/.test(url)) return undefined;
+  const before = countBookmarkTimelineHomeEntries(json);
+  if (!bookmarkTimelineInjectEnabled) {
+    debugBookmarkTimeline('HomeTimeline skipped: disabled', { before });
+    return undefined;
+  }
+  const patched = window.__xvmBookmarkTimelineInject?.injectBookmarkTimelineEntries(json, bookmarkTimelineEntryCache, {
+    enabled: true,
+    folderIds: bookmarkTimelineInjectFolderIds,
+    every: bookmarkTimelineInjectEvery,
+  });
+  const after = countBookmarkTimelineHomeEntries(patched || json);
+  const inserted = after - before;
+  rememberInsertedBookmarkTimelineTweets(patched || json);
+  debugBookmarkTimeline('HomeTimeline inject attempt', {
+    selectedFolders: bookmarkTimelineInjectFolderIds,
+    every: bookmarkTimelineInjectEvery,
+    cache: Array.from(bookmarkTimelineEntryCache.entries()).map(([folderId, entries]) => ({ folderId, count: entries.length })),
+    before,
+    after,
+    inserted,
+  });
+  return inserted > 0 ? patched : undefined;
+}
+
+function rememberInsertedBookmarkTimelineTweets(json) {
+  const arrays = window.__xvmBookmarkTimelineInject?._findEntryArrays?.(json) || [];
+  for (const entry of arrays.flat()) {
+    if (!String(entry?.entryId || '').startsWith('xvm-bookmark-')) continue;
+    const id = window.__xvmBookmarkTimelineInject?._getTweetId?.(entry);
+    if (id) bookmarkTimelineInsertedTweetIds.add(String(id));
+  }
+}
+
+function countBookmarkTimelineHomeEntries(json) {
+  const instructions = json?.data?.home?.home_timeline_urt?.instructions
+    || json?.data?.home?.home_timeline?.instructions
+    || [];
+  for (const instruction of instructions) {
+    const entries = instruction?.entries || [];
+    if (entries.some((entry) => window.__xvmBookmarkTimelineInject?._getTweetId?.(entry))) return entries.length;
+  }
+  const arrays = window.__xvmBookmarkTimelineInject?._findEntryArrays?.(json) || [];
+  const entries = arrays.find((items) => items.length) || [];
+  return entries.length;
+}
 
 // === Data Extraction ===
 // Recursively scan any JSON for tweet_results objects
@@ -1001,8 +1160,26 @@ function renderBadges() {
     headerRow.insertBefore(badge, headerRow.lastElementChild);
   }
 
+  renderBookmarkTimelineBadges();
   renderBookmarkCounts();
   if (leaderboardEnabled) renderLeaderboard();
+}
+
+function renderBookmarkTimelineBadges() {
+  if (!bookmarkTimelineInsertedTweetIds.size) return;
+  const articles = document.querySelectorAll('article[data-testid="tweet"]');
+  for (const article of articles) {
+    if (article.querySelector('.xvm-bookmark-timeline-badge')) continue;
+    const tweetId = getTweetIdFromArticle(article);
+    if (!tweetId || !bookmarkTimelineInsertedTweetIds.has(tweetId)) continue;
+    const caretBtn = article.querySelector('[data-testid="caret"]');
+    if (!caretBtn?.parentElement) continue;
+    const badge = document.createElement('span');
+    badge.className = 'xvm-bookmark-timeline-badge';
+    badge.textContent = '书签';
+    badge.title = '插入的书签推文';
+    caretBtn.parentElement.insertBefore(badge, caretBtn);
+  }
 }
 
 // Inject a bookmark count next to each tweet's bookmark button. X hides
@@ -1298,6 +1475,7 @@ function syncTabSelectedScope() {
     _tabSelectedScope = next;
     setLeaderboardHotSwitchState();
   }
+  ensureBookmarkTimelineCog();
 }
 function currentLeaderboardScope() {
   return _tabSelectedScope || _activeScope || scopeFromPath();
@@ -1373,6 +1551,7 @@ function updateLeaderboardHotNotice(on = false) {
 let _tabMo = null;
 let _tabObserved = null;
 let _bodyMo = null;
+let _bookmarkTimelineCogTimer = null;
 function disconnectTabMo() {
   if (_tabMo) { try { _tabMo.disconnect(); } catch (_) {} _tabMo = null; }
   _tabObserved = null;
@@ -1380,15 +1559,179 @@ function disconnectTabMo() {
 function attachTabObserver() {
   const tl = document.querySelector('[role="tablist"]');
   if (!tl) return false;
-  if (tl === _tabObserved) return true;
+  if (tl === _tabObserved) {
+    ensureBookmarkTimelineCog();
+    return true;
+  }
   // Tablist re-mounted (SPA navigation) — drop the orphaned observer on
   // the detached node so we don't leak one per navigation.
   disconnectTabMo();
   _tabObserved = tl;
   _tabMo = new MutationObserver(syncTabSelectedScope);
-  _tabMo.observe(tl, { attributes: true, subtree: true, attributeFilter: ['aria-selected'] });
+  _tabMo.observe(tl, { attributes: true, childList: true, subtree: true, attributeFilter: ['aria-selected'] });
   syncTabSelectedScope();
+  ensureBookmarkTimelineCog();
   return true;
+}
+
+function ensureBookmarkTimelineCog() {
+  document.querySelectorAll('.xvm-bti-cog').forEach((btn) => {
+    if (window.location.pathname !== '/home' || !btn.closest('[role="tablist"]')) btn.remove();
+  });
+  if (window.location.pathname !== '/home') return;
+  const tl = document.querySelector('[role="tablist"]');
+  const firstTab = tl?.querySelector?.('[role="tab"]');
+  if (!tl || !firstTab) return;
+  const firstTabItem = firstTab.closest('[role="presentation"]') || firstTab;
+  let btn = tl.querySelector('.xvm-bti-cog');
+  if (btn) {
+    if (btn.previousElementSibling !== firstTabItem) {
+      firstTabItem.after(btn);
+      debugBookmarkTimeline('move cog after first tab', { firstTabText: (firstTab.textContent || '').trim() });
+    }
+    return;
+  }
+  btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'xvm-bti-cog';
+  btn.title = '书签穿插设置';
+  btn.setAttribute('aria-label', '书签穿插设置');
+  btn.innerHTML = `
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 15.5A3.5 3.5 0 1 0 12 8a3.5 3.5 0 0 0 0 7.5Z"></path>
+      <path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06A1.7 1.7 0 0 0 15 19.4a1.7 1.7 0 0 0-1 .58V20a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1-.5 1.7 1.7 0 0 0-1.88.34l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06A1.7 1.7 0 0 0 4.6 15a1.7 1.7 0 0 0-.58-1H4a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 .5-1 1.7 1.7 0 0 0-.34-1.88l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-.58V4a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 .5 1.7 1.7 0 0 0 1.88-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06A1.7 1.7 0 0 0 19.4 9c.2.32.39.65.58 1H20a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-.5 1Z"></path>
+    </svg>`;
+  btn.addEventListener('click', (ev) => {
+    ev.preventDefault();
+    ev.stopPropagation();
+    showBookmarkTimelineSettings();
+  });
+  firstTabItem.after(btn);
+  debugBookmarkTimeline('insert cog after first tab', { firstTabText: (firstTab.textContent || '').trim() });
+}
+
+function saveBookmarkTimelineSettings() {
+  window.postMessage({
+    type: 'XVM_BOOKMARK_TIMELINE_INJECT_SAVE',
+    enabled: bookmarkTimelineInjectEnabled,
+    folderIds: bookmarkTimelineInjectFolderIds,
+    every: bookmarkTimelineInjectEvery,
+  }, '*');
+}
+
+function selectedBookmarkTimelineFoldersFromDialog() {
+  return Array.from(bookmarkTimelineDialog?.querySelectorAll('.xvm-bti-folder input:checked') || [])
+    .map((input) => input.value)
+    .filter(Boolean);
+}
+
+function escapeHtml(value) {
+  return String(value).replace(/[&<>"']/g, (ch) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[ch]));
+}
+
+function renderBookmarkTimelineSettings() {
+  if (!bookmarkTimelineDialog) return;
+  const enabled = bookmarkTimelineDialog.querySelector('.xvm-bti-enabled');
+  const every = bookmarkTimelineDialog.querySelector('.xvm-bti-every');
+  const list = bookmarkTimelineDialog.querySelector('.xvm-bti-folders');
+  const count = bookmarkTimelineDialog.querySelector('.xvm-bti-count');
+  if (enabled) enabled.checked = bookmarkTimelineInjectEnabled;
+  if (every) every.value = String(bookmarkTimelineInjectEvery);
+  if (count) {
+    const selectedCount = bookmarkTimelineInjectFolderIds.length;
+    const cachedCount = bookmarkTimelineInjectFolderIds.reduce(
+      (sum, id) => sum + (bookmarkTimelineEntryCache.get(String(id))?.length || 0),
+      0,
+    );
+    count.textContent = selectedCount
+      ? `已选 ${selectedCount} 个文件夹，已缓存 ${cachedCount} 条`
+      : '未选择文件夹';
+  }
+  if (!list) return;
+  if (!bookmarkTimelineFolders.length) {
+    list.innerHTML = '<div class="xvm-bti-empty">还没有文件夹列表，点刷新或先开启书签文件夹功能。</div>';
+    return;
+  }
+  const selected = new Set(bookmarkTimelineInjectFolderIds.map(String));
+  list.innerHTML = bookmarkTimelineFolders.map((folder) => {
+    const id = String(folder.id || '');
+    const name = String(folder.name || id || '未命名文件夹');
+    return `
+      <label class="xvm-bti-folder">
+        <input type="checkbox" value="${escapeHtml(id)}" ${selected.has(id) ? 'checked' : ''}>
+        <span>${escapeHtml(name)}</span>
+      </label>`;
+  }).join('');
+}
+
+function showBookmarkTimelineSettings() {
+  if (bookmarkTimelineDialog?.isConnected) {
+    renderBookmarkTimelineSettings();
+    return;
+  }
+  const backdrop = document.createElement('div');
+  backdrop.className = 'xvm-bti-backdrop';
+  backdrop.innerHTML = `
+    <div class="xvm-bti-dialog" role="dialog" aria-modal="true" aria-label="书签穿插设置">
+      <button class="xvm-bti-close" type="button" aria-label="关闭">×</button>
+      <h2>书签穿插</h2>
+      <p class="xvm-bti-sub">把选中文件夹里的书签帖穿插到首页时间线里。</p>
+      <label class="xvm-bti-row">
+        <span><b>启用</b><small>首页时间线响应返回时插入缓存书签</small></span>
+        <input class="xvm-bti-enabled" type="checkbox">
+      </label>
+      <label class="xvm-bti-row">
+        <span><b>插入频率</b><small>每浏览多少条时间线推文插入 1 条</small></span>
+        <select class="xvm-bti-every">
+          <option value="10">10 条</option>
+          <option value="20">20 条</option>
+          <option value="30">30 条</option>
+        </select>
+      </label>
+      <div class="xvm-bti-section-title">书签文件夹</div>
+      <div class="xvm-bti-folders"></div>
+      <div class="xvm-bti-footer">
+        <span class="xvm-bti-count"></span>
+        <button class="xvm-bti-refresh" type="button">刷新</button>
+      </div>
+    </div>`;
+  bookmarkTimelineDialog = backdrop;
+  document.body.appendChild(backdrop);
+  renderBookmarkTimelineSettings();
+  backdrop.addEventListener('click', (ev) => {
+    if (ev.target === backdrop || ev.target.closest('.xvm-bti-close')) {
+      backdrop.remove();
+      bookmarkTimelineDialog = null;
+    }
+  });
+  backdrop.querySelector('.xvm-bti-enabled')?.addEventListener('change', (ev) => {
+    bookmarkTimelineInjectEnabled = ev.target.checked;
+    saveBookmarkTimelineSettings();
+    renderBookmarkTimelineSettings();
+  });
+  backdrop.querySelector('.xvm-bti-every')?.addEventListener('change', (ev) => {
+    bookmarkTimelineInjectEvery = Math.max(1, Number.parseInt(ev.target.value, 10) || 20);
+    saveBookmarkTimelineSettings();
+    renderBookmarkTimelineSettings();
+  });
+  backdrop.querySelector('.xvm-bti-folders')?.addEventListener('change', (ev) => {
+    if (!ev.target?.matches?.('input[type="checkbox"]')) return;
+    bookmarkTimelineInjectFolderIds = selectedBookmarkTimelineFoldersFromDialog();
+    saveBookmarkTimelineSettings();
+    renderBookmarkTimelineSettings();
+  });
+  backdrop.querySelector('.xvm-bti-refresh')?.addEventListener('click', () => {
+    window.postMessage({ type: 'XVM_REQUEST_FOLDER_REFRESH' }, '*');
+    window.postMessage({ type: 'XVM_BOOKMARK_TIMELINE_REFRESH', folderIds: bookmarkTimelineInjectFolderIds }, '*');
+    window.postMessage({ type: 'XVM_REQUEST_SETTINGS' }, '*');
+    showToast(bookmarkTimelineInjectFolderIds.length ? '正在刷新书签内容' : '请先勾选书签文件夹');
+  });
 }
 function armBodyTablistWatch() {
   // Cheap one-shot: watch body until the tablist appears, then disconnect
@@ -1413,6 +1756,11 @@ function installTabSelectedObserver() {
     setTimeout(syncTabSelectedScope, 250);
   }, true);
   if (!attachTabObserver()) armBodyTablistWatch();
+  if (!_bookmarkTimelineCogTimer) {
+    _bookmarkTimelineCogTimer = setInterval(() => {
+      if (window.location.pathname === '/home') ensureBookmarkTimelineCog();
+    }, 1000);
+  }
 }
 
 function installLeaderboardFilterStateSync() {
@@ -1667,8 +2015,8 @@ function restoreLeaderboardPosition(pos) {
   if (leaderboardEdgeHideEnabled && isLeaderboardEdge(pos.hiddenEdge)) {
     leaderboardHiddenEdge = pos.hiddenEdge;
     if (leaderboardEl) {
-      syncLeaderboardHiddenDom();
       positionHiddenLeaderboard(leaderboardHiddenEdge);
+      syncLeaderboardHiddenDom();
     }
   } else {
     leaderboardHiddenEdge = null;
@@ -1705,11 +2053,11 @@ function positionHiddenLeaderboard(edge = leaderboardHiddenEdge || 'right') {
   const left = clampToViewport(rect.left || (leaderboardExpandedPos?.left ?? window.innerWidth - rect.width - 16), 'x');
   const top = clampToViewport(rect.top || (leaderboardExpandedPos?.top ?? 72), 'y');
   if (edge === 'left') {
-    leaderboardEl.style.left = Math.min(0, LB_EDGE_PEEK - rect.width) + 'px';
+    leaderboardEl.style.left = '0px';
     leaderboardEl.style.top = top + 'px';
   } else if (edge === 'top') {
     leaderboardEl.style.left = left + 'px';
-    leaderboardEl.style.top = Math.min(0, LB_EDGE_PEEK - rect.height) + 'px';
+    leaderboardEl.style.top = '0px';
   } else if (edge === 'bottom') {
     leaderboardEl.style.left = left + 'px';
     leaderboardEl.style.top = Math.max(0, window.innerHeight - LB_EDGE_PEEK) + 'px';
@@ -1723,18 +2071,18 @@ function positionHiddenLeaderboard(edge = leaderboardHiddenEdge || 'right') {
 function getLeaderboardExpandedPositionForEdge(edge = 'right') {
   if (!leaderboardEl) return null;
   const rect = leaderboardEl.getBoundingClientRect();
-  const currentLeft = Number.isFinite(rect.left) ? rect.left : (leaderboardExpandedPos?.left ?? window.innerWidth - rect.width - 8);
+  const currentLeft = Number.isFinite(rect.left) ? rect.left : (leaderboardExpandedPos?.left ?? window.innerWidth - rect.width);
   const currentTop = Number.isFinite(rect.top) ? rect.top : (leaderboardExpandedPos?.top ?? 72);
   let left = currentLeft;
   let top = currentTop;
   if (edge === 'left') {
-    left = 8;
+    left = 0;
   } else if (edge === 'right') {
-    left = window.innerWidth - rect.width - 8;
+    left = window.innerWidth - rect.width;
   } else if (edge === 'top') {
-    top = 8;
+    top = 0;
   } else if (edge === 'bottom') {
-    top = window.innerHeight - rect.height - 8;
+    top = window.innerHeight - rect.height;
   }
   return {
     left: clampToViewport(left, 'x'),
@@ -1794,8 +2142,8 @@ function setLeaderboardEdgeHidden(hidden, edge = 'right', options = {}) {
       top: clampToViewport(rect.top, 'y'),
     };
     leaderboardHiddenEdge = nextEdge;
-    syncLeaderboardHiddenDom();
     positionHiddenLeaderboard(nextEdge);
+    syncLeaderboardHiddenDom();
     saveLeaderboardPosition();
   } else {
     clearLeaderboardTempExpand();
@@ -1816,6 +2164,12 @@ function expandLeaderboardFromHiddenEdge(byHover = false) {
   if (suppressLeaderboardEdgeExpandClick) return false;
   const hiddenEdge = leaderboardHiddenEdge;
   setLeaderboardEdgeHidden(false);
+  leaderboardExpandedPos = getLeaderboardExpandedPositionForEdge(hiddenEdge);
+  if (leaderboardExpandedPos) {
+    leaderboardPos = { ...leaderboardExpandedPos };
+    applyLeaderboardPosition();
+  }
+  renderLeaderboard();
   armLeaderboardTempExpand(hiddenEdge, byHover);
   return true;
 }
@@ -1905,8 +2259,8 @@ function applyLeaderboardHeight() {
 function applyLeaderboardPosition() {
   if (!leaderboardEl) return;
   if (leaderboardHiddenEdge) {
-    syncLeaderboardHiddenDom();
     positionHiddenLeaderboard();
+    syncLeaderboardHiddenDom();
     return;
   }
   if (leaderboardPos && Number.isFinite(leaderboardPos.left) && Number.isFinite(leaderboardPos.top)) {
@@ -1940,6 +2294,7 @@ window.addEventListener('message', (event) => {
   if (event.data?.type === 'XVM_LB_HEIGHT_LOAD' && Number.isFinite(event.data.height)) {
     leaderboardHeight = event.data.height;
     applyLeaderboardHeight();
+    applyLeaderboardPosition();
   }
 });
 window.postMessage({ type: 'XVM_LB_POS_REQUEST' }, '*');
@@ -2652,6 +3007,7 @@ function renderLeaderboard() {
       return;
     }
     el.style.display = 'block';
+    if (leaderboardHiddenEdge) positionHiddenLeaderboard(leaderboardHiddenEdge);
     const visibleCols = leaderboardColumns.filter((c) => c.visible && LB_COLUMN_RENDERERS[c.id]);
     list.innerHTML = top.map((t, i) => {
       const tier = t.velocity >= velocityThresholds.viral ? 'red'
@@ -2824,7 +3180,7 @@ document.addEventListener('keydown', (e) => {
 function getTweetIdFromArticle(article) {
   const links = article.querySelectorAll('a[href*="/status/"]');
   for (const link of links) {
-    const match = link.getAttribute('href').match(/\/status\/(\d+)$/);
+    const match = link.getAttribute('href').match(/\/status\/(\d+)(?:[/?#]|$)/);
     if (match) {
       const id = match[1];
       if (tweetDataStore.has(id)) return id;
@@ -2841,6 +3197,8 @@ setInterval(() => {
   const unscored = document.querySelectorAll('article[data-testid="tweet"]:not([data-xvm-scored])');
   if (unscored.length > 0) {
     renderBadges();
+  } else if (bookmarkTimelineInsertedTweetIds.size) {
+    renderBookmarkTimelineBadges();
   } else if (leaderboardEnabled) {
     renderLeaderboard();
   }

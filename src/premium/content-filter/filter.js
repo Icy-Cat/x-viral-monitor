@@ -517,6 +517,7 @@
     const style = document.createElement('style');
     style.id = 'xvm-content-filter-style';
     style.textContent = `
+      article[${HIDE_ATTR}], [data-testid="cellInnerDiv"][${HIDE_ATTR}]{display:none!important}
       .xvm-cf-summary{margin:8px 0;padding:9px 12px;border:1px solid rgba(251,146,60,.35);border-radius:10px;background:rgba(251,146,60,.10);color:inherit;font:13px system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;cursor:pointer;-webkit-user-select:none;user-select:none}
       .xvm-cf-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
       .xvm-cf-summary strong{font-weight:700}

@@ -40,9 +40,13 @@ describe('leaderboard edge-hide release behavior', () => {
 
   it('arms temporary expand when a hidden leaderboard is clicked open', () => {
     const installer = contentJs.match(/function installLeaderboardEdgeToggle\(\) \{[\s\S]*?function installLeaderboardPanelActions/)?.[0] || '';
+    const expandFn = contentJs.match(/function expandLeaderboardFromHiddenEdge\(byHover = false\) \{[\s\S]*?return true;\n\}/)?.[0] || '';
     expect(contentJs).toContain('function expandLeaderboardFromHiddenEdge(byHover = false)');
     expect(contentJs).toContain('const hiddenEdge = leaderboardHiddenEdge');
     expect(contentJs).toContain('armLeaderboardTempExpand(hiddenEdge, byHover)');
+    expect(expandFn).toContain('leaderboardExpandedPos = getLeaderboardExpandedPositionForEdge(hiddenEdge);');
+    expect(expandFn).toContain('applyLeaderboardPosition();');
+    expect(expandFn).toContain('renderLeaderboard();');
     expect(installer).toContain('expandLeaderboardFromHiddenEdge();');
   });
 
@@ -54,8 +58,12 @@ describe('leaderboard edge-hide release behavior', () => {
 
   it('snaps the saved expanded position to the edge when the hide button is used', () => {
     const installer = contentJs.match(/function installLeaderboardEdgeToggle\(\) \{[\s\S]*?function installLeaderboardPanelActions/)?.[0] || '';
+    const expandedPosFn = contentJs.match(/function getLeaderboardExpandedPositionForEdge\(edge = 'right'\) \{[\s\S]*?function clearLeaderboardTempExpand/)?.[0] || '';
     expect(contentJs).toContain('function getLeaderboardExpandedPositionForEdge(edge =');
     expect(contentJs).toContain('options.snapExpandedToEdge');
+    expect(expandedPosFn).toContain('left = 0;');
+    expect(expandedPosFn).toContain('left = window.innerWidth - rect.width;');
+    expect(expandedPosFn).not.toContain('window.innerWidth - rect.width - 8');
     expect(installer).toContain('setLeaderboardEdgeHidden(!hiddenEdge, \'right\', { snapExpandedToEdge: !hiddenEdge })');
   });
 
@@ -76,6 +84,11 @@ describe('leaderboard edge-hide release behavior', () => {
   });
 
   it('persists and restores the hidden edge across page refreshes', () => {
+    const restoreFn = contentJs.match(/function restoreLeaderboardPosition\(pos\) \{[\s\S]*?function setLeaderboardEdgeToggleState/)?.[0] || '';
+    const hideFn = contentJs.match(/function setLeaderboardEdgeHidden\(hidden, edge = 'right', options = \{\}\) \{[\s\S]*?function expandLeaderboardFromHiddenEdge/)?.[0] || '';
+    const applyFn = contentJs.match(/function applyLeaderboardPosition\(\) \{[\s\S]*?function clampToViewport/)?.[0] || '';
+    const messageHandler = contentJs.match(/window\.addEventListener\('message', \(event\) => \{[\s\S]*?window\.postMessage\(\{ type: 'XVM_LB_POS_REQUEST'/)?.[0] || '';
+    const renderBlock = "el.style.display = 'block';\n    if (leaderboardHiddenEdge) positionHiddenLeaderboard(leaderboardHiddenEdge);";
     expect(contentJs).toContain('function savedLeaderboardPosition()');
     expect(contentJs).toContain('hiddenEdge: leaderboardHiddenEdge || null');
     expect(contentJs).toContain('expandedPos: expanded || null');
@@ -88,5 +101,25 @@ describe('leaderboard edge-hide release behavior', () => {
     expect(contentJs).toContain('restoreLeaderboardPosition(event.data.pos)');
     expect(contentJs).toContain('setLeaderboardEdgeHidden(true, edge)');
     expect(contentJs).toContain('saveLeaderboardPosition();');
+    expect(restoreFn.indexOf('positionHiddenLeaderboard(leaderboardHiddenEdge);')).toBeLessThan(restoreFn.indexOf('syncLeaderboardHiddenDom();'));
+    expect(hideFn.indexOf('positionHiddenLeaderboard(nextEdge);')).toBeLessThan(hideFn.indexOf('syncLeaderboardHiddenDom();'));
+    expect(applyFn.indexOf('positionHiddenLeaderboard();')).toBeLessThan(applyFn.indexOf('syncLeaderboardHiddenDom();'));
+    expect(contentJs).toContain(renderBlock);
+    expect(messageHandler).toContain("event.data?.type === 'XVM_LB_HEIGHT_LOAD'");
+    expect(messageHandler).toContain('applyLeaderboardHeight();\n    applyLeaderboardPosition();');
+  });
+
+  it('keeps restored edge-hidden panels from showing a blank full-size body', () => {
+    const styles = readFileSync(resolve(repo, 'styles.css'), 'utf8');
+    const positionFn = contentJs.match(/function positionHiddenLeaderboard\(edge = leaderboardHiddenEdge \|\| 'right'\) \{[\s\S]*?function getLeaderboardExpandedPositionForEdge/)?.[0] || '';
+    expect(styles).toContain('.xvm-lb.xvm-lb-edge-hidden[data-edge="left"],');
+    expect(styles).toContain('width: 34px !important;');
+    expect(styles).toContain('.xvm-lb.xvm-lb-edge-hidden[data-edge="top"],');
+    expect(styles).toContain('height: 34px !important;');
+    expect(styles).toContain('overflow: hidden;');
+    expect(positionFn).toContain("leaderboardEl.style.left = '0px';");
+    expect(positionFn).toContain("leaderboardEl.style.top = '0px';");
+    expect(positionFn).not.toContain('LB_EDGE_PEEK - rect.width');
+    expect(positionFn).not.toContain('LB_EDGE_PEEK - rect.height');
   });
 });

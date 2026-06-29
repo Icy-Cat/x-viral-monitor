@@ -1,6 +1,6 @@
 {
   "name": "x-viral-monitor",
-  "version": "1.18.3",
+  "version": "1.18.4",
   "private": true,
   "type": "module",
   "scripts": {

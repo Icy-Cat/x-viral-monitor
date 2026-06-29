@@ -676,6 +676,13 @@ describe('update notice modal', () => {
     expect(observerBlock.indexOf('injectCopyMarkdownItem(menu);')).toBeLessThan(observerBlock.indexOf('injectCopyTweetCommentsItem(menu);'));
     expect(observerBlock.indexOf('injectCopyTweetCommentsItem(menu);')).toBeLessThan(observerBlock.indexOf('injectStarChartItem(menu);'));
   });
+
+  it('matches status links with X detail suffixes before rendering badges', () => {
+    const re = /\/status\/(\d+)(?:[/?#]|$)/;
+    expect('/gengdaJ/status/2069425112651272493/history'.match(re)?.[1]).toBe('2069425112651272493');
+    expect(contentJs).toContain('/\\/status\\/(\\d+)(?:[/?#]|$)/');
+    expect(userScript).toContain('/\\/status\\/(\\d+)(?:[/?#]|$)/');
+  });
 });
 
 describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS ↔ _locales)', () => {
@@ -724,11 +731,11 @@ describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS 
     expect(missingJa, `popup.html references data-i18n keys missing from _locales/ja: ${missingJa.join(', ')}`).toEqual([]);
   });
 
-  it('keeps package and extension versions in sync for v1.18.3', () => {
-    expect(manifest.version).toBe('1.18.3');
-    expect(pkg.version).toBe('1.18.3');
-    expect(packageLock.version).toBe('1.18.3');
-    expect(packageLock.packages?.['']?.version).toBe('1.18.3');
+  it('keeps package and extension versions in sync for v1.18.4', () => {
+    expect(manifest.version).toBe('1.18.4');
+    expect(pkg.version).toBe('1.18.4');
+    expect(packageLock.version).toBe('1.18.4');
+    expect(packageLock.packages?.['']?.version).toBe('1.18.4');
   });
 
   it('renders the popup footer version from the extension manifest', () => {

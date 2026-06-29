@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         X Viral Monitor Minimal Badge
 // @namespace    https://github.com/Icy-Cat/x-viral-monitor
-// @version      0.1.15
+// @version      0.1.16
 // @description  Minimal X velocity badges from GraphQL tweet metrics.
 // @author       IcyCat, Chlience
 // @homepageURL  https://github.com/Icy-Cat/x-viral-monitor
@@ -888,7 +888,7 @@ article[data-testid="tweet"].xvm-article-linked {
   function getTweetIdFromArticle(article) {
     const links = article.querySelectorAll('a[href*="/status/"]');
     for (const link of links) {
-      const match = (link.getAttribute('href') || '').match(/\/status\/(\d+)$/);
+      const match = (link.getAttribute('href') || '').match(/\/status\/(\d+)(?:[/?#]|$)/);
       if (match && tweetDataStore.has(match[1])) return match[1];
     }
     const firstLink = article.querySelector('a[href*="/status/"]');

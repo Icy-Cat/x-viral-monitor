@@ -15,7 +15,11 @@ const hookSource = readFileSync(resolve(repo, 'lib/x-net-hook.js'), 'utf8');
 
 function makeFakeResponse(url) {
   const r = {
+    status: 200,
+    statusText: 'OK',
+    headers: new Headers({ 'content-type': 'application/json' }),
     json: async () => ({ url, payload: 'ok' }),
+    text: async () => JSON.stringify({ url, payload: 'ok' }),
   };
   r.clone = () => makeFakeResponse(url);
   return r;
@@ -31,10 +35,24 @@ function loadHook() {
     addEventListener() {},
   };
   class FakeXHR {
+    constructor() {
+      this.listeners = {};
+      this.responseType = '';
+      this.responseText = JSON.stringify({ payload: 'ok' });
+      this.status = 200;
+      this.readyState = 0;
+    }
     open() {}
     setRequestHeader() {}
-    send() {}
-    addEventListener() {}
+    send() {
+      this.readyState = 4;
+      for (const fn of this.listeners.readystatechange || []) fn.call(this);
+      for (const fn of this.listeners.load || []) fn.call(this);
+    }
+    addEventListener(type, fn) {
+      (this.listeners[type] ||= []).push(fn);
+    }
+    getResponseHeader() { return null; }
   }
   FakeXHR.prototype.open = function () {};
   FakeXHR.prototype.setRequestHeader = function () {};
@@ -43,12 +61,13 @@ function loadHook() {
     XMLHttpRequest: FakeXHR,
     Request: class {},
     URL,
-    Headers: class { forEach() {} },
+    Headers,
+    Response,
     console,
     setTimeout,
   };
   vm.runInNewContext(hookSource, ctx);
-  return { net: ctx.window.__xvmNet, win: ctx.window, fetchCalls };
+  return { net: ctx.window.__xvmNet, win: ctx.window, XHR: ctx.XMLHttpRequest, fetchCalls };
 }
 
 describe('x-net-hook response replay buffer', () => {
@@ -104,5 +123,29 @@ describe('x-net-hook response replay buffer', () => {
     const sources = [];
     net.onResponse(/HomeTimeline/, ({ source }) => sources.push(source));
     expect(sources).toEqual(['fetch']);
+  });
+
+  it('lets a fetch response patcher replace JSON before the caller receives it', async () => {
+    const { net, win } = loadHook();
+    net.onResponsePatch(/HomeTimeline/, ({ json }) => ({ ...json, patched: true }));
+
+    const res = await win.fetch('https://x.com/i/api/graphql/abc/HomeTimeline');
+    expect(await res.json()).toEqual({
+      url: 'https://x.com/i/api/graphql/abc/HomeTimeline',
+      payload: 'ok',
+      patched: true,
+    });
+  });
+
+  it('lets an XHR response patcher replace JSON before the caller receives it', () => {
+    const { net, XHR } = loadHook();
+    net.onResponsePatch(/HomeTimeline/, ({ json }) => ({ ...json, patched: true }));
+
+    const xhr = new XHR();
+    xhr.open('POST', 'https://x.com/i/api/graphql/abc/HomeTimeline');
+    xhr.send();
+
+    expect(JSON.parse(xhr.responseText)).toEqual({ payload: 'ok', patched: true });
+    expect(JSON.parse(xhr.response)).toEqual({ payload: 'ok', patched: true });
   });
 });

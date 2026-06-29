@@ -1068,6 +1068,10 @@ describe('#123 XVM content filter v1', () => {
     expect(h.cell.style.display || '').toBe('');
   });
 
+  it('enforces content-filter hidden markers with CSS so virtualized cells cannot reappear', () => {
+    expect(filter).toContain('article[${HIDE_ATTR}], [data-testid="cellInnerDiv"][${HIDE_ATTR}]{display:none!important}');
+  });
+
   it('only filters reply cells on tweet detail pages', () => {
     const h = contentFilterDomHarness();
     const homeApi = loadDebug({ document: h.document, window: { location: { pathname: '/home' } } });

@@ -237,6 +237,9 @@ const DEFAULT_FEATURES = {
   featureCopyAsMarkdown: true,
   featureStarChart: true,
   featureBookmarkFolders: false,
+  featureBookmarkTimelineInject: false,
+  bookmarkTimelineInjectFolderIds: [],
+  bookmarkTimelineInjectEvery: 20,
   showBookmarkCount: true,
   leaderboardEdgeHideEnabled: true,
   badgeStyle: 'pill-solid',
@@ -260,8 +263,90 @@ const DEFAULT_FEATURES = {
 const STORAGE_DEFAULTS = { ...DEFAULT_THRESHOLDS, ...DEFAULT_FEATURES };
 const RELEASE_NOTES_SEEN_KEY = 'xvm_release_notes_seen_version';
 const RELEASE_NOTES_AUTO_VERSIONS = new Set(['1.18.0']);
+const BOOKMARK_TIMELINE_QID_CACHE_KEY = 'xvm_bookmark_timeline_query_id';
 const X_BEARER = 'Bearer AAAAAAAAAAAAAAAAAAAAANRILgAAAAAAnNwIzUejRCOuH5E6I8xnZz4puTs%3D1Zv7ttfk8LF81IUq16cHjhLTvJu4FA33AGWWjCpTnA';
 const OP_LIST = { name: 'BookmarkFoldersSlice', qid: 'i78YDd0Tza-dV4SYs58kRg' };
+const OP_BOOKMARK_FOLDER_TIMELINE = { name: 'BookmarkFolderTimeline', qid: 'oKopHt25pa6yhDn1ek7Qng' };
+const X_MAIN_BUNDLE_RE = /https:\/\/abs\.twimg\.com\/responsive-web\/client-web\/main\.[a-f0-9]+\.js/;
+let bookmarkFolderTimelineQid = OP_BOOKMARK_FOLDER_TIMELINE.qid;
+let bookmarkTimelineTxSeq = 0;
+let bookmarkTimelineFeatureKeys = null;
+const BOOKMARK_TIMELINE_FEATURES = {
+  rweb_video_screen_enabled: false,
+  rweb_cashtags_enabled: true,
+  profile_label_improvements_pcf_label_in_post_enabled: true,
+  responsive_web_profile_redirect_enabled: false,
+  rweb_tipjar_consumption_enabled: false,
+  verified_phone_label_enabled: false,
+  creator_subscriptions_tweet_preview_api_enabled: true,
+  responsive_web_graphql_timeline_navigation_enabled: true,
+  responsive_web_graphql_skip_user_profile_image_extensions_enabled: false,
+  premium_content_api_read_enabled: false,
+  communities_web_enable_tweet_community_results_fetch: true,
+  c9s_tweet_anatomy_moderator_badge_enabled: true,
+  responsive_web_grok_analyze_button_fetch_trends_enabled: false,
+  responsive_web_grok_analyze_post_followups_enabled: true,
+  rweb_cashtags_composer_attachment_enabled: true,
+  responsive_web_jetfuel_frame: true,
+  responsive_web_grok_share_attachment_enabled: true,
+  responsive_web_grok_annotations_enabled: true,
+  articles_preview_enabled: true,
+  responsive_web_edit_tweet_api_enabled: true,
+  graphql_is_translatable_rweb_tweet_is_translatable_enabled: true,
+  view_counts_everywhere_api_enabled: true,
+  longform_notetweets_consumption_enabled: true,
+  responsive_web_twitter_article_tweet_consumption_enabled: true,
+  content_disclosure_indicator_enabled: true,
+  content_disclosure_ai_generated_indicator_enabled: true,
+  responsive_web_grok_show_grok_translated_post: true,
+  responsive_web_grok_analysis_button_from_backend: true,
+  rweb_conversational_replies_downvote_enabled: false,
+  post_ctas_fetch_enabled: false,
+  freedom_of_speech_not_reach_fetch_enabled: true,
+  standardized_nudges_misinfo: true,
+  tweet_with_visibility_results_prefer_gql_limited_actions_policy_enabled: true,
+  longform_notetweets_rich_text_read_enabled: true,
+  longform_notetweets_inline_media_enabled: false,
+  responsive_web_grok_image_annotation_enabled: true,
+  responsive_web_grok_imagine_annotation_enabled: true,
+  responsive_web_grok_community_note_auto_translation_is_enabled: true,
+  responsive_web_enhance_cards_enabled: false,
+};
+const BOOKMARK_TIMELINE_FIELD_TOGGLES = { withArticlePlainText: false };
+
+function requestBookmarkTimelineTxId(path) {
+  return new Promise((resolve) => {
+    const requestId = `xvm-bti-tx-${Date.now()}-${++bookmarkTimelineTxSeq}`;
+    const cleanup = () => {
+      clearTimeout(timer);
+      window.removeEventListener('message', onMessage);
+    };
+    const timer = setTimeout(() => {
+      cleanup();
+      resolve('');
+    }, 4000);
+    function onMessage(event) {
+      if (event.source !== window) return;
+      if (event.data?.type !== 'XVM_BOOKMARK_TIMELINE_TXID_RESPONSE') return;
+      if (event.data.requestId !== requestId) return;
+      cleanup();
+      resolve(event.data.ok ? String(event.data.txId || '') : '');
+    }
+    window.addEventListener('message', onMessage);
+    window.postMessage({
+      type: 'XVM_BOOKMARK_TIMELINE_TXID_REQUEST',
+      requestId,
+      method: 'GET',
+      path,
+    }, '*');
+  });
+}
+
+function applyBookmarkTimelineQueryId(qid) {
+  if (!/^[A-Za-z0-9_-]{15,30}$/.test(String(qid || ''))) return false;
+  bookmarkFolderTimelineQid = String(qid);
+  return true;
+}
 
 function normalizeLeaderboardCount(v) {
   const n = Number.parseInt(v, 10);
@@ -345,6 +430,11 @@ async function pushSettings(raw) {
     featureCopyAsMarkdown: raw?.featureCopyAsMarkdown !== false,
     featureStarChart: raw?.featureStarChart !== false,
     featureBookmarkFolders: !!raw?.featureBookmarkFolders,
+    featureBookmarkTimelineInject: !!raw?.featureBookmarkTimelineInject,
+    bookmarkTimelineInjectFolderIds: Array.isArray(raw?.bookmarkTimelineInjectFolderIds)
+      ? raw.bookmarkTimelineInjectFolderIds.map(String).filter(Boolean)
+      : [],
+    bookmarkTimelineInjectEvery: Math.max(1, Math.min(100, Number.parseInt(raw?.bookmarkTimelineInjectEvery, 10) || 20)),
     showBookmarkCount: raw?.showBookmarkCount !== false,
     leaderboardEdgeHideEnabled: raw?.leaderboardEdgeHideEnabled !== false,
     leaderboardCount: normalizeLeaderboardCount(raw?.leaderboardCount),
@@ -362,6 +452,184 @@ function pushFolders(folders, cachedAt) {
     folders: Array.isArray(folders) ? folders : [],
     cachedAt: cachedAt || 0,
   }, '*');
+}
+
+function buildBookmarkFolderTimelineUrl(folderId, cursor = '') {
+  const variables = {
+    bookmark_collection_id: folderId,
+    count: 100,
+    cursor: cursor || '',
+    includePromotedContent: false,
+  };
+  return `/i/api/graphql/${bookmarkFolderTimelineQid}/${OP_BOOKMARK_FOLDER_TIMELINE.name}?${new URLSearchParams({
+    variables: JSON.stringify(variables),
+    features: JSON.stringify(buildBookmarkTimelineFeatures()),
+    fieldToggles: JSON.stringify(BOOKMARK_TIMELINE_FIELD_TOGGLES),
+  }).toString()}`;
+}
+
+function buildBookmarkTimelineFeatures() {
+  const keys = bookmarkTimelineFeatureKeys?.length ? bookmarkTimelineFeatureKeys : Object.keys(BOOKMARK_TIMELINE_FEATURES);
+  const out = {};
+  for (const key of keys) out[key] = Object.prototype.hasOwnProperty.call(BOOKMARK_TIMELINE_FEATURES, key) ? BOOKMARK_TIMELINE_FEATURES[key] : true;
+  return out;
+}
+
+function getBookmarkTimelineClientUuid() {
+  const key = 'xvm_bookmark_timeline_client_uuid';
+  try {
+    const existing = localStorage.getItem(key);
+    if (existing) return existing;
+    const uuid = crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    localStorage.setItem(key, uuid);
+    return uuid;
+  } catch (_) {
+    return crypto?.randomUUID?.() || `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+  }
+}
+
+function sliceBalancedObject(text, openIdx) {
+  let depth = 0;
+  let inStr = null;
+  for (let i = openIdx; i < text.length; i++) {
+    const ch = text[i];
+    if (inStr) {
+      if (ch === '\\') { i++; continue; }
+      if (ch === inStr) inStr = null;
+    } else if (ch === '"' || ch === "'" || ch === '`') {
+      inStr = ch;
+    } else if (ch === '{') {
+      depth++;
+    } else if (ch === '}') {
+      depth--;
+      if (depth === 0) return text.slice(openIdx, i + 1);
+    }
+  }
+  return '';
+}
+
+function extractQuotedStrings(listBody) {
+  return (listBody.match(/"[^"]+"/g) || []).map((s) => s.slice(1, -1));
+}
+
+function parseBookmarkFolderTimelineOperation(bundleText) {
+  const loose = bundleText.match(/queryId:"([A-Za-z0-9_-]{15,30})"[^{}]{0,800}operationName:"BookmarkFolderTimeline"/)
+    || bundleText.match(/operationName:"BookmarkFolderTimeline"[^{}]{0,800}queryId:"([A-Za-z0-9_-]{15,30})"/);
+  if (loose?.[1]) return { queryId: loose[1], featureSwitches: [] };
+  const split = /e\.exports\s*=\s*\{/g;
+  let match;
+  while ((match = split.exec(bundleText))) {
+    const body = sliceBalancedObject(bundleText, match.index + match[0].length - 1);
+    if (!body || !/operationName:"BookmarkFolderTimeline"/.test(body)) continue;
+    const qid = body.match(/queryId:"([A-Za-z0-9_-]{15,30})"/)?.[1];
+    if (qid) {
+      const featureBody = body.match(/featureSwitches:\[([^\]]*)\]/)?.[1] || '';
+      return { queryId: qid, featureSwitches: extractQuotedStrings(featureBody) };
+    }
+  }
+  return null;
+}
+
+function parseBookmarkFolderTimelineQueryId(bundleText) {
+  return parseBookmarkFolderTimelineOperation(bundleText)?.queryId || null;
+}
+
+async function discoverBookmarkFolderTimelineQueryId() {
+  const scriptUrls = [
+    ...Array.from(document.scripts || []).map((script) => script.src),
+    ...performance.getEntriesByType('resource').map((entry) => entry.name),
+  ].filter((src) => /abs\.twimg\.com\/responsive-web\/client-web\/.*\.js/.test(src));
+  try {
+    const home = await fetch('https://x.com/home', { credentials: 'omit' });
+    const html = await home.text();
+    const main = html.match(X_MAIN_BUNDLE_RE)?.[0];
+    if (main) scriptUrls.unshift(main);
+  } catch (err) {
+    console.warn('[XVM] BookmarkFolderTimeline discovery home fetch failed', err);
+  }
+  const urls = [...new Set(scriptUrls)];
+  console.warn('[XVM] BookmarkFolderTimeline discovery scanning scripts', urls.length);
+  for (const url of urls) {
+    try {
+      const res = await fetch(url, { credentials: 'omit' });
+      if (!res.ok) {
+        console.warn('[XVM] BookmarkFolderTimeline discovery script HTTP', res.status, url);
+        continue;
+      }
+      const op = parseBookmarkFolderTimelineOperation(await res.text());
+      if (op?.queryId) {
+        bookmarkFolderTimelineQid = op.queryId;
+        bookmarkTimelineFeatureKeys = op.featureSwitches?.length ? op.featureSwitches : null;
+        console.warn('[XVM] BookmarkFolderTimeline discovery found queryId', op.queryId, url);
+        return op.queryId;
+      }
+    } catch (err) {
+      console.warn('[XVM] BookmarkFolderTimeline discovery script failed', url, err);
+    }
+  }
+  console.warn('[XVM] BookmarkFolderTimeline discovery found no queryId');
+  return null;
+}
+
+async function fetchBookmarkTimelineFolderJson(id) {
+  const ct0 = document.cookie.match(/ct0=([^;]+)/)?.[1];
+  if (!ct0) throw new Error('missing ct0');
+  const url = buildBookmarkFolderTimelineUrl(id);
+  const path = new URL(url, location.origin).pathname;
+  const txId = await requestBookmarkTimelineTxId(path);
+  const headers = {
+    authorization: X_BEARER,
+    'x-csrf-token': ct0,
+    'x-twitter-auth-type': 'OAuth2Session',
+    'x-twitter-active-user': 'true',
+    'x-twitter-client-language': 'en',
+    'x-client-uuid': getBookmarkTimelineClientUuid(),
+    'content-type': 'application/json',
+  };
+  if (txId) headers['x-client-transaction-id'] = txId;
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers,
+  });
+  const json = await res.json().catch(() => null);
+  return { res, json };
+}
+
+async function refreshBookmarkTimelineFolder(folderId, retryWithFreshQueryId = true) {
+  const id = String(folderId || '').trim();
+  if (!id) return;
+  let { res, json } = await fetchBookmarkTimelineFolderJson(id);
+  if (res.status === 404 && retryWithFreshQueryId) {
+    console.warn('[XVM] BookmarkFolderTimeline 404, discovering fresh queryId');
+    const qid = await discoverBookmarkFolderTimelineQueryId();
+    if (qid) {
+      ({ res, json } = await fetchBookmarkTimelineFolderJson(id));
+      console.warn('[XVM] BookmarkFolderTimeline retryWithFreshQueryId status', res.status, qid);
+    }
+  }
+  if (!res.ok) throw new Error(`BookmarkFolderTimeline HTTP ${res.status}`);
+  window.postMessage({
+    type: 'XVM_BOOKMARK_TIMELINE_CACHE_UPDATE',
+    folderId: id,
+    json,
+    refreshedAt: Date.now(),
+  }, '*');
+}
+
+async function refreshBookmarkTimelineFolders(folderIds) {
+  const ids = Array.isArray(folderIds) ? folderIds.map(String).filter(Boolean) : [];
+  for (const id of ids) {
+    try {
+      await refreshBookmarkTimelineFolder(id);
+    } catch (err) {
+      console.warn('[XVM] BookmarkFolderTimeline refresh failed', id, err);
+      window.postMessage({
+        type: 'XVM_BOOKMARK_TIMELINE_CACHE_ERROR',
+        folderId: id,
+        error: err?.message || String(err),
+      }, '*');
+    }
+  }
 }
 
 function pushReleaseNotesIfNeeded() {
@@ -418,6 +686,12 @@ safeChromeCall(() => {
 
 pushReleaseNotesIfNeeded();
 
+safeChromeCall(() => {
+  chrome.storage.local.get({ [BOOKMARK_TIMELINE_QID_CACHE_KEY]: null }, (items) => {
+    applyBookmarkTimelineQueryId(items[BOOKMARK_TIMELINE_QID_CACHE_KEY]?.qid);
+  });
+});
+
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
   const type = event.data?.type;
@@ -446,6 +720,42 @@ window.addEventListener('message', (event) => {
 
   if (type === 'XVM_REQUEST_FOLDER_REFRESH') {
     refreshFolders();
+    return;
+  }
+
+  if (type === 'XVM_BOOKMARK_TIMELINE_REFRESH') {
+    refreshBookmarkTimelineFolders(event.data.folderIds);
+    return;
+  }
+
+  if (type === 'XVM_BOOKMARK_TIMELINE_QID_CAPTURED') {
+    if (!applyBookmarkTimelineQueryId(event.data.qid)) return;
+    safeChromeCall(() => {
+      chrome.storage.local.set({
+        [BOOKMARK_TIMELINE_QID_CACHE_KEY]: {
+          qid: bookmarkFolderTimelineQid,
+          capturedAt: Number(event.data.capturedAt) || Date.now(),
+        },
+      });
+    });
+    return;
+  }
+
+  if (type === 'XVM_BOOKMARK_TIMELINE_INJECT_SAVE') {
+    const patch = {
+      featureBookmarkTimelineInject: event.data.enabled === true,
+      bookmarkTimelineInjectFolderIds: Array.isArray(event.data.folderIds)
+        ? event.data.folderIds.map(String).filter(Boolean)
+        : [],
+      bookmarkTimelineInjectEvery: Math.max(1, Math.min(100, Number.parseInt(event.data.every, 10) || 20)),
+    };
+    safeChromeCall(() => {
+      chrome.storage.sync.set(patch, () => {
+        chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
+          pushSettings(items);
+        });
+      });
+    });
     return;
   }
 
@@ -770,7 +1080,8 @@ safeChromeCall(() => {
     }
     const aiTouched = changes.aiProvider || changes.aiOpenAIPlatform || changes.aiBaseUrl || changes.aiModel || changes.aiReplyCount || changes.aiLanguage;
     const grokTouched = changes.grokCommentPrompt || changes.grokPromptTemplates || changes.grokArticlePromptTemplates || changes.grokSelectedPromptId || changes.grokSelectedArticlePromptId || changes.grokTemporaryChat || changes.grokEnterToReply || changes.language || aiTouched;
-    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.featureBookmarkFolders && !changes.showBookmarkCount && !changes.leaderboardEdgeHideEnabled && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.language && !grokTouched) return;
+    const bookmarkTimelineInjectTouched = changes.featureBookmarkTimelineInject || changes.bookmarkTimelineInjectFolderIds || changes.bookmarkTimelineInjectEvery;
+    if (!changes.trending && !changes.viral && !changes.featureVelocityLeaderboard && !changes.featureCopyAsMarkdown && !changes.featureStarChart && !changes.featureBookmarkFolders && !bookmarkTimelineInjectTouched && !changes.showBookmarkCount && !changes.leaderboardEdgeHideEnabled && !changes.badgeStyle && !changes.leaderboardCount && !changes.leaderboardColumns && !changes.language && !grokTouched) return;
 
     safeChromeCall(() => {
       chrome.storage.sync.get(STORAGE_DEFAULTS, (items) => {
