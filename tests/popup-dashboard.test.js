@@ -731,11 +731,11 @@ describe('#45 i18n lock-step (content.js i18n() ↔ bridge CONTENT_MESSAGE_KEYS 
     expect(missingJa, `popup.html references data-i18n keys missing from _locales/ja: ${missingJa.join(', ')}`).toEqual([]);
   });
 
-  it('keeps package and extension versions in sync for v1.18.4', () => {
-    expect(manifest.version).toBe('1.18.4');
-    expect(pkg.version).toBe('1.18.4');
-    expect(packageLock.version).toBe('1.18.4');
-    expect(packageLock.packages?.['']?.version).toBe('1.18.4');
+  it('keeps package and extension versions in sync for v1.18.5', () => {
+    expect(manifest.version).toBe('1.18.5');
+    expect(pkg.version).toBe('1.18.5');
+    expect(packageLock.version).toBe('1.18.5');
+    expect(packageLock.packages?.['']?.version).toBe('1.18.5');
   });
 
   it('renders the popup footer version from the extension manifest', () => {
