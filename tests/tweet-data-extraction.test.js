@@ -26,6 +26,10 @@ const renderBadgesStart = source.indexOf('function renderBadges(');
 const renderBadgesEnd = source.indexOf('\nfunction renderBookmarkTimelineBadges(', renderBadgesStart);
 const renderBadgesSource = source.slice(renderBadgesStart, renderBadgesEnd);
 
+const getTweetTextStart = source.indexOf('function getTweetTextFromArticle(');
+const getTweetTextEnd = source.indexOf('\nfunction getStatusIdFromLocation(', getTweetTextStart);
+const getTweetTextFromArticleSource = source.slice(getTweetTextStart, getTweetTextEnd);
+
 it('uses the outer post metrics when a repost contains retweeted_status_result', () => {
   // Given
   const original = {
@@ -55,6 +59,28 @@ it('uses the outer post metrics when a repost contains retweeted_status_result',
     views: 120,
     createdAt: 'Tue Jul 21 01:00:00 +0000 2026',
   });
+});
+
+it('uses cached X Article markdown instead of its permalink as AI prompt text', () => {
+  const tweetDataStore = new Map([['2080877134319624492', {
+    articleMd: '# A real article title\n\nThe article body contains the argument AI should discuss.',
+  }]]);
+  const article = {};
+  const getTweetTextFromArticle = Function(
+    'tweetDataStore',
+    'getStatusIdFromLocation',
+    'getTweetIdFromArticle',
+    'getTweetPermalinkFromArticle',
+    `${getTweetTextFromArticleSource}; return getTweetTextFromArticle;`,
+  )(
+    tweetDataStore,
+    () => '2080877134319624492',
+    () => '2080877134319624492',
+    () => 'https://x.com/AI_Jasonyu/status/2080877134319624492',
+  );
+
+  expect(getTweetTextFromArticle(article)).toContain('The article body contains the argument AI should discuss.');
+  expect(getTweetTextFromArticle(article)).not.toBe('https://x.com/AI_Jasonyu/status/2080877134319624492');
 });
 
 it('collects an embedded tweet from a TweetResultByRestId response', () => {

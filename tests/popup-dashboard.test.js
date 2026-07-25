@@ -185,6 +185,14 @@ describe('#45 popup tabs structure (mock A)', () => {
     expect(stylesCss).toContain('border-radius: 9999px');
   });
 
+  it('keeps the AI generate button hidden until its action host is hovered or focused', () => {
+    expect(stylesCss).toMatch(/\.xvm-grok-generate-btn\s*\{[\s\S]*?opacity:\s*0;[\s\S]*?pointer-events:\s*none;/);
+    expect(stylesCss).toContain('.xvm-grok-actions-host:hover .xvm-grok-generate-btn');
+    expect(stylesCss).toContain('.xvm-grok-actions-host:focus-within .xvm-grok-generate-btn');
+    expect(stylesCss).toMatch(/\.xvm-grok-actions-host:(?:hover|focus-within) \.xvm-grok-generate-btn\s*\{[\s\S]*?opacity:\s*1;[\s\S]*?pointer-events:\s*auto;/);
+    expect(stylesCss).toContain('@media (prefers-reduced-motion: reduce)');
+  });
+
   it('uses the legacy Grok candidate panel placement for AI comments', () => {
     const panelStart = contentJs.indexOf('function showGrokOptions');
     const panelEnd = contentJs.indexOf('function setGrokButtonLabel', panelStart);

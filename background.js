@@ -142,9 +142,18 @@ function assertAllowedOllamaBaseUrl(baseUrl) {
   return normalized.replace(/\/v1$/, '');
 }
 
+function sanitizeAiPromptText(value) {
+  return String(value || '')
+    .normalize('NFC')
+    .replace(/\uFEFF/g, '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F]/g, '')
+    .replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, '�')
+    .trim();
+}
+
 function renderPrompt(tweetText, templateText, replyCount) {
-  const text = String(tweetText || '').trim();
-  const tpl = String(templateText || '').trim();
+  const text = sanitizeAiPromptText(tweetText);
+  const tpl = sanitizeAiPromptText(templateText);
   const rendered = tpl
     ? (tpl.includes(PLACEHOLDER) ? tpl.split(PLACEHOLDER).join(text) : `${text}\n\n${tpl}`)
     : `${text}\n\nGenerate ${replyCount} natural replies. Output only ready-to-post reply text, each inside its own code block.`;

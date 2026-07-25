@@ -31,6 +31,15 @@ function loadBackgroundDebug(fetchImpl = async () => ({ ok: true, json: async ()
 }
 
 describe('AI background comment parser', () => {
+  it('sanitizes incompatible control and Unicode code units before rendering the AI prompt', () => {
+    const { renderPrompt } = loadBackgroundDebug();
+
+    const prompt = renderPrompt('\uFEFFCafe\u0301\u0000\n\t正文\u000B\uD800', '[推文内容]', 1);
+
+    expect(prompt).toContain('Café\n\t正文�');
+    expect(prompt).not.toMatch(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F-\u009F\uFEFF]/);
+  });
+
   it('splits a single code block that contains multiple line-based candidates', () => {
     const { extractComments } = loadBackgroundDebug();
     const raw = '```\n这个兔子看着就很好聊\n她是不是也愣了一下\n你俩座位连一起，缘分啊\n兔子是她的吉祥物吗\n一会儿问问是不是自己缝的\n这兔子表情有点嚣张\n感觉她也是个有趣的人\n起飞前先酝酿一下话题\n兔子耳朵这么长，能聊很久\n说不定她会主动跟你讲兔子的故事\n```';
