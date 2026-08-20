@@ -628,10 +628,31 @@ function countBookmarkTimelineHomeEntries(json) {
 }
 
 // === Data Extraction ===
+// X marks an ad on the timeline ENTRY, never on the tweet object:
+//   { entryId: "promoted-tweet-123",
+//     content: { itemContent: { promotedMetadata: {...},
+//                               tweet_results: { result: {...} } } } }
+// promotedMetadata is a SIBLING of tweet_results. scanForTweets recurses
+// straight down to tweet_results.result and hands only that to
+// extractTweetData, so its `legacy.promotedMetadata || tweet.promotedMetadata`
+// check never sees the marker and every ad lands in tweetDataStore. Ads carry
+// bought impression counts, so their views/hour dwarfs organic posts and they
+// pin themselves to the top of the leaderboard.
+// Catch it at the entry level, where the marker actually is.
 // Recursively scan any JSON for tweet_results objects
 function scanForTweets(obj) {
   if (!obj || typeof obj !== 'object') return;
   let found = false;
+
+  const promotedId = promotedTweetIdFrom(obj);
+  if (promotedId !== null) {
+    if (promotedId) {
+      promotedTweetIds.add(promotedId);
+      // The same ad can arrive through a path that reached the store first.
+      tweetDataStore.delete(promotedId);
+    }
+    return; // do not descend - nothing under an ad entry belongs in the store
+  }
 
   const result = obj.tweet_results?.result
     || obj.tweetResult?.result
@@ -655,6 +676,27 @@ function scanForTweets(obj) {
   }
 
   if (found) { renderBadges(); }
+}
+
+// Ad ids seen on the timeline entry. Declared here (not at the top of the
+// file) so it stays inside the source range tests/tweet-data-extraction.test.js
+// slices out to evaluate scanForTweets.
+const promotedTweetIds = new Set();
+
+function promotedTweetIdFrom(obj) {
+  if (!obj || typeof obj !== 'object') return null;
+  const itemContent = obj.content?.itemContent || obj.itemContent || obj;
+  const promoted = /^promoted-/i.test(String(obj.entryId || ''))
+    || !!itemContent.promotedMetadata
+    || !!itemContent.promoted_metadata;
+  if (!promoted) return null;
+  const result = itemContent.tweet_results?.result
+    || itemContent.tweetResult?.result
+    || itemContent.tweetResults?.result;
+  const tweet = result?.tweet || result;
+  // '' means "promoted, but the id is not resolvable here" - still enough to
+  // stop the walk before the ad reaches the store.
+  return String(tweet?.rest_id || tweet?.legacy?.id_str || '');
 }
 
 function extractTweetData(result) {
@@ -3057,6 +3099,27 @@ function leaderboardCellForArticle(article) {
 // Whether the marker is actually hiding right now is gated by
 // html[data-xvm-rate-filter-on]. content-filter still uses an
 // always-active marker so it remains hard.
+// DOM-side net for ads that never passed through the GraphQL hook (cached
+// render, or a response shape the walker missed). X renders the disclosure as
+// its own leaf label; match the whole trimmed text so a post that merely says
+// "ad" in its body is never hit, and skip the tweet body entirely.
+const PROMOTED_LABELS = new Set([
+  'ad', 'ads', 'promoted', 'promoted tweet', 'sponsored',
+  '\u5e7f\u544a', '\u63a8\u5e7f', '\u5df2\u63a8\u5e7f',
+  '\u30d7\u30ed\u30e2\u30fc\u30b7\u30e7\u30f3', '\u5e83\u544a',
+]);
+
+function isPromotedArticle(article) {
+  if (!article) return false;
+  for (const node of article.querySelectorAll('span, div[dir]')) {
+    if (node.firstElementChild) continue;            // leaf nodes only
+    if (node.closest('[data-testid="tweetText"]')) continue;  // never the body
+    const text = (node.textContent || '').trim().toLowerCase();
+    if (text && text.length <= 16 && PROMOTED_LABELS.has(text)) return true;
+  }
+  return false;
+}
+
 function isLeaderboardArticleHidden(article) {
   if (!article) return true;
   if (article.getClientRects().length === 0) return true;
@@ -3085,6 +3148,7 @@ function collectRanked() {
     if (isLeaderboardArticleHidden(article)) continue;
     const id = getTweetIdFromArticle(article);
     if (!id || seen.has(id)) continue;
+    if (promotedTweetIds.has(id) || isPromotedArticle(article)) continue;
     const data = getTweetDataForArticle(article, id);
     if (!data) continue;
     seen.add(id);
