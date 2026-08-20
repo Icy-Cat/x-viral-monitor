@@ -335,6 +335,16 @@
     else setTimeout(run, 0);
   }
 
+  // The permalink you navigated to is the one tweet you explicitly asked
+  // for, so it is never a filter candidate - replies under it still are.
+  // content-filter already draws this line (replyArticles() starts below
+  // mainArticleIndex); rate-filter had no equivalent, so opening a slow
+  // post's own page hid the post and left you staring at its replies.
+  function pathStatusId(pathname = window.location?.pathname) {
+    const m = String(pathname || '').match(/\/status\/(\d+)/);
+    return m ? m[1] : '';
+  }
+
   function applyHidesNow() {
     const active = gateOpen() && anyScopeEnabled();
     setRootFilterActive(active);
@@ -345,10 +355,20 @@
       return;
     }
     const arts = document.querySelectorAll('article[data-testid="tweet"]');
+    const focusedId = pathStatusId();
     for (const art of arts) {
       const meta = articleMeta(art);
       const tid = meta.tid;
       if (!tid) continue;
+      if (tid === focusedId) {
+        // Unconditional: also clears a mark inherited from the timeline the
+        // user clicked through from.
+        if (art.hasAttribute(HIDE_ATTR)) {
+          art.removeAttribute(HIDE_ATTR);
+          (meta.cell || art).removeAttribute(HIDE_ATTR);
+        }
+        continue;
+      }
       const d = decisions.get(tid);
       if (!d) continue;
       const cell = meta.cell;

@@ -17,6 +17,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 - Fixed reposts using the quoted/original post's velocity instead of the repost's own metrics.
 - Fixed bookmark-folder refresh failures repeatedly appearing as extension warnings across X tabs.
 - Fixed partial, empty, and concurrent bookmark-folder refreshes from publishing stale or incomplete cache snapshots.
+- Fixed the rate filter hiding the very tweet a permalink points at, leaving a tweet-detail page showing only its replies.
 
 ### Changed
 
