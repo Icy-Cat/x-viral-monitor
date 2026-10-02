@@ -14,6 +14,7 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ### Fixed
 
+- Fixed promoted tweets (ads) entering the velocity store and pinning themselves to the top of the leaderboard: X marks a promoted item on the timeline entry, not on the tweet result, so the existing result-level `promotedMetadata` check never matched.
 - Fixed reposts using the quoted/original post's velocity instead of the repost's own metrics.
 - Fixed bookmark-folder refresh failures repeatedly appearing as extension warnings across X tabs.
 - Fixed partial, empty, and concurrent bookmark-folder refreshes from publishing stale or incomplete cache snapshots.
