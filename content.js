@@ -405,6 +405,7 @@ window.addEventListener('message', (event) => {
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  if (event.origin !== window.location.origin) return;
   if (event.data?.type === 'XVM_AI_GENERATE_PROGRESS') {
     const pending = aiPendingRequests.get(event.data.requestId);
     if (!pending || !Array.isArray(event.data.comments)) return;
