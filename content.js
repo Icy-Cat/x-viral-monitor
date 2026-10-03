@@ -3919,8 +3919,7 @@ function getTweetTextFromArticle(article) {
   const tweetId = article ? (getTweetIdFromArticle(article) || statusId) : statusId;
   const cached = tweetId ? tweetDataStore.get(tweetId) : null;
   if (cached?.articleMd) {
-    const url = article ? getTweetPermalinkFromArticle(article, tweetId) : '';
-    return (url || cached.articleMd).trim();
+    return cached.articleMd.trim();
   }
 
   if (!article) return '';

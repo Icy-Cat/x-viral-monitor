@@ -1678,7 +1678,9 @@ article[data-testid="tweet"].xvm-article-linked {
   cursor: pointer;
   white-space: nowrap;
   box-shadow: 0 1px 2px rgba(15, 20, 25, 0.06);
-  transition: background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  transition: opacity 0.12s ease, background 0.12s ease, border-color 0.12s ease, box-shadow 0.12s ease;
+  opacity: 0;
+  pointer-events: none;
 }
 
 .xvm-grok-generate-btn:hover {
@@ -1707,6 +1709,18 @@ article[data-testid="tweet"].xvm-article-linked {
   flex-direction: row !important;
   align-items: center !important;
   gap: 8px !important;
+}
+
+.xvm-grok-actions-host:hover .xvm-grok-generate-btn,
+.xvm-grok-actions-host:focus-within .xvm-grok-generate-btn {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .xvm-grok-generate-btn {
+    transition: none;
+  }
 }
 
 .xvm-grok-generate-btn--mobile-top {
