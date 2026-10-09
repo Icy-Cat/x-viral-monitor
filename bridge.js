@@ -989,7 +989,28 @@ function safeChromeCall(fn) {
 }
 
 safeChromeCall(() => {
-  chrome.runtime.onMessage.addListener((message) => {
+  chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    if (message?.type === 'XVM_GROK_CHECK') {
+      const requestId = `grok-check-${crypto.randomUUID()}`;
+      const finish = (result) => {
+        clearTimeout(timer);
+        window.removeEventListener('message', onResult);
+        sendResponse(result);
+      };
+      const onResult = (event) => {
+        if (event.source !== window || event.data?.type !== 'XVM_GROK_CHECK_RESULT'
+          || event.data.requestId !== requestId) return;
+        const result = event.data.result;
+        // Never forward arbitrary page payloads or transaction IDs to the popup.
+        finish(result?.ok === true
+          ? { ok: true, message: '已检测到 X 会话标记并生成签名（未验证生成接口）' }
+          : { ok: false, error: String(result?.error || 'Grok 就绪检查失败') });
+      };
+      const timer = setTimeout(() => finish({ ok: false, error: 'Grok 就绪检查超时，请刷新 X 后重试。' }), 20000);
+      window.addEventListener('message', onResult);
+      window.postMessage({ type: 'XVM_GROK_CHECK_REQUEST', requestId }, '*');
+      return true;
+    }
     if (message?.type === 'XVM_RELEASE_NOTES_SHOW_MANUAL') {
       const version = typeof message.version === 'string' && message.version
         ? message.version

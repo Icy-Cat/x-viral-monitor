@@ -22,7 +22,7 @@ function loadGrok(opts = {}) {
   };
   const ctx = {
     window: win,
-    document: { cookie: '' },
+    document: { cookie: opts.cookie || '' },
     navigator: { language: 'zh-CN' },
     crypto: { randomUUID: () => 'test-uuid' },
     TextDecoder,
@@ -241,5 +241,39 @@ describe('generate', () => {
     expect(seen).toEqual([1]);
     expect(read).toBe(1);
     expect(cancelled).toBe(true);
+  });
+});
+
+describe('Grok initialization failures and readiness', () => {
+  it('preserves context initialization errors without advice to send an uncapturable Grok message', async () => {
+    const grok = loadGrok({
+      fetch: async () => { throw new Error('request must not be sent'); },
+      xct: { generateTxId: async () => { throw new Error('native module missing'); } },
+    });
+    await expect(grok.generate({ tweetText: 'tweet' })).rejects.toThrow('Grok 签名初始化失败：native module missing');
+    await expect(grok.generate({ tweetText: 'tweet' })).rejects.not.toThrow('发一条消息');
+  });
+
+  it('does not report readiness without an X session marker', async () => {
+    await expect(loadGrok().checkReady()).rejects.toThrow('未检测到 X 会话标记');
+  });
+
+  it('checks signature generation and discloses that no generation request was sent', async () => {
+    let requests = 0;
+    const grok = loadGrok({
+      cookie: 'ct0=test-csrf',
+      fetch: async () => { requests++; },
+      xct: { generateTxId: async () => 'native-test-signature' },
+    });
+    await expect(grok.checkReady()).resolves.toEqual({ ok: true, message: '已检测到 X 会话标记并生成签名（未验证生成接口）' });
+    expect(requests).toBe(0);
+  });
+
+  it('fails readiness when the signature cannot be generated even if a captured signature exists', async () => {
+    const grok = loadGrok({
+      cookie: 'ct0=test-csrf', capturedTxId: 'captured-valid-tx-id',
+      xct: { generateTxId: async () => { throw new Error('context changed'); } },
+    });
+    await expect(grok.checkReady()).rejects.toThrow('context changed');
   });
 });

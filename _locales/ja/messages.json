@@ -508,7 +508,7 @@
   "aiProviderOpenAICompatibleDesc": { "message": "OpenAI、DeepSeek、OpenRouter など" },
   "aiServiceConfigTitle": { "message": "サービス設定" },
   "aiGenerationSettingsTitle": { "message": "生成設定" },
-  "aiCheckLoginStatus": { "message": "ログイン状態を確認" },
+  "aiCheckLoginStatus": { "message": "Grok の準備状態を確認" },
   "aiTestConnection": { "message": "接続をテスト" },
   "aiTestRunning": { "message": "接続をテスト中..." },
   "aiTestOk": { "message": "接続テストに成功しました" },

@@ -510,7 +510,7 @@
   "aiProviderOpenAICompatibleDesc": { "message": "OpenAI, DeepSeek, OpenRouter" },
   "aiServiceConfigTitle": { "message": "Service configuration" },
   "aiGenerationSettingsTitle": { "message": "Generation settings" },
-  "aiCheckLoginStatus": { "message": "Check login status" },
+  "aiCheckLoginStatus": { "message": "Check Grok readiness" },
   "aiTestConnection": { "message": "Test connection" },
   "aiTestRunning": { "message": "Testing connection..." },
   "aiTestOk": { "message": "Connection test passed" },

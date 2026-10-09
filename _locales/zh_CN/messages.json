@@ -508,7 +508,7 @@
   "aiProviderOpenAICompatibleDesc": { "message": "OpenAI、DeepSeek、OpenRouter 等" },
   "aiServiceConfigTitle": { "message": "服务配置" },
   "aiGenerationSettingsTitle": { "message": "生成设置" },
-  "aiCheckLoginStatus": { "message": "检测登录状态" },
+  "aiCheckLoginStatus": { "message": "检查 Grok 就绪状态" },
   "aiTestConnection": { "message": "测试连接" },
   "aiTestRunning": { "message": "正在测试连接..." },
   "aiTestOk": { "message": "连接测试通过" },

@@ -458,7 +458,15 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       const config = await loadConfig();
       if (config.provider === 'x-grok') {
-        sendResponse({ ok: true, message: 'X Grok 使用当前 X 登录态，无需 API Key' });
+        const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+        if (!tab?.id) throw new Error('请在当前窗口打开 X 页面后再检查 Grok。');
+        let result;
+        try {
+          result = await chrome.tabs.sendMessage(tab.id, { type: 'XVM_GROK_CHECK' });
+        } catch (_) {
+          throw new Error('请切换到 X 页面并刷新后，再检查 Grok 就绪状态。');
+        }
+        sendResponse(result || { ok: false, error: '未收到 Grok 就绪检查结果，请刷新 X 后重试。' });
         return;
       }
       const result = config.provider === 'ollama'
