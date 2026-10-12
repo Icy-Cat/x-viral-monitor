@@ -1055,6 +1055,9 @@ safeChromeCall(() => {
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  // Same-page scripts share origin, so this only blocks cross-origin frames;
+  // AI request handlers still key off requestId / pending maps for spoof defense.
+  if (event.origin !== window.location.origin) return;
   const type = event.data?.type;
 
   if (type === 'XVM_REQUEST_SETTINGS') {

@@ -364,6 +364,7 @@ window.__xvmXct?.warmup?.();
 
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  if (event.origin !== window.location.origin) return;
   if (event.data?.type !== 'XVM_GROK_SETTINGS_LOAD') return;
   if (typeof event.data.promptTemplate === 'string' && event.data.promptTemplate.trim()) {
     grokPromptTemplate = event.data.promptTemplate;
@@ -403,8 +404,17 @@ window.addEventListener('message', (event) => {
   }
 });
 
+// AI progress/result bridge (ISOLATED world -> MAIN).
+// Defense in depth:
+// 1) event.source === window (page context only; already required)
+// 2) event.origin === location.origin — blocks cross-origin frames.
+//    Note: same-page scripts share origin, so origin alone (as in #23) does
+//    NOT stop same-page spoofing; that is why we also require (3).
+// 3) requestId must already be in aiPendingRequests — unknown spoofed
+//    requestIds are no-ops even from same-origin/same-window scripts.
 window.addEventListener('message', (event) => {
   if (event.source !== window) return;
+  if (event.origin !== window.location.origin) return;
   if (event.data?.type === 'XVM_AI_GENERATE_PROGRESS') {
     const pending = aiPendingRequests.get(event.data.requestId);
     if (!pending || !Array.isArray(event.data.comments)) return;
@@ -3930,8 +3940,7 @@ function getTweetTextFromArticle(article) {
   const tweetId = article ? (getTweetIdFromArticle(article) || statusId) : statusId;
   const cached = tweetId ? tweetDataStore.get(tweetId) : null;
   if (cached?.articleMd) {
-    const url = article ? getTweetPermalinkFromArticle(article, tweetId) : '';
-    return (url || cached.articleMd).trim();
+    return cached.articleMd.trim();
   }
 
   if (!article) return '';
