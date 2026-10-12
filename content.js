@@ -4887,28 +4887,40 @@ else document.addEventListener('DOMContentLoaded', startMenuObserver);
 //
 // X restores the reading position after a back-navigation with a retry loop
 // of relative scrollBy deltas checked against an anchor tweet. When an XVM
-// filter (content filter / rate filter) has collapsed reply cells on the
-// conversation page, X's anchor check never passes: a delta issued while the
-// timeline is still mounting gets clamped, is re-issued at full size, and
-// both eventually stick — the page lands thousands of pixels past where the
-// user was (verified live: saved y≈1900 → X settles at ≈4534, viewport in
-// the "Discover more" section). X's loop is not fixable from outside, so we
-// record the true position ourselves and correct once X settles wrong.
+// filter (content filter / rate filter) has collapsed cells — replies on a
+// conversation page, or slow tweets on the home/list/profile timeline — X's
+// anchor check never passes: a delta issued while the feed is still mounting
+// gets clamped, is re-issued at full size, and both eventually stick — the
+// page lands thousands of pixels past where the user was (verified live on
+// conversations: saved y≈1900 → X settles at ≈4534). The same failure hits
+// home → tweet → back when rate-filter hides re-collapse on remount. X's
+// loop is not fixable from outside, so we record the true position ourselves
+// and correct once X settles wrong.
 (() => {
   // Any XVM hide marker, whichever filter set it. Their presence is what
   // breaks X's restore, so it also gates when this guard is allowed to act.
   const HIDE_SEL = '[data-xvm-content-filter-hidden], [data-xvm-rate-hidden]';
-  const saved = new Map(); // statusId -> {y, anchorId, anchorTop}
+  const saved = new Map(); // pageKey -> {y, anchorId, anchorTop}
   let watch = null; // active post-back correction, at most one
   let recScheduled = false;
 
-  const statusId = () => (window.location.pathname.match(/\/status\/(\d+)/) || [])[1] || null;
+  // Conversation pages key by status id (stable across /user/status/N).
+  // Feed surfaces (home / lists / profile / …) key by normalized pathname
+  // so home → tweet → back can look up the outbound click capture after
+  // popstate has already swapped the URL back to the feed.
+  const pageKey = () => {
+    const m = window.location.pathname.match(/\/status\/(\d+)/);
+    if (m) return m[1];
+    let path = window.location.pathname.replace(/\/+$/, '') || '/';
+    if (path === '/') path = '/home';
+    return path;
+  };
 
-  // X's restore stays broken for the whole conversation once any reply was
+  // X's restore stays broken for the whole page once any cell was
   // collapsed — even when the virtualizer has since unmounted every marked
   // cell (long threads, reading far from the filtered cluster). Remember
-  // per-status that hides were seen so the guard doesn't go inert (or worse,
-  // erase a good record) just because no marker is mounted right now.
+  // per-pageKey that hides were seen so the guard doesn't go inert (or
+  // worse, erase a good record) just because no marker is mounted right now.
   const hadHides = new Set();
   function pageHasHides(id) {
     if (document.querySelector(HIDE_SEL)) {
@@ -4921,10 +4933,11 @@ else document.addEventListener('DOMContentLoaded', startMenuObserver);
   // Best signal: the tweet the user is about to click into. Captured at
   // pointerdown — before X's pre-navigation scrollIntoView churn can pollute
   // scroll-event samples — so the back-correction can put that exact tweet
-  // back at the exact offset it was clicked at.
+  // back at the exact offset it was clicked at. Runs on both conversation
+  // pages (reply click) and feed surfaces (home/list tweet click).
   document.addEventListener('pointerdown', (e) => {
     if (watch) return;
-    const id = statusId();
+    const id = pageKey();
     if (!id) return;
     const art = e.target?.closest?.('article[data-testid="tweet"]');
     if (!art || art.closest('[role="dialog"]')) return;
@@ -4943,15 +4956,15 @@ else document.addEventListener('DOMContentLoaded', startMenuObserver);
   }, true);
 
   // Fallback signal: continuously record the reading position while on a
-  // conversation page that has filtered cells. rAF-throttled; paused while a
-  // correction runs so X's broken restore can't overwrite the good value.
+  // filtered feed/conversation. rAF-throttled; paused while a correction
+  // runs so X's broken restore can't overwrite the good value.
   function record() {
     if (recScheduled || watch) return;
     recScheduled = true;
     requestAnimationFrame(() => {
       recScheduled = false;
       if (watch) return;
-      const id = statusId();
+      const id = pageKey();
       if (!id) return;
       if (!pageHasHides(id)) {
         saved.delete(id);
@@ -5025,7 +5038,7 @@ else document.addEventListener('DOMContentLoaded', startMenuObserver);
   }
 
   window.addEventListener('popstate', () => {
-    const id = statusId();
+    const id = pageKey();
     const want = id && saved.get(id);
     if (!want) return;
     veilOn();
@@ -5063,7 +5076,8 @@ else document.addEventListener('DOMContentLoaded', startMenuObserver);
       // fight a scroll animation in progress. Kept tight (X settles within
       // ~200ms of popstate in live traces): the sooner we correct, the less
       // chance the user starts scrolling to find their place — which
-      // rightfully cancels the correction.
+      // rightfully cancels the correction. Also covers the frame or two
+      // rate-filter needs to re-mark cells after the home timeline remounts.
       if (now - t0 > 250 && now - lastMove > 220) {
         if (!corrected) {
           // Anchor-first: when the recorded tweet is mounted, judge (and

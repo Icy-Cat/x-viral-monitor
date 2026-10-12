@@ -4,10 +4,12 @@
 // X's back-navigation restore loop compounds its relative scrollBy deltas
 // (2 hidden cells: saved y≈1900 → settles ≈4534; 15 hidden cells: X issues
 // the same +1171 delta 17× and lands ~500px off with the clicked reply
-// above the viewport). The guard records the true reading position per
-// status id — most precisely at pointerdown on the tweet being opened —
-// and corrects, anchor-first, once X settles wrong. These tests run the
-// extracted guard against a scripted fake DOM/clock reproducing the traces.
+// above the viewport). The same failure hits home/list/profile → tweet →
+// back when rate-filter hides re-collapse on remount. The guard records
+// the true reading position per pageKey (status id on conversations,
+// normalized pathname on feeds) — most precisely at pointerdown on the
+// tweet being opened — and corrects, anchor-first, once X settles wrong.
+// These tests run the extracted guard against a scripted fake DOM/clock.
 
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
@@ -59,8 +61,9 @@ function makeHarness({ hiddenPresent = true } = {}) {
     const i = l.indexOf(fn);
     if (i >= 0) l.splice(i, 1);
   };
+  h.pathname = '/someone/status/111';
   const win = {
-    location: { pathname: '/someone/status/111' },
+    location: { get pathname() { return h.pathname; } },
     get scrollY() { return h.scrollY; },
     scrollTo(x, y) { h.scrollToCalls.push(Math.round(y)); h.scrollY = y; },
     addEventListener: listen(winListeners),
@@ -270,5 +273,62 @@ describe('back-navigation scroll-restore guard', () => {
     h.pumpFrames(60);
 
     expect(h.scrollY).toBe(1900); // corrected despite zero mounted markers
+  });
+
+  it('restores home timeline position after tweet → back', () => {
+    const h = makeHarness();
+    h.pathname = '/home';
+    const clicked = makeArticle(h, { docTop: 1424, id: 'H777' });
+    h.articles = [
+      makeArticle(h, { docTop: 1000, id: 'H111' }),
+      clicked,
+      makeArticle(h, { docTop: 1800, id: 'H999' }),
+    ];
+    h.scrollY = 1224;
+    h.firePointerDown(clicked); // click H777 at viewport top 200
+
+    // Simulate leaving for the status page (URL changes; save must survive
+    // under the /home key, not the status id).
+    h.pathname = '/someone/status/H777';
+    h.scrollY = 0;
+    // Returning via back: popstate fires with /home already restored.
+    h.pathname = '/home';
+    h.scrollY = 3100; // X + rate-filter remount landed far from the click
+    h.fire('popstate');
+    h.pumpFrames(60);
+
+    expect(h.scrollY).toBe(1224);
+  });
+
+  it('normalizes "/" to the same key as "/home"', () => {
+    const h = makeHarness();
+    h.pathname = '/';
+    const clicked = makeArticle(h, { docTop: 1424, id: 'H777' });
+    h.articles = [clicked];
+    h.scrollY = 1224;
+    h.firePointerDown(clicked);
+
+    h.pathname = '/home'; // X often canonicalizes to /home on return
+    h.scrollY = 3100;
+    h.fire('popstate');
+    h.pumpFrames(60);
+
+    expect(h.scrollY).toBe(1224);
+  });
+
+  it('does not arm on home when no XVM hides are present', () => {
+    const h = makeHarness({ hiddenPresent: false });
+    h.pathname = '/home';
+    const art = makeArticle(h, { docTop: 1424, id: 'H777' });
+    h.articles = [art];
+    h.scrollY = 1224;
+    h.firePointerDown(art);
+    recordAt(h, 1224);
+
+    h.scrollY = 3100;
+    h.fire('popstate');
+    h.pumpFrames(60);
+
+    expect(h.scrollToCalls).toEqual([]);
   });
 });
