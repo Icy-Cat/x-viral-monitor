@@ -279,7 +279,10 @@ window.addEventListener('message', (event) => {
   const nextBookmarkTimelineFolderIds = Array.isArray(event.data.bookmarkTimelineInjectFolderIds)
     ? event.data.bookmarkTimelineInjectFolderIds.map(String).filter(Boolean)
     : [];
+  const allBookmarksCacheId = window.__xvmPaths?.ALL_BOOKMARKS_CACHE_ID || '__bookmarks__';
   for (const folderId of bookmarkTimelineEntryCache.keys()) {
+    // The all-bookmarks Bookmarks timeline is not a selectable folder.
+    if (folderId === allBookmarksCacheId) continue;
     if (!nextBookmarkTimelineEnabled || !nextBookmarkTimelineFolderIds.includes(folderId)) {
       bookmarkTimelineEntryCache.delete(folderId);
       bookmarkTimelineFolderRefreshedAt.delete(folderId);
@@ -534,30 +537,57 @@ window.__xvmNet?.onResponsePatch(TIMELINE_AD_PRUNE_RE, ({ url, json }) => {
 window.__xvmNet?.onResponsePatch(/\/(?:i\/api\/)?graphql\/[^/]+\/HomeTimeline(?:\?|$)/, ({ url, json }) => {
   return maybeInjectBookmarkTimeline(url, json);
 });
+// All-bookmarks moved to the Bookmarks op on /i/history. Folder pages still
+// use BookmarkFolderTimeline. Observe both; do not patch them.
+window.__xvmNet?.onResponse(/\/(?:i\/api\/)?graphql\/[^/]+\/(?:Bookmarks|BookmarkFolderTimeline)(?:\?|$)/, ({ url, response, source }) => {
+  const parse = source === 'fetch'
+    ? response.clone().json()
+    : Promise.resolve().then(() => response.json());
+  parse.then((json) => cacheObservedBookmarkTimeline(url, json)).catch(() => {});
+});
 
 function captureBookmarkTimelineQueryId(url) {
-  const qid = String(url || '').match(/\/i\/api\/graphql\/([^/]+)\/BookmarkFolderTimeline(?:\?|$)/)?.[1];
+  const op = window.__xvmPaths?.graphqlOperationName?.(url) || '';
+  const qid = String(url || '').match(/\/i\/api\/graphql\/([^/]+)\/(?:Bookmarks|BookmarkFolderTimeline)(?:\?|$)/)?.[1];
   if (!qid) return;
-  window.postMessage({ type: 'XVM_BOOKMARK_TIMELINE_QID_CAPTURED', qid, capturedAt: Date.now() }, '*');
-  debugBookmarkTimeline('captured BookmarkFolderTimeline queryId', { qid });
+  if (op === 'BookmarkFolderTimeline') {
+    window.postMessage({ type: 'XVM_BOOKMARK_TIMELINE_QID_CAPTURED', qid, capturedAt: Date.now() }, '*');
+    debugBookmarkTimeline('captured BookmarkFolderTimeline queryId', { qid });
+    return;
+  }
+  if (op === 'Bookmarks') {
+    window.postMessage({ type: 'XVM_BOOKMARKS_TIMELINE_QID_CAPTURED', qid, capturedAt: Date.now() }, '*');
+    debugBookmarkTimeline('captured Bookmarks queryId', { qid });
+  }
 }
 
 function currentBookmarkFolderId() {
-  const m = location.pathname.match(/^\/i\/bookmarks\/([^/?#]+)/);
-  return m ? decodeURIComponent(m[1]) : null;
+  return window.__xvmPaths?.bookmarkFolderIdFromPath?.(location.pathname) || null;
 }
 
-function rememberBookmarkTimelineEntries(json) {
-  const folderId = currentBookmarkFolderId();
+function cacheObservedBookmarkTimeline(url, json) {
+  const folderId = window.__xvmPaths?.bookmarkTimelineCacheId?.(url, location.pathname) || '';
   if (!folderId) return;
-  if (!bookmarkTimelineInjectEnabled) {
-    debugBookmarkTimeline('cache skipped: disabled', { folderId });
-    return;
+  rememberBookmarkTimelineEntries(json, folderId);
+}
+
+function rememberBookmarkTimelineEntries(json, folderId) {
+  const id = String(folderId || currentBookmarkFolderId() || '');
+  if (!id) return;
+  const allBookmarks = id === (window.__xvmPaths?.ALL_BOOKMARKS_CACHE_ID || '__bookmarks__');
+  // The history Bookmarks feed is cached on its own. Folder inject still
+  // only reads the numeric folder ids the user selected.
+  if (!allBookmarks) {
+    if (!bookmarkTimelineInjectEnabled) {
+      debugBookmarkTimeline('cache skipped: disabled', { folderId: id });
+      return;
+    }
+    if (bookmarkTimelineInjectFolderIds.length && !bookmarkTimelineInjectFolderIds.includes(id)) {
+      debugBookmarkTimeline('cache skipped: folder not selected', { folderId: id, selected: bookmarkTimelineInjectFolderIds });
+      return;
+    }
   }
-  if (bookmarkTimelineInjectFolderIds.length && !bookmarkTimelineInjectFolderIds.includes(folderId)) {
-    debugBookmarkTimeline('cache skipped: folder not selected', { folderId, selected: bookmarkTimelineInjectFolderIds });
-    return;
-  }
+  folderId = id;
   const inject = window.__xvmBookmarkTimelineInject;
   // Browsing a folder page yields only one ~20-tweet page. Merge it into the
   // existing (possibly fully-paginated) cache instead of replacing, so a casual
@@ -577,7 +607,7 @@ function rememberBookmarkTimelineEntries(json) {
     bookmarkTimelineEntryCache.set(folderId, merged.slice(0, BOOKMARK_TIMELINE_FETCH_CAP));
   }
   const fresh = bookmarkTimelineEntryCache.get(folderId);
-  if (fresh) bookmarkTimelineEntryCache.set(folderId, filterSeenBookmarkTimelineEntries(fresh));
+  if (fresh && !allBookmarks) bookmarkTimelineEntryCache.set(folderId, filterSeenBookmarkTimelineEntries(fresh));
   debugBookmarkTimeline('cache bookmark folder response', { folderId, count, cachedFolders: Array.from(bookmarkTimelineEntryCache.keys()) });
 }
 
@@ -592,7 +622,9 @@ function filterSeenBookmarkTimelineEntries(entries) {
 function dropSeenBookmarkTimelineCacheEntries(tweetIds) {
   const seen = new Set((Array.isArray(tweetIds) ? tweetIds : []).map(String).filter(Boolean));
   if (!seen.size) return;
+  const allBookmarksCacheId = window.__xvmPaths?.ALL_BOOKMARKS_CACHE_ID || '__bookmarks__';
   for (const [folderId, entries] of bookmarkTimelineEntryCache.entries()) {
+    if (folderId === allBookmarksCacheId) continue;
     const fresh = entries.filter((entry) => {
       const id = window.__xvmBookmarkTimelineInject?._getTweetId?.(entry);
       return id && !seen.has(String(id));
@@ -602,7 +634,6 @@ function dropSeenBookmarkTimelineCacheEntries(tweetIds) {
 }
 
 function maybeInjectBookmarkTimeline(url, json) {
-  rememberBookmarkTimelineEntries(json);
   if (!/\/i\/api\/graphql\/.*HomeTimeline/.test(url)) return undefined;
   const before = countBookmarkTimelineHomeEntries(json);
   if (!bookmarkTimelineInjectEnabled) {
@@ -1239,29 +1270,55 @@ function getTweetDataForArticle(article, tweetId) {
   const own = (selector) => Array.from(article.querySelectorAll(selector))
     .find((node) => node.closest('article[data-testid="tweet"]') === article);
   const readCount = (element) => {
-    const match = String(element?.getAttribute('aria-label') || '').match(/\d[\d.,\s\u00a0\u202f]*/);
+    const match = String(element?.getAttribute?.('aria-label') || '').match(/\d[\d.,\s\u00a0\u202f]*/);
     return match ? Number.parseInt(match[0].replace(/\D/g, ''), 10) || 0 : 0;
   };
+  // Last matching number wins. Views/bookmarks sit at the end of the group
+  // label, and a short look-ahead can see the real views segment from the
+  // previous count ("471 书签、28510 次观看").
+  const readLabeledCount = (label, pattern) => {
+    const text = String(label || '');
+    const re = /(\d[\d.,\u00a0\u202f]*)/g;
+    let match;
+    let found = 0;
+    while ((match = re.exec(text))) {
+      const after = text.slice(match.index + match[0].length, match.index + match[0].length + 18);
+      if (!pattern.test(after)) continue;
+      const n = Number.parseInt(match[0].replace(/\D/g, ''), 10) || 0;
+      if (n) found = n;
+    }
+    return found;
+  };
   const time = own('time[datetime]');
-  const analytics = own(`a[href*="/status/${tweetId}/analytics"]`);
-  if (!time || !analytics) return null;
-
+  if (!time) return null;
+  // Action wrappers repeat data-testid on an outer div that has no count.
+  // Read the inner button. Analytics is often an <a> under
+  // app-text-transition-container, and on status detail it may sit outside
+  // the action row entirely — the group aria-label still carries views.
+  const analytics = own(`a[href*="/status/${tweetId}/analytics"]`)
+    || own('a[href*="/analytics"]');
   const group = own('[role="group"]');
-  const groupCounts = String(group?.getAttribute('aria-label') || '')
-    .match(/\d[\d.,\s\u00a0\u202f]*/g)
+  const groupLabel = String(group?.getAttribute('aria-label') || '');
+  const groupCounts = groupLabel.match(/\d[\d.,\s\u00a0\u202f]*/g)
     ?.map((value) => Number.parseInt(value.replace(/\D/g, ''), 10) || 0) || [];
+  const views = readCount(analytics)
+    || readLabeledCount(groupLabel, /view|views|观看|查看|浏览|瀏覽|表示/i);
   const statusLink = own(`a[href*="/status/${tweetId}"]`);
   const screenName = statusLink?.getAttribute('href')?.match(/^\/([^/]+)\/status\//)?.[1] || '';
+  const retweetCount = readCount(own('button[data-testid="retweet"], button[data-testid="unretweet"]'))
+    || readLabeledCount(groupLabel, /repost|retweet|转帖|转发|轉發|リポスト/i);
+  const bookmarkCount = readLabeledCount(groupLabel, /bookmark|书签|書籤|ブックマーク/i)
+    || (groupCounts.length >= 5 ? groupCounts[groupCounts.length - 2] : 0);
   const data = {
     id: tweetId,
     screenName,
     inReplyToStatusId: '',
     inReplyToScreenName: '',
-    views: readCount(analytics),
+    views,
     likes: readCount(own('button[data-testid="like"], button[data-testid="unlike"]')),
-    retweets: readCount(own('button[data-testid="retweet"]')),
+    retweets: retweetCount,
     replies: readCount(own('button[data-testid="reply"]')),
-    bookmarks: groupCounts.length >= 5 ? groupCounts[groupCounts.length - 2] : 0,
+    bookmarks: bookmarkCount,
     createdAt: time.getAttribute('datetime'),
     text: own('[data-testid="tweetText"]')?.textContent || '',
     urlMap: {},
@@ -1469,9 +1526,9 @@ function renderBookmarkCounts() {
     if (!group) continue;
     let template = null;
     for (const sib of group.querySelectorAll(
-      'button[data-testid="reply"], button[data-testid="like"], button[data-testid="unlike"], a[href$="/analytics"]'
+      'button[data-testid="reply"], button[data-testid="like"], button[data-testid="unlike"], a[href$="/analytics"], [data-testid="app-text-transition-container"]'
     )) {
-      const c = sib.querySelector('.r-1udh08x');
+      const c = sib.querySelector?.('.r-1udh08x') || sib.closest?.('.r-1udh08x');
       if (c) { template = c; break; }
     }
     if (!template) continue;
@@ -1502,7 +1559,9 @@ function renderBookmarkCounts() {
 // re-render so the displayed number tracks the user's intent.
 document.addEventListener('click', (e) => {
   if (!showBookmarkCount) return;
-  const btn = e.target.closest?.('button[data-testid="bookmark"], button[data-testid="removeBookmark"]');
+  // The outer action wrapper repeats data-testid but is not the button.
+  const btn = e.target.closest?.('button[data-testid="bookmark"], button[data-testid="removeBookmark"]')
+    || e.target.closest?.('[data-testid="bookmark"], [data-testid="removeBookmark"]');
   if (!btn) return;
   const article = btn.closest('article[data-testid="tweet"]');
   if (!article) return;

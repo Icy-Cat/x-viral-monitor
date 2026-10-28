@@ -27,6 +27,15 @@ This project follows Keep a Changelog and Semantic Versioning.
 
 ---
 
+## [1.18.18] - 2026-10-28
+
+### Fixed
+
+- X moved Bookmarks into History. `/i/bookmarks` and `/i/bookmarks/all` redirect to `/i/history` (书签); likes are `/i/history/likes`. Path matching and legacy bookmark deep links follow that surface. The new `Bookmarks` GraphQL timeline is observed and cached, and `BookmarkFolderTimeline` still feeds bookmark-folder inject.
+- Tweet DOM metrics follow the redesigned action bar: already-reposted posts use `unretweet`, and view counts fall back to the action group's aria-label when the analytics link sits outside the action row or has no count. Bookmark counts are read from that label when X omits zeroed actions.
+
+---
+
 ## [1.7.15] - 2026-06-03
 
 ### Fixed
