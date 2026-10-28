@@ -199,7 +199,7 @@ it('reads scoreable metrics from an embedded tweet article element', () => {
         'time[datetime]': [time],
         'a[href*="/status/2032858943874281782/analytics"]': [analytics],
         'button[data-testid="reply"]': [reply],
-        'button[data-testid="retweet"]': [retweet],
+        'button[data-testid="retweet"], button[data-testid="unretweet"]': [retweet],
         'button[data-testid="like"], button[data-testid="unlike"]': [like],
         '[role="group"]': [group],
         '[data-testid="tweetText"]': [tweetText],
@@ -242,6 +242,85 @@ it('reads scoreable metrics from an embedded tweet article element', () => {
     text: 'embedded tweet',
   });
   expect(tweetDataStore.get('2032858943874281782')).toBe(data);
+});
+
+function loadDomExtractor() {
+  const domDataStart = source.indexOf('function getTweetDataForArticle(');
+  const domDataEnd = source.indexOf('\n// === Tooltip Container', domDataStart);
+  const tweetDataStore = new Map();
+  const getTweetDataForArticle = Function(
+    'tweetDataStore',
+    `${source.slice(domDataStart, domDataEnd)}; return getTweetDataForArticle;`,
+  )(tweetDataStore);
+  return { getTweetDataForArticle, tweetDataStore };
+}
+
+function domArticle(tweetId, nodes) {
+  const article = {
+    parentElement: { closest: () => ({}) },
+    querySelectorAll(selector) {
+      return nodes[selector] || [];
+    },
+  };
+  const own = (attributes = {}) => ({
+    closest: () => article,
+    getAttribute: (name) => attributes[name] ?? null,
+    textContent: attributes.textContent || '',
+  });
+  const resolved = {};
+  for (const [selector, attrs] of Object.entries(nodes)) {
+    resolved[selector] = attrs.map((attr) => own(attr));
+  }
+  article.querySelectorAll = (selector) => resolved[selector] || [];
+  return article;
+}
+
+it('reads views from the group label when analytics is outside the action row', () => {
+  const { getTweetDataForArticle } = loadDomExtractor();
+  const id = '2114718699852611744';
+  const article = domArticle(id, {
+    'time[datetime]': [{ datetime: '2026-10-26T08:00:00.000Z' }],
+    'a[href*="/analytics"]': [{ 'aria-label': '查看帖子分析', href: `/isnail/status/${id}/analytics` }],
+    'button[data-testid="reply"]': [{ 'aria-label': '11 回复。回复' }],
+    'button[data-testid="retweet"], button[data-testid="unretweet"]': [{ 'aria-label': '已转帖' }],
+    'button[data-testid="like"], button[data-testid="unlike"]': [{ 'aria-label': '397 喜欢次数。喜欢' }],
+    '[role="group"]': [{ 'aria-label': '11 回复、84 次转帖、397 喜欢、471 书签、28510 次观看' }],
+    '[data-testid="tweetText"]': [{ textContent: 'status detail' }],
+    [`a[href*="/status/${id}"]`]: [{ href: `/isnail/status/${id}` }],
+  });
+
+  const data = getTweetDataForArticle(article, id);
+
+  expect(data).toMatchObject({
+    views: 28510,
+    retweets: 84,
+    likes: 397,
+    replies: 11,
+    bookmarks: 471,
+    text: 'status detail',
+  });
+});
+
+it('reads an already-reposted count from unretweet and a sparse bookmark label', () => {
+  const { getTweetDataForArticle } = loadDomExtractor();
+  const id = '2114680660220838124';
+  const article = domArticle(id, {
+    'time[datetime]': [{ datetime: '2026-10-26T02:00:00.000Z' }],
+    [`a[href*="/status/${id}/analytics"]`]: [{ 'aria-label': '70 次查看。查看帖子分析' }],
+    'button[data-testid="reply"]': [{ 'aria-label': '回复' }],
+    'button[data-testid="retweet"], button[data-testid="unretweet"]': [{ 'aria-label': '已转帖' }],
+    'button[data-testid="like"], button[data-testid="unlike"]': [{ 'aria-label': '喜欢' }],
+    '[role="group"]': [{ 'aria-label': '1 书签、70 次观看' }],
+    '[data-testid="tweetText"]': [{ textContent: 'history bookmark' }],
+    [`a[href*="/status/${id}"]`]: [{ href: `/HytidelLegend/status/${id}` }],
+  });
+
+  expect(getTweetDataForArticle(article, id)).toMatchObject({
+    views: 70,
+    retweets: 0,
+    bookmarks: 1,
+    screenName: 'HytidelLegend',
+  });
 });
 
 it('finds the nested tweet article instead of its outer article container', () => {

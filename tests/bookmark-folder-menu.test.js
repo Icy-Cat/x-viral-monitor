@@ -109,7 +109,7 @@ describe('bookmark folder menu integration', () => {
     expect(bookmarkMenu).toContain("type: 'XVM_BOOKMARK_FOLDER_MUTATION'");
     expect(bookmarkMenu).toContain("type === 'XVM_BOOKMARK_FOLDER_DIRTY'");
     expect(bookmarkMenu).toContain('dirtyBookmarkFolderIds');
-    expect(bookmarkMenu).toContain('window.location.assign(url.href)');
+    expect(bookmarkMenu).toContain('window.location.assign(`${url.pathname}${url.search}${url.hash}`)');
     expect(bridge).toContain("type === 'XVM_BOOKMARK_FOLDER_MUTATION'");
     expect(bridge).toContain('bookmarkFolderMutation');
   });

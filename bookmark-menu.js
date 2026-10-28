@@ -69,7 +69,9 @@
   }
 
   function currentBookmarkFolderId() {
-    return location.pathname.match(/^\/i\/bookmarks\/(\d+)/)?.[1] || null;
+    return window.__xvmPaths?.bookmarkFolderIdFromPath?.(location.pathname)
+      || location.pathname.match(/^\/i\/bookmarks\/(\d+)/)?.[1]
+      || null;
   }
 
   function markBookmarkFolderDirty(folderId) {
@@ -535,17 +537,26 @@
   }, true);
 
   document.addEventListener('click', (ev) => {
-    const link = ev.target instanceof Element
-      ? ev.target.closest('a[href^="/i/bookmarks/"], a[href^="https://x.com/i/bookmarks/"]')
-      : null;
+    const link = ev.target instanceof Element ? ev.target.closest('a[href]') : null;
     if (!link) return;
-    const url = new URL(link.href, location.href);
-    const folderId = url.pathname.match(/^\/i\/bookmarks\/(\d+)/)?.[1];
-    if (!folderId || !dirtyBookmarkFolderIds.has(folderId)) return;
-    dirtyBookmarkFolderIds.delete(folderId);
+    let url;
+    try { url = new URL(link.href, location.href); } catch (_) { return; }
+    const host = url.hostname.replace(/^www\./, '');
+    if (host !== 'x.com' && host !== 'twitter.com' && host !== 'mobile.x.com' && host !== location.hostname) return;
+    const api = window.__xvmPaths;
+    if (!api?.normalizePath) return;
+    const path = api.normalizePath(url.pathname);
+    const folderId = api.bookmarkFolderIdFromPath(path);
+    const canonical = api.canonicalBookmarkPath(path);
+    const legacyAll = canonical === '/i/history' && path !== '/i/history' && !folderId;
+    const dirty = !!(folderId && dirtyBookmarkFolderIds.has(folderId));
+    if (!dirty && !legacyAll) return;
+    if (ev.metaKey || ev.ctrlKey || ev.shiftKey || ev.altKey || ev.button !== 0) return;
+    if (dirty) dirtyBookmarkFolderIds.delete(folderId);
     ev.preventDefault();
     ev.stopImmediatePropagation();
-    window.location.assign(url.href);
+    if (legacyAll) url.pathname = canonical;
+    window.location.assign(`${url.pathname}${url.search}${url.hash}`);
   }, true);
 
   window.addEventListener('message', (event) => {
